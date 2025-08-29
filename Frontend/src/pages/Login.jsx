@@ -1,0 +1,26 @@
+import React from 'react';
+import Loginform from '../components/Loginform.jsx';
+
+const Login = () => {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-[1.01]">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+            Iniciar Sesión
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-400">
+            Accede a tu cuenta para continuar
+          </p>
+        </div>
+        <Loginform />
+        <p className="mt-6 text-center text-sm text-gray-400">
+          ¿No tienes cuenta?{' '}
+          <a href="/register" className="text-blue-400 hover:underline font-medium">Regístrate</a>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
