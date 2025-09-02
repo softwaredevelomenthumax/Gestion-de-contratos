@@ -62,16 +62,19 @@ const Otrosi = sequelize.define('Otrosi', {
     field: 'fecha_final'
   },
   estado: {
-    type: DataTypes.ENUM(
-      'pendiente', 
-      'otrosi_awaiting_user_response', 
-      'otrosi_awaiting_lawyer_review', 
-      'otrosi_awaiting_signature', 
-      'otrosi_signed',  
-      'devuelto'
-    ),
+    type: DataTypes.STRING,
+    allowNull: false,
     defaultValue: 'pendiente',
-    allowNull: false
+    validate: {
+      isIn: [[
+        'pendiente', 
+        'otrosi_awaiting_user_response', 
+        'otrosi_awaiting_lawyer_review', 
+        'otrosi_awaiting_signature', 
+        'otrosi_signed',  
+        'devuelto'
+      ]]
+    }
   },
   cartaSolicitudPath: {
     type: DataTypes.STRING(500),

@@ -1,20 +1,32 @@
 const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize({
-  dialect: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'contract_app',
-  logging: true, // Enable SQL query logging
+  dialect: 'mssql',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT) ,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  logging: console.log, // Enable SQL query logging with proper function
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  },
   define: {
     timestamps: true,
     underscored: false
   },
   dialectOptions: {
-    // Enable array support
-    array: true
+    options: {
+      encrypt: false,
+      trustServerCertificate: true,
+      enableArithAbort: true,
+      instanceName: '', // Add if using named instance
+      connectTimeout: 30000,
+      requestTimeout: 30000
+    }
   }
 });
 

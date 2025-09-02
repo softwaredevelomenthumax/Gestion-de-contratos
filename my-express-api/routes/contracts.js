@@ -13,7 +13,6 @@ const filesRouter = require('./files');
 require('../models/associations');
 const { upload } = require('../middleware/upload');
 const { validateContractAction, getNextStatus } = require('../middleware/contractAuth');
-const { literal } = require('sequelize');
 
 // Función helper para combinar contratos con otrosí y eliminar duplicados
 const combineContractsWithOtrosi = (contracts, contractsWithOtrosi) => {

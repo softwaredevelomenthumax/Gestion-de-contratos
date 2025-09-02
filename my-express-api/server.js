@@ -45,7 +45,7 @@ const upload = multer({
 app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
 
-// Connect to PostgreSQL database
+// Connect to SQL Server database
 const sequelize = require('./config/database');
 
 // Test database connection and sync models
@@ -55,7 +55,8 @@ sequelize.authenticate()
     
     // Sync all models to create tables if they don't exist
     try {
-      await sequelize.sync({ alter: true });
+      // Use { force: false } to avoid altering existing tables
+      await sequelize.sync({ force: false });
       console.log('Database models synchronized successfully.');
       
       // Start server after successful sync
@@ -70,7 +71,7 @@ sequelize.authenticate()
   })
   .catch(err => {
     console.error('Unable to connect to the database:', err);
-    console.error('Please make sure PostgreSQL is running and the database credentials are correct.');
+    console.error('Please make sure SQL Server is running and the database credentials are correct.');
     process.exit(1);
   });
 

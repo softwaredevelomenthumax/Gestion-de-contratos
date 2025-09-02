@@ -69,27 +69,31 @@ const Contract = sequelize.define('Contract', {
     field: 'duracion'
   },
   estado: {
-    type: DataTypes.ENUM(
-      'new', 
-      'respondido', 
-      'para responder', 
-      'returned', 
-      'signed', 
-      'vencido', 
-      'seen', 
-      'awaiting_user_response', 
-      'awaiting_lawyer_review', 
-      'awaiting_signature', 
-      'signature_otrosi_already_signedByUser',
-      'otrosi_awaiting_user_response',
-      'otrosi_awaiting_lawyer_review',
-      'otrosi_awaiting_signature',
-      'otrosi_signed',
-      'rechazado',
-      'devuelto'
-    ),
+    type: DataTypes.STRING,
+    allowNull: false,
     defaultValue: 'new',
-    field: 'estado'
+    field: 'estado',
+    validate: {
+      isIn: [[
+        'new', 
+        'respondido', 
+        'para responder', 
+        'returned', 
+        'signed', 
+        'vencido', 
+        'seen', 
+        'awaiting_user_response', 
+        'awaiting_lawyer_review', 
+        'awaiting_signature', 
+        'signature_otrosi_already_signedByUser',
+        'otrosi_awaiting_user_response',
+        'otrosi_awaiting_lawyer_review',
+        'otrosi_awaiting_signature',
+        'otrosi_signed',
+        'rechazado',
+        'devuelto'
+      ]]
+    }
   },
   lawyerComment: {
     type: DataTypes.TEXT,
