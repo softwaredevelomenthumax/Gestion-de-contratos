@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import Card from '../components/Card';
-import { getVencidoContracts } from '../api/contracts';
-import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Label } from '../components/ui/label';
+import Card from '../../components/Card';
+import { getAwaitingSignatureContracts } from '../../api/contracts';
+import { Input } from '../../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Label } from '../../components/ui/label';
+import LoadingAnimation from '../../components/LoadingAnimation';
 
 const sortOptions = [
   { value: 'newest', label: 'Más reciente' },
   { value: 'oldest', label: 'Más antiguo' },
 ];
 
-const Vencido = () => {
+const AwaitingSignature = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -26,10 +27,23 @@ const Vencido = () => {
         setLoading(true);
         setError(null);
         try {
-            const contracts = await getVencidoContracts();
+            console.log('🔍 DEBUG - Llamando a getAwaitingSignatureContracts...');
+            const contracts = await getAwaitingSignatureContracts();
+            console.log('🔍 DEBUG - Contratos recibidos:', contracts);
+            console.log('🔍 DEBUG - Número de contratos:', contracts.length);
+            
+            if (contracts.length > 0) {
+                console.log('🔍 DEBUG - Primer contrato:', {
+                    id: contracts[0].id,
+                    estado: contracts[0].estado,
+                    solicitanteId: contracts[0].solicitanteId,
+                    descripcion: contracts[0].descripcion
+                });
+            }
+            
             setContracts(contracts);
         } catch (err) {
-            console.error('Error fetching contracts:', err);
+            console.error('❌ Error fetching contracts:', err);
             setError('Error al cargar los contratos');
         } finally {
             setLoading(false);
@@ -111,16 +125,15 @@ const Vencido = () => {
                 </div>
             </div>
 
+            {/* Título */}
+            <div className="mb-8 flex items-center">
+                <div className="flex-1 border-t border-gray-200 dark:border-gray-700"></div>
+                <span className="px-4 text-gray-500 text-sm">Contratos a la espera de tu firma</span>
+                <div className="flex-1 border-t border-gray-200 dark:border-gray-700"></div>
+            </div>
+
             {loading ? (
-                <div className="text-center py-10">
-                    <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Cargando...
-                    </div>
-                </div>
+                <LoadingAnimation text="Cargando contratos esperando firma..." />
             ) : error ? (
                 <div className="text-center py-10">
                     <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-red-500 dark:text-red-400 shadow rounded-md">
@@ -130,7 +143,7 @@ const Vencido = () => {
             ) : sortedContracts.length === 0 ? (
                 <div className="text-center py-10">
                     <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
-                        No hay contratos vencidos disponibles.
+                        No hay contratos esperando firma disponibles.
                     </div>
                 </div>
             ) : (
@@ -149,4 +162,4 @@ const Vencido = () => {
     );
 };
 
-export default Vencido;
+export default AwaitingSignature; 

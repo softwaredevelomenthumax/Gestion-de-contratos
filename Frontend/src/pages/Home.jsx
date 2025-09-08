@@ -92,14 +92,6 @@ const Home = () => {
       color: "from-green-500 to-green-600",
       role: "regular",
     },
-    {
-      name: "Contratos Vencidos",
-      description: "Contratos que han pasado su fecha de vencimiento",
-      href: "/overdue",
-      icon: AlertTriangle,
-      color: "from-red-500 to-red-600",
-      role: "lawyer",
-    },
   ];
 
   return (
@@ -126,7 +118,6 @@ const Home = () => {
             />
           </div>
         </div>
-
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {actions
             .filter(

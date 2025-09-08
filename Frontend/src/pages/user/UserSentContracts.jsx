@@ -7,6 +7,7 @@ import { useRefresh } from '../../context/RefreshContext';
 import { Button } from '@/components/ui/button';
 import ContractFilters from '../../components/ContractFilters';
 import { useContractFilters } from '../../hooks/useContractFilters';
+import LoadingAnimation from '../../components/LoadingAnimation';
 
 const UserSentContracts = () => {
   const [contracts, setContracts] = useState([]);
@@ -47,9 +48,7 @@ const UserSentContracts = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <span className="text-lg text-muted-foreground">Cargando...</span>
-      </div>
+      <LoadingAnimation text="Cargando contratos enviados..." />
     );
   }
 
@@ -82,12 +81,7 @@ const UserSentContracts = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-10 px-4">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">Mis Contratos</h1>
-        <p className="text-muted-foreground text-lg">Aquí puedes ver todos los contratos que has creado o gestionado.</p>
-      </div>
-      
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
       <ContractFilters
         filter={filter}
         setFilter={setFilter}
@@ -95,6 +89,8 @@ const UserSentContracts = () => {
         setTicketFilter={setTicketFilter}
         sortType={sortType}
         setSortType={setSortType}
+        showTitle={true}
+        title="Mis Contratos"
       />
 
       <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

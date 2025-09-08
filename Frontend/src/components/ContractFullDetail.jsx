@@ -2167,7 +2167,7 @@ const ContractFullDetail = ({ contract }) => {
                 .filter(history => history.comment && history.comment.trim())
                 .map((history) => (
                 <li key={history.id} className="p-4 bg-gray-50 dark:bg-muted rounded-lg border border-gray-300 dark:border-gray-600">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-start justify-between mb-3 gap-4">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-full ${
                         history.action === 'sign' ? 'bg-green-500/20' :
@@ -2220,11 +2220,11 @@ const ContractFullDetail = ({ contract }) => {
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-600 dark:text-muted-foreground">
+                    <div className="text-right flex-shrink-0 min-w-0">
+                      <div className="text-xs text-gray-600 dark:text-muted-foreground whitespace-nowrap">
                         {formatHistoryTimestamp(history.timestamp)}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-muted-foreground">
+                      <div className="text-xs text-gray-600 dark:text-muted-foreground whitespace-nowrap">
                         {history.timestamp && !isNaN(new Date(history.timestamp).getTime()) 
                           ? new Date(history.timestamp).toLocaleDateString('es-CO', {
                               year: 'numeric',
@@ -2238,17 +2238,6 @@ const ContractFullDetail = ({ contract }) => {
                   </div>
                   {history.comment && (
                     <div className="text-sm leading-relaxed bg-white dark:bg-background p-3 rounded-lg border border-gray-200 dark:border-border text-gray-900 dark:text-black">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs border-blue-200 dark:border-blue-600">
-                          📋 Comentario del Contrato
-                        </Badge>
-                        <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300 text-xs border-gray-200 dark:border-gray-600">
-                          {history.action === 'sign' ? '✍️ Firma' :
-                           history.action === 'return' ? '🔄 Devolución' :
-                           history.action === 'respond' ? '📤 Respuesta' :
-                           '💬 Comentario'}
-                        </Badge>
-                      </div>
                       <p className="text-gray-900 dark:text-black">{history.comment}</p>
                     </div>
                   )}

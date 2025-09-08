@@ -7,7 +7,7 @@ This is a contract management application with a React frontend and Express.js b
 This software is proprietary to Bausch Health and is intended for internal use only. 
 All rights reserved. Unauthorized copying, distribution, or use is strictly prohibited.
 
-© 2024 Bausch Health. Internal contract management system.
+© 2025 Bausch Health. Internal contract management system.
 
 ## Prerequisites
 

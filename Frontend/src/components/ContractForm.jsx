@@ -10,7 +10,6 @@ import { DatePicker } from "./ui/date-picker";
 import { Textarea } from "./ui/textarea";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import AuthDebug from "./AuthDebug";
 import LottieAnimation from "./LottieAnimation";
 import sendAnimation from "../assets/animations/send.json";
 import {
@@ -387,8 +386,6 @@ const ContractForm = () => {
         </p>
       </div>
 
-      {/* Authentication Debug Component */}
-      <AuthDebug />
       <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-card p-8 shadow-2xl backdrop-blur-lg">
         <form
           onSubmit={handleSubmit}

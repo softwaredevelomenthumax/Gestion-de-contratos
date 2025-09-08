@@ -5,6 +5,7 @@ import { useRefresh } from "../../context/RefreshContext";
 import { useNavigate } from "react-router-dom";
 import ContractFilters from '../../components/ContractFilters';
 import { useContractFilters } from '../../hooks/useContractFilters';
+import LoadingAnimation from '../../components/LoadingAnimation';
 
 const LawyerNewContracts = () => {
   const [contracts, setContracts] = useState([]);
@@ -38,7 +39,6 @@ const LawyerNewContracts = () => {
       console.log('📥 Contratos recibidos del API:', contracts.length);
       console.log('📊 Estados de contratos recibidos:', contracts.map(c => ({ id: c.id, estado: c.estado })));
       
-      // Additional filter to ensure only 'new' status contracts are shown
       const newContracts = contracts.filter(contract => contract.estado === 'new');
       
       console.log('✅ Contratos filtrados con estado "new":', newContracts.length);
@@ -68,30 +68,35 @@ const LawyerNewContracts = () => {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
-            Nuevos Contratos
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Contratos nuevos que requieren revisión legal.
-          </p>
-        </div>
-        <div className="text-center mb-4">
-          <p className="text-muted-foreground">Cargando contratos nuevos...</p>
-        </div>
-        <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <LawyerCardSkeleton key={index} />
-          ))}
-        </div>
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+        <ContractFilters
+          filter={filter}
+          setFilter={setFilter}
+          ticketFilter={ticketFilter}
+          setTicketFilter={setTicketFilter}
+          sortType={sortType}
+          setSortType={setSortType}
+          showTitle={true}
+          title="Contratos Nuevos"
+        />
+        <LoadingAnimation />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+        <ContractFilters
+          filter={filter}
+          setFilter={setFilter}
+          ticketFilter={ticketFilter}
+          setTicketFilter={setTicketFilter}
+          sortType={sortType}
+          setSortType={setSortType}
+          showTitle={true}
+          title="Contratos Nuevos"
+        />
         <div className="text-center py-10">
           <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-red-500 dark:text-red-400 shadow rounded-md">
             {error}
@@ -102,20 +107,7 @@ const LawyerNewContracts = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
-          Nuevos Contratos
-          {contracts.length > 0 && (
-            <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              {contracts.length}
-            </span>
-          )}
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Contratos nuevos que requieren revisión legal.
-        </p>
-      </div>
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
 
       {contracts.length > 0 && (
         <div className="mb-6 text-center">
@@ -145,6 +137,8 @@ const LawyerNewContracts = () => {
         setTicketFilter={setTicketFilter}
         sortType={sortType}
         setSortType={setSortType}
+        showTitle={true}
+        title="Contratos Nuevos"
       />
 
       {filteredAndSortedContracts.length === 0 ? (

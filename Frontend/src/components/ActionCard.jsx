@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const ActionCard = ({ action, index }) => {
   const Icon = action.icon;
@@ -19,7 +19,7 @@ const ActionCard = ({ action, index }) => {
   };
 
   return (
-    <motion.div
+    <Motion.div
       variants={cardVariants}
       initial="hidden"
       animate="visible"
@@ -54,7 +54,7 @@ const ActionCard = ({ action, index }) => {
           </div>
         </div>
       </Link>
-    </motion.div>
+    </Motion.div>
   );
 };
 

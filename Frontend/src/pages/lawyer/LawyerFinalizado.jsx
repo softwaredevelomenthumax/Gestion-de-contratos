@@ -3,6 +3,7 @@ import Card from '../../components/Card';
 import { getLawyerFinalizedContracts } from '../../api/contracts';
 import ContractFilters from '../../components/ContractFilters';
 import { useContractFilters } from '../../hooks/useContractFilters';
+import LoadingAnimation from '../../components/LoadingAnimation';
 
 const LawyerFinalizado = () => {
     const [contracts, setContracts] = useState([]);
@@ -52,7 +53,7 @@ const LawyerFinalizado = () => {
                 title="Contratos Finalizados"
             />
             <div className="mt-2">
-                {loading && <div className="text-center text-lg text-gray-500 py-10">Cargando...</div>}
+                {loading && <LoadingAnimation text="Cargando contratos finalizados..." />}
                 {error && <div className="text-red-500 text-center py-4">{error}</div>}
                 {filteredAndSortedContracts.length > 0 ? (
                     <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

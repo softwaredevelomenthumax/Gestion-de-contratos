@@ -79,10 +79,6 @@ export const getLawyerFinalizedContracts = async () => {
   return response.data;
 };
 
-export const getVencidoContracts = async () => {
-  const response = await api.get('/contracts/vencido');
-  return response.data;
-};
 
 export const getManagedContracts = async () => {
   const response = await api.get('/contracts/managed');
