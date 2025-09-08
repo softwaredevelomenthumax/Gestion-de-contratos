@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
-import { getContract } from '../api/contracts';
-import ContractDetailSkeleton from '../components/ContractDetailSkeleton';
+import { useParams } from 'react-router-dom';
+import { getContract } from '../../api/contracts';
+import ContractDetailSkeleton from '../../components/ContractDetailSkeleton';
 // Importar subcomponentes por estado
 import UserAwaitingUserResponse from './userStates/UserAwaitingUserResponse';
 import UserAwaitingSignature from './userStates/UserAwaitingSignature';
@@ -12,11 +12,9 @@ import UserDefault from './userStates/UserDefault';
 
 const UserContractDetail = () => {
   const { id } = useParams();
-  const location = useLocation();
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const fromMyContracts = location.state?.fromMyContracts;
 
   useEffect(() => {
     const fetchContract = async () => {

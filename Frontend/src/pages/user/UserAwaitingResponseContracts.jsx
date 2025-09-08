@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import Card from '../components/Card';
-import { getAwaitingUserResponseContracts } from '../api/contracts';
-import { useRefresh } from '../context/RefreshContext'; 
+import { Card } from '../../components/Card';
+import { getAwaitingUserResponseContracts } from '../../api/contracts';
+import { useRefresh } from '../../context/RefreshContext';
 import { useNavigate } from 'react-router-dom';
-import ContractFilters from '../components/ContractFilters';
-import { useContractFilters } from '../hooks/useContractFilters';
+import { useAuth } from "../../context/AuthContext";
+import ContractFilters from '../../components/ContractFilters';
+import { useContractFilters } from '../../hooks/useContractFilters';
 
-const LawyerManagedContracts = () => {
+const UserAwaitingResponseContracts = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const { refreshTrigger } = useRefresh();
     const navigate = useNavigate();
+    const { user } = useAuth();
     
     // Use custom hook for filtering
     const {
@@ -32,11 +34,9 @@ const LawyerManagedContracts = () => {
         setLoading(true);
         setError(null);
         try {
-            // Usar la ruta unificada: devuelve awaiting_user_response y otrosi_awaiting_user_response
             const contracts = await getAwaitingUserResponseContracts();
             setContracts(contracts);
-        } catch (err) {
-            console.error('Error fetching contracts:', err);
+        } catch {
             setError('Error al cargar los contratos');
         } finally {
             setLoading(false);
@@ -44,7 +44,7 @@ const LawyerManagedContracts = () => {
     };
 
     const handleCardClick = async (contractId) => {
-        navigate(`/lawyer/contracts/${contractId}`);
+        navigate(`/user/contracts/${contractId}`);
     };
 
 
@@ -58,6 +58,8 @@ const LawyerManagedContracts = () => {
                 setTicketFilter={setTicketFilter}
                 sortType={sortType}
                 setSortType={setSortType}
+                showTitle={true}
+                title="Contratos Esperando Respuesta"
             />
 
             {loading ? (
@@ -79,7 +81,7 @@ const LawyerManagedContracts = () => {
             ) : filteredAndSortedContracts.length === 0 ? (
                 <div className="text-center py-10">
                     <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
-                        No hay contratos gestionados disponibles.
+                        No hay contratos esperando respuesta disponibles.
                     </div>
                 </div>
             ) : (
@@ -87,7 +89,6 @@ const LawyerManagedContracts = () => {
                     {filteredAndSortedContracts.map((contract) => (
                         <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
                             <Card
-                                tipoSolicitud={contract.tipoSolicitud}
                                 descripcion={contract.descripcion}
                                 solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
                                 contract={contract}
@@ -100,4 +101,4 @@ const LawyerManagedContracts = () => {
     );
 };
 
-export default LawyerManagedContracts;
+export default UserAwaitingResponseContracts;

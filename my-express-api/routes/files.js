@@ -8,6 +8,7 @@ const path = require('path');
 const ContractFile = require('../models/ContractFile');
 const { Contract } = require('../models/Contract');
 const fs = require('fs');
+const googleDriveService = require('../services/googleDrive');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -63,18 +64,35 @@ router.post('/', upload.single('file'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
+
+    // Upload file to Google Drive
+    const driveFile = await googleDriveService.uploadFile(
+      req.file.path,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    // Clean up local file after uploading to Google Drive
+    fs.unlinkSync(req.file.path);
+
     const file = await ContractFile.create({
       filename: req.file.originalname,
-      filepath: req.file.path,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
+      filepath: driveFile.id, // Store Google Drive file ID instead of local path
       contractId: contractId,
-      category: req.body.category || req.body.type || 'Contrato',
+      category: req.body.category || req.body.type || 'contrato',
       fileType: ContractFile.determineFileType(req.user.role, 'upload', req.body.category || req.body.type, req.file.originalname),
-      responseType: req.user.role,
+      responseType: req.user.role === 'lawyer' ? 'lawyer' : 'user',
+      driveFileId: driveFile.id, // Store the Google Drive file ID
+      driveWebViewLink: driveFile.webViewLink,
+      driveWebContentLink: driveFile.webContentLink,
     });
     res.status(201).json(file);
   } catch (error) {
+    console.error('Error uploading file:', error);
+    // Clean up local file if upload failed
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -125,8 +143,15 @@ router.get('/:fileId/download', async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
     
-    // Continuar con la lógica de descarga existente...
-    res.download(file.filepath, file.filename);
+    // Download file from Google Drive
+    const fileStream = await googleDriveService.getFileStream(file.driveFileId || file.filepath);
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+
+    // Pipe the file stream to response
+    fileStream.pipe(res);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -144,7 +169,11 @@ router.delete('/:fileId', async (req, res) => {
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
-    if (fs.existsSync(file.filepath)) {
+    // Delete file from Google Drive if driveFileId exists
+    if (file.driveFileId) {
+      await googleDriveService.deleteFile(file.driveFileId);
+    } else if (fs.existsSync(file.filepath)) {
+      // Fallback to local file deletion for legacy files
       fs.unlinkSync(file.filepath);
     }
     await file.destroy();

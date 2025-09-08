@@ -154,7 +154,6 @@ const getHistoryTitle = (history) => {
   }
 };
 
-// Etiqueta contextual por otrosí: "Otrosí #N ..." con texto entendible
 const getOtrosiEstadoLabelWithContext = (otro) => {
   switch (otro.estado) {
     case 'pendiente':
@@ -177,50 +176,6 @@ const getOtrosiEstadoLabelWithContext = (otro) => {
 };
 
 // Colores por estado de otrosí para diferenciar visualmente
-const getOtrosiVisualClasses = (estado) => {
-  switch (estado) {
-    case 'pendiente':
-      return {
-        container: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700/30',
-        badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
-      };
-    case 'otrosi_awaiting_user_response':
-      return {
-        container: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/30',
-        badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-      };
-    case 'otrosi_awaiting_lawyer_review':
-      return {
-        container: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700/30',
-        badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
-      };
-    case 'otrosi_awaiting_signature':
-      return {
-        container: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700/30',
-        badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
-      };
-    case 'otrosi_signed':
-      return {
-        container: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700/30',
-        badge: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
-      };
-    case 'rechazado':
-      return {
-        container: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700/30',
-        badge: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
-      };
-    case 'devuelto':
-      return {
-        container: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700/30',
-        badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300',
-      };
-    default:
-      return {
-        container: 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700/30',
-        badge: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300',
-      };
-  }
-};
 
 const estadoVisuals = {
   new: {
@@ -284,12 +239,6 @@ const estadoVisuals = {
     icon: <IconSignature size={18} className="text-indigo-200" />,
   },
 };
-
-function formatDate(dateString) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("es-CO");
-}
 
 const formatHistoryTimestamp = (timestamp) => {
   if (!timestamp) return "Sin fecha";
@@ -410,28 +359,8 @@ const formatHistoryTimestamp = (timestamp) => {
 const formatContractType = (contractType) => {
   if (!contractType) return "";
   
-  // Map of contract types to their proper Spanish display names
   const contractTypeMap = {
     'prestacion_de_servicios': 'Prestación de Servicios',
-    'compra_venta': 'Compra Venta',
-    'arrendamiento': 'Arrendamiento',
-    'licencia': 'Licencia',
-    'concesion': 'Concesión',
-    'suministro': 'Suministro',
-    'obra_civil': 'Obra Civil',
-    'consultoria': 'Consultoría',
-    'mantenimiento': 'Mantenimiento',
-    'transporte': 'Transporte',
-    'seguridad': 'Seguridad',
-    'limpieza': 'Limpieza',
-    'catering': 'Catering',
-    'tecnologia': 'Tecnología',
-    'marketing': 'Marketing',
-    'legal': 'Legal',
-    'contable': 'Contable',
-    'medica': 'Médica',
-    'educativa': 'Educativa',
-    'otro': 'Otro'
   };
   
   // If it's in our map, return the formatted version
@@ -450,9 +379,8 @@ const formatContractType = (contractType) => {
 const ContractFullDetail = ({ contract }) => {
   const [contractFiles, setContractFiles] = useState([]);
   const [contractHistory, setContractHistory] = useState([]);
-  const [historyOrder, setHistoryOrder] = useState("oldest");
   const [otrosi, setOtrosi] = useState([]);
-  const [otrosiLoading, setOtrosiLoading] = useState(true);
+  const [_otrosiLoading, setOtrosiLoading] = useState(true);
   const [otrosiFiles, setOtrosiFiles] = useState({}); // Para almacenar archivos de cada otrosí
   const { user } = useAuth();
   
@@ -461,7 +389,7 @@ const ContractFullDetail = ({ contract }) => {
     if (!dateString) return 'Fecha no disponible';
     try {
       return new Date(dateString).toLocaleDateString('es-CO');
-    } catch (error) {
+    } catch {
       return 'Fecha inválida';
     }
   };
@@ -499,7 +427,7 @@ const ContractFullDetail = ({ contract }) => {
   
   const [filesToUpload, setFilesToUpload] = useState([]);
   const [comment, setComment] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [uploading, _setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [lawyerFilesToUpload, setLawyerFilesToUpload] = useState([]);
   const [lawyerComment, setLawyerComment] = useState("");
@@ -509,11 +437,9 @@ const ContractFullDetail = ({ contract }) => {
   const [signComment, setSignComment] = useState("");
   const [signUploading, setSignUploading] = useState(false);
   const [signError, setSignError] = useState(null);
-  const [signSuccess, setSignSuccess] = useState(null);
   const [returnComment, setReturnComment] = useState("");
   const [returnUploading, setReturnUploading] = useState(false);
   const [returnError, setReturnError] = useState(null);
-  const [returnSuccess, setReturnSuccess] = useState(null);
   
   // Estados para los popups
   const [showResponder, setShowResponder] = useState(false);

@@ -1,17 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import Card from '../components/Card';
-import { getLawyerAwaitingReviewContracts } from '../api/contracts';
-import { useRefresh } from '../context/RefreshContext';
-import { useNavigate } from 'react-router-dom';
-import ContractFilters from '../components/ContractFilters';
-import { useContractFilters } from '../hooks/useContractFilters';
+import Card from '../../components/Card';
+import { getAwaitingSignatureContracts } from '../../api/contracts';
+import ContractFilters from '../../components/ContractFilters';
+import { useContractFilters } from '../../hooks/useContractFilters';
 
-const LawyerAwaitingReviewContracts = () => {
+const LawyerAwaitingSignature = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const { refreshTrigger } = useRefresh();
-    const navigate = useNavigate();
     
     // Use custom hook for filtering
     const {
@@ -26,13 +22,13 @@ const LawyerAwaitingReviewContracts = () => {
 
     useEffect(() => {
         fetchContracts();
-    }, [refreshTrigger]);
-    
+    }, []);
+
     const fetchContracts = async () => {
         setLoading(true);
         setError(null);
         try {
-            const contracts = await getLawyerAwaitingReviewContracts();
+            const contracts = await getAwaitingSignatureContracts();
             setContracts(contracts);
         } catch (err) {
             console.error('Error fetching contracts:', err);
@@ -40,10 +36,6 @@ const LawyerAwaitingReviewContracts = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleCardClick = async (contractId) => {
-        navigate(`/lawyer/contracts/${contractId}`);
     };
 
 
@@ -78,20 +70,18 @@ const LawyerAwaitingReviewContracts = () => {
             ) : filteredAndSortedContracts.length === 0 ? (
                 <div className="text-center py-10">
                     <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
-                        No hay contratos devueltos disponibles.
+                        No hay contratos esperando firma disponibles.
                     </div>
                 </div>
             ) : (
                 <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredAndSortedContracts.map((contract) => (
-                        <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
-                            <Card
-                                tipoSolicitud={contract.tipoSolicitud}
-                                descripcion={contract.descripcion}
-                                solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
-                                contract={contract}
-                            />
-                        </div>
+                        <Card
+                            key={contract.id}
+                            descripcion={contract.descripcion}
+                            solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
+                            contract={contract}
+                        />
                     ))}
                 </div>
             )}
@@ -99,4 +89,4 @@ const LawyerAwaitingReviewContracts = () => {
     );
 };
 
-export default LawyerAwaitingReviewContracts;
+export default LawyerAwaitingSignature; 

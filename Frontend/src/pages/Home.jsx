@@ -12,6 +12,8 @@ import {
   Search,
 } from "lucide-react";
 import ActionCard from "../components/ActionCard";
+import LottieAnimation from "../components/LottieAnimation";
+import lawAnimation from "../assets/animations/law.json";
 
 const Home = () => {
   const { user } = useAuth();
@@ -110,6 +112,19 @@ const Home = () => {
           <p className="mt-4 max-w-2xl mx-auto text-xl text-muted-foreground">
             Gestiona tus contratos de forma rápida y sencilla.
           </p>
+          
+          {/* Law Animation */}
+          <div className="mt-8 flex justify-center">
+            <LottieAnimation
+              animationData={lawAnimation}
+              width="300px"
+              height="200px"
+              loop={true}
+              autoplay={true}
+              speed={1}
+              className="mx-auto"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

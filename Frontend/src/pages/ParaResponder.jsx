@@ -146,7 +146,6 @@ const ParaResponder = () => {
                     {sortedContracts.map((contract) => (
                         <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
                             <Card
-                                tipoSolicitud={contract.tipoSolicitud}
                                 descripcion={contract.descripcion}
                                 solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
                                 contract={contract}

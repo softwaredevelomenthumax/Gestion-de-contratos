@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { getContracts } from '../api/contracts';
-import Card from '../components/Card';
-import { useRefresh } from '../context/RefreshContext';
+import { getContracts } from '../../api/contracts';
+import Card from '../../components/Card';
+import { useRefresh } from '../../context/RefreshContext';
 import { Button } from '@/components/ui/button';
-import ContractFilters from '../components/ContractFilters';
-import { useContractFilters } from '../hooks/useContractFilters';
+import ContractFilters from '../../components/ContractFilters';
+import { useContractFilters } from '../../hooks/useContractFilters';
 
 const UserSentContracts = () => {
   const [contracts, setContracts] = useState([]);
@@ -101,7 +101,6 @@ const UserSentContracts = () => {
         {filteredAndSortedContracts.map((contract) => (
           <div key={contract.id}>
             <Card
-              tipoSolicitud={contract.tipoSolicitud}
               descripcion={contract.descripcion}
               solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
               contract={contract}

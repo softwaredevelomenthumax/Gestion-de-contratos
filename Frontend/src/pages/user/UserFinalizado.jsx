@@ -1,19 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Card } from '../components/Card';
-import { getAwaitingUserResponseContracts } from '../api/contracts';
-import { useRefresh } from '../context/RefreshContext';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from "../context/AuthContext";
-import ContractFilters from '../components/ContractFilters';
-import { useContractFilters } from '../hooks/useContractFilters';
+import Card from '../../components/Card';
+import { getFinalizadoContracts } from '../../api/contracts';
+import ContractFilters from '../../components/ContractFilters';
+import { useContractFilters } from '../../hooks/useContractFilters';
 
-const UserAwaitingResponseContracts = () => {
+const UserFinalizado = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const { refreshTrigger } = useRefresh();
-    const navigate = useNavigate();
-    const { } = useAuth();
     
     // Use custom hook for filtering
     const {
@@ -28,23 +22,20 @@ const UserAwaitingResponseContracts = () => {
 
     useEffect(() => {
         fetchContracts();
-    }, [refreshTrigger]);
+    }, []);
 
     const fetchContracts = async () => {
         setLoading(true);
         setError(null);
         try {
-            const contracts = await getAwaitingUserResponseContracts();
+            const contracts = await getFinalizadoContracts();
             setContracts(contracts);
-        } catch {
+        } catch (err) {
+            console.error('Error fetching contracts:', err);
             setError('Error al cargar los contratos');
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleCardClick = async (contractId) => {
-        navigate(`/user/contracts/${contractId}`);
     };
 
 
@@ -59,7 +50,7 @@ const UserAwaitingResponseContracts = () => {
                 sortType={sortType}
                 setSortType={setSortType}
                 showTitle={true}
-                title="Contratos Esperando Respuesta"
+                title="Contratos Finalizados"
             />
 
             {loading ? (
@@ -81,20 +72,18 @@ const UserAwaitingResponseContracts = () => {
             ) : filteredAndSortedContracts.length === 0 ? (
                 <div className="text-center py-10">
                     <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
-                        No hay contratos esperando respuesta disponibles.
+                        No hay contratos finalizados disponibles.
                     </div>
                 </div>
             ) : (
                 <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredAndSortedContracts.map((contract) => (
-                        <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
-                            <Card
-                                tipoSolicitud={contract.tipoSolicitud}
-                                descripcion={contract.descripcion}
-                                solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
-                                contract={contract}
-                            />
-                        </div>
+                        <Card
+                            key={contract.id}
+                            descripcion={contract.descripcion}
+                            solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
+                            contract={contract}
+                        />
                     ))}
                 </div>
             )}
@@ -102,4 +91,4 @@ const UserAwaitingResponseContracts = () => {
     );
 };
 
-export default UserAwaitingResponseContracts;
+export default UserFinalizado;

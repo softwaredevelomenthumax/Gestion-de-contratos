@@ -2,11 +2,12 @@ const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize({
   dialect: 'mssql',
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT) ,
-  username: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 1433,
+  username: process.env.DB_USER || 'sa',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'contract_management',
+  quoteIdentifiers: false,
   logging: console.log, // Enable SQL query logging with proper function
   pool: {
     max: 5,

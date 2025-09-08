@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import Card, { LawyerCardSkeleton } from "../components/Card";
-import { getNewContracts } from "../api/contracts";
-import { useRefresh } from "../context/RefreshContext";
+import Card, { LawyerCardSkeleton } from "../../components/Card";
+import { getNewContracts } from "../../api/contracts";
+import { useRefresh } from "../../context/RefreshContext";
 import { useNavigate } from "react-router-dom";
-import ContractFilters from '../components/ContractFilters';
-import { useContractFilters } from '../hooks/useContractFilters';
+import ContractFilters from '../../components/ContractFilters';
+import { useContractFilters } from '../../hooks/useContractFilters';
 
 const LawyerNewContracts = () => {
   const [contracts, setContracts] = useState([]);
@@ -170,7 +170,6 @@ const LawyerNewContracts = () => {
           {filteredAndSortedContracts.map((contract) => (
             <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
               <Card
-                tipoSolicitud={contract.tipoSolicitud}
                 descripcion={contract.descripcion}
                 solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
                 contract={contract}

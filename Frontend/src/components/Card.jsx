@@ -115,7 +115,7 @@ const formatContractType = (contractType) => {
     .join(' ');
 };
 
-export function Card({ tipoSolicitud, descripcion, solicitante, contract, onClick }) {
+export function Card({ descripcion, solicitante, contract, onClick }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [hasOtrosi, setHasOtrosi] = React.useState(false);
@@ -132,6 +132,7 @@ export function Card({ tipoSolicitud, descripcion, solicitante, contract, onClic
         });
         setHasOtrosi(response.data && response.data.length > 0);
       } catch (error) {
+        console.log(error);
         // Silently fail - just don't show otrosi indicator
         setHasOtrosi(false);
       }
@@ -287,7 +288,7 @@ export function LawyerCard({ contract }) {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setHasOtrosi(response.data && response.data.length > 0);
-      } catch (error) {
+      } catch (error) {console.log(error)
         // Silently fail - just don't show otrosi indicator
         setHasOtrosi(false);
       }

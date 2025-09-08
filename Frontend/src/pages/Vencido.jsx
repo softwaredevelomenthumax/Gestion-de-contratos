@@ -138,7 +138,6 @@ const Vencido = () => {
                     {sortedContracts.map((contract) => (
                         <Card
                             key={contract.id}
-                            tipoSolicitud={contract.tipoSolicitud}
                             descripcion={contract.descripcion}
                             solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
                             contract={contract}

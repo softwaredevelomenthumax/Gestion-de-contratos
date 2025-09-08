@@ -38,6 +38,7 @@ const NewContract = () => {
             fetchContracts(); // Refresh list
             navigate(`/lawyer/contracts/${contractId}`);
         } catch (err) {
+            console.log(err);
             alert('Error al actualizar el estado o navegar');
         }
     };
@@ -61,7 +62,7 @@ const NewContract = () => {
                 ) : contracts.length > 0 ? (
                     contracts.map(contract => (
                         <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
-                            <Card tipoSolicitud={contract.tipoSolicitud} descripcion={contract.descripcion} solicitante={contract.solicitante} contract={contract} />
+                            <Card descripcion={contract.descripcion} solicitante={contract.solicitante} contract={contract} />
                         </div>
                     ))
                 ) : (

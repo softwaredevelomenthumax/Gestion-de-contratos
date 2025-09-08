@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Card from '../components/Card';
 import { getManagedContracts } from '../api/contracts';
+import { useRefresh } from '../context/RefreshContext';
 
 const sortOptions = [
   { value: 'newest', label: 'Más reciente' },
@@ -28,6 +29,7 @@ const ToCheck = () => {
             const contracts = await getManagedContracts();
             setContracts(contracts);
         } catch (err) {
+            console.log(err);
             setError('Error al cargar los contratos');
         } finally {
             setLoading(false);
@@ -92,7 +94,7 @@ const ToCheck = () => {
                     <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {sortedContracts.map(contract => (
                             <div key={contract.id}>
-                                <Card tipoSolicitud={contract.tipoSolicitud} descripcion={contract.descripcion} solicitante={contract.solicitante} contract={contract} />
+                                <Card descripcion={contract.descripcion} solicitante={contract.solicitante} contract={contract} />
                             </div>
                         ))}
                     </div>

@@ -98,7 +98,7 @@ const Devuelto = () => {
                     <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {sortedContracts.map(contract => (
                             <div key={contract.id}>
-                                <Card contract={contract} tipoSolicitud={contract.tipoSolicitud} descripcion={contract.descripcion} solicitante={contract.solicitante} />
+                                <Card contract={contract} descripcion={contract.descripcion} solicitante={contract.solicitante} />
                             </div>
                         ))}
                     </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getContract } from '../api/contracts';
-import ContractDetailSkeleton from '../components/ContractDetailSkeleton';
+import { getContract } from '../../api/contracts';
+import ContractDetailSkeleton from '../../components/ContractDetailSkeleton';
 // Importar subcomponentes por estado
 import LawyerNew from './lawyerStates/LawyerNew';
 import LawyerAwaitingLawyerReview from './lawyerStates/LawyerAwaitingLawyerReview';

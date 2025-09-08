@@ -1,8 +1,8 @@
 import React from 'react';
-import ContractFullDetail from '../../components/ContractFullDetail';
+import ContractFullDetail from '../../../components/ContractFullDetail';
 
 const LawyerDefault = ({ contract }) => (
   <ContractFullDetail contract={contract} />
 );
 
-export default LawyerDefault; 
+export default LawyerDefault;

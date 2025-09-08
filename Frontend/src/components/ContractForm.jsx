@@ -10,6 +10,9 @@ import { DatePicker } from "./ui/date-picker";
 import { Textarea } from "./ui/textarea";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import AuthDebug from "./AuthDebug";
+import LottieAnimation from "./LottieAnimation";
+import sendAnimation from "../assets/animations/send.json";
 import {
   Select,
   SelectTrigger,
@@ -80,13 +83,11 @@ const ContractForm = () => {
   const [contractFiles, setContractFiles] = useState([]);
   const [ofertaFiles, setOfertaFiles] = useState([]);
   const [camaraFiles, setCamaraFiles] = useState([]);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
   const { addNotification } = useNotification();
   const [otrosFiles, setOtrosFiles] = useState([]);
   const [dateError, setDateError] = useState("");
-  const [showFieldErrors, setShowFieldErrors] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   const areDatesValid = () => {
@@ -242,19 +243,31 @@ const ContractForm = () => {
             )}`;
 
       setError(errorMessage);
-      setShowFieldErrors(true);
 
       // Scroll to the top to show the error message
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
-    setShowFieldErrors(false);
     setHasAttemptedSubmit(false);
     setLoading(true);
     setError(null);
-    setUploadProgress(0);
     try {
+      console.log('🚀 Starting contract creation...');
+      console.log('📋 Form data:', {
+        tipoSolicitud,
+        tipoContrato,
+        descripcion,
+        nombreSolicitante,
+        area,
+        gerenteArea,
+        proveedor
+      });
+
+      const token = localStorage.getItem('token');
+      console.log('🔑 Token exists:', !!token);
+      console.log('🔑 Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
+
       const response = await createContract({
         tipoSolicitud,
         tipoContrato,
@@ -284,11 +297,8 @@ const ContractForm = () => {
             headers: {
               "Content-Type": "multipart/form-data",
             },
-            onUploadProgress: (progressEvent) => {
-              const percent = Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total
-              );
-              setUploadProgress(percent);
+            onUploadProgress: () => {
+              // Upload progress tracking removed for simplified design
             },
           });
         }
@@ -329,12 +339,16 @@ const ContractForm = () => {
       setShowSuccess(true);
       addNotification("Contrato enviado correctamente", "success");
     } catch (error) {
+      console.error('❌ Contract creation failed:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Error data:', error.response?.data);
+
       setError(
         error.response?.data?.error || "Ocurrió un error al crear el contrato"
       );
     } finally {
       setLoading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -372,6 +386,9 @@ const ContractForm = () => {
           Completa los siguientes datos para crear un nuevo contrato.
         </p>
       </div>
+
+      {/* Authentication Debug Component */}
+      <AuthDebug />
       <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-card p-8 shadow-2xl backdrop-blur-lg">
         <form
           onSubmit={handleSubmit}
@@ -397,17 +414,6 @@ const ContractForm = () => {
                 Completa todos los campos para crear el contrato. Los campos con
                 errores se mostrarán en rojo.
               </div>
-            </div>
-          )}
-          {loading && (
-            <div className="w-full bg-muted rounded-full h-3 mb-4 overflow-hidden">
-              <div
-                className="bg-primary h-3 animate-pulse"
-                style={{
-                  width: `${uploadProgress || 30}%`,
-                  transition: "width 0.3s",
-                }}
-              />
             </div>
           )}
           <div className="grid gap-6 md:grid-cols-2">
@@ -1031,14 +1037,6 @@ const ContractForm = () => {
             </div>
           )}
 
-          {uploadProgress > 0 && (
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all"
-                style={{ width: `${uploadProgress}%` }}
-              ></div>
-            </div>
-          )}
 
           <div className="flex justify-end">
             <Button
@@ -1050,16 +1048,33 @@ const ContractForm = () => {
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"
               }`}
             >
-              {loading ? "Creando..." : "Crear Contrato"}
+              {loading ? "Enviando..." : "Crear Contrato"}
             </Button>
-            {hasAttemptedSubmit && !isFormValid() && (
-              <p className="text-red-500 text-xs mt-2 text-right">
-                ⚠️ Completa todos los campos obligatorios para continuar
-              </p>
-            )}
           </div>
+
         </form>
+        {hasAttemptedSubmit && !isFormValid() && (
+          <p className="text-red-500 text-xs mt-2 text-right">
+            ⚠️ Completa todos los campos obligatorios para continuar
+          </p>
+        )}
       </div>
+      
+      {/* Send Animation - Only appears when submitting */}
+      {loading && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[9999]">
+          <div className="w-64 h-64">
+            <LottieAnimation
+              animationData={sendAnimation}
+              width="100%"
+              height="100%"
+              loop={true}
+              autoplay={true}
+              speed={1}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

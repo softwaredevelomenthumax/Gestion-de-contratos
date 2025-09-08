@@ -24,7 +24,7 @@ router.post('/', async (req, res) => {
     }
 
     // Generate a JWT token using the Sequelize user ID
-    const token = jwt.sign({ id: user.id }, 'your_jwt_secret', { expiresIn: '24h' });
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '24h' });
 
     // Return the user's profile information and the token
     res.json({

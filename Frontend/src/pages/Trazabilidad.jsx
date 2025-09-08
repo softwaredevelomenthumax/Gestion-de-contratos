@@ -9,7 +9,7 @@ import { useContractFilters } from '../hooks/useContractFilters';
 const Trazabilidad = () => {
   const { user } = useAuth();
   const [contracts, setContracts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const navigate = useNavigate();
   
   // Hooks para filtros
@@ -56,7 +56,6 @@ const Trazabilidad = () => {
           {(filteredContracts || []).map((contract) => (
             <Card
               key={contract.id}
-              tipoSolicitud={contract.tipoSolicitud}
               descripcion={contract.descripcion}
               solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
               contract={contract}
