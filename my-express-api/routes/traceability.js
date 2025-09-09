@@ -69,7 +69,7 @@ router.get('/contracts/:id', auth, async (req, res) => {
       oldStatus: h.old_status || h.oldStatus || null,
       newStatus: h.new_status || h.newStatus || null,
       comment: h.comment || null,
-      fileId: h.file_id || h.fileId || null,
+      // fileId: h.file_id || h.fileId || null, // TEMPORARILY DISABLED
       timestamp: h.timestamp,
       user: (h.user_id && userMap.get(h.user_id)) || (h.userId && userMap.get(h.userId)) || null,
     }));
@@ -89,7 +89,7 @@ router.get('/contracts/:id', auth, async (req, res) => {
         oldStatus: null,
         newStatus: 'new',
         comment: 'El contrato fue creado y enviado para revisión',
-        fileId: null,
+        // fileId: null, // TEMPORARILY DISABLED
         timestamp: contract.fechaIngreso || contract.createdAt || new Date(),
         user: sol || null,
       });
@@ -101,7 +101,7 @@ router.get('/contracts/:id', auth, async (req, res) => {
         oldStatus: null,
         newStatus: contract.estado || null,
         comment: contract.estado ? `Estado actual: ${statusLabel(contract.estado)}` : null,
-        fileId: null,
+        // fileId: null, // TEMPORARILY DISABLED
         timestamp: contract.updatedAt || contract.fechaIngreso || contract.createdAt || new Date(),
         user: null,
       });
@@ -121,7 +121,7 @@ router.get('/contracts/:id', auth, async (req, res) => {
             oldStatus: null,
             newStatus: o.estado || null,
             comment: `Otrosí #${o.numeroOtrosi || o.id} - ${statusLabel(o.estado)}`,
-            fileId: null,
+            // fileId: null, // TEMPORARILY DISABLED
             timestamp: o.updatedAt || o.createdAt || contract.updatedAt || new Date(),
             user: null,
           });

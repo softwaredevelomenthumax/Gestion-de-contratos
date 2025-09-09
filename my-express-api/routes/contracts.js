@@ -8,11 +8,13 @@ const { recordHistory } = require('../services/traceability');
 // const ContractHistory = require('../models/ContractHistory');
 const auth = require('../middleware/auth');
 
-const filesRouter = require('./files');
+// Removed unused filesRouter import
 // Ensure associations are registered (Contract <-> User via ContractViewer)
 require('../models/associations');
-const { upload } = require('../middleware/upload');
+const { upload, uploadContractWithGoogleDrive } = require('../middleware/upload');
 const { validateContractAction, getNextStatus } = require('../middleware/contractAuth');
+const googleDriveService = require('../services/googleDrive');
+const fs = require('fs');
 
 // Función helper para combinar contratos con otrosí y eliminar duplicados
 const combineContractsWithOtrosi = (contracts, contractsWithOtrosi) => {
@@ -40,12 +42,12 @@ const contractIncludeOptions = [
   {
     model: User,
     as: 'solicitante',
-    attributes: ['id', 'firstName', 'lastName', 'email']
+    attributes: ['id', 'firstName', 'lastName', 'email', 'role']
   },
   {
     model: User,
     as: 'viewers',
-    attributes: ['id', 'firstName', 'lastName', 'email'],
+    attributes: ['id', 'firstName', 'lastName', 'email', 'role'],
     through: { attributes: [] }
   },
   {
@@ -132,7 +134,7 @@ router.get('/:id/history', auth, async (req, res) => {
 });
 
 // POST /api/contracts - Crear nuevo contrato
-router.post('/', auth, upload.array('files', 10), async (req, res) => {
+router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
   try {
     // Solo usuarios regulares pueden crear contratos
     if (req.user.role !== 'regular') {
@@ -193,31 +195,80 @@ router.post('/', auth, upload.array('files', 10), async (req, res) => {
       solicitanteId: req.user.id
     });
     
-    // Procesar archivos si se enviaron
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        // Determinar categoría basada en el nombre del campo
-        let category = 'contrato';
-        let fileType = 'Contrato';
-        
-        if (file.fieldname === 'oferta') {
-          category = 'oferta';
-          fileType = 'Oferta';
-        } else if (file.fieldname === 'camara') {
-          category = 'camara';
-          fileType = 'Cámara';
+    // Procesar archivos subidos a Google Drive por el middleware
+    console.log('🔍 Checking for uploaded files from Google Drive middleware...');
+    console.log('📁 req.googleDriveFiles:', req.googleDriveFiles ? req.googleDriveFiles.length : 'No files');
+    console.log('📁 Files details:', req.googleDriveFiles ? req.googleDriveFiles.map(f => ({
+      name: f.originalName,
+      googleDriveId: f.googleDriveFileId,
+      size: f.size
+    })) : 'None');
+
+    if (req.googleDriveFiles && req.googleDriveFiles.length > 0) {
+      console.log(`📤 Processing ${req.googleDriveFiles.length} files for contract ${contract.id}`);
+
+      // Create database records for files already uploaded to Google Drive
+      for (const fileData of req.googleDriveFiles) {
+        try {
+          // Determine file category based on filename content
+          let fileCategory = 'contrato';
+          let fileType = 'Contrato';
+
+          const filename = fileData.originalName.toLowerCase();
+          if (filename.includes('oferta') || filename.includes('offer')) {
+            fileCategory = 'oferta';
+            fileType = 'Oferta';
+          } else if (filename.includes('camara') || filename.includes('chamber') || filename.includes('comercio')) {
+            fileCategory = 'camara';
+            fileType = 'Cámara';
+          } else if (filename.includes('otros') || filename.includes('other') || filename.includes('adicional')) {
+            fileCategory = 'otros';
+            fileType = 'Otros';
+          }
+
+          console.log(`📤 Creating database record for Google Drive file:`, {
+            originalName: fileData.originalName,
+            googleDriveId: fileData.googleDriveFileId,
+            contractId: contract.id,
+            category: fileCategory,
+            fileType: fileType
+          });
+
+          // Create database record with Google Drive file ID (file already uploaded)
+          await ContractFile.create({
+            filename: fileData.originalName,
+            filepath: fileData.googleDriveFileId, // Store Google Drive file ID
+            mimetype: 'application/pdf',
+            size: fileData.size,
+            category: fileCategory,
+            fileType,
+            responseType: 'regular',
+            contractId: contract.id
+          });
+
+          console.log('✅ Archivo de contrato guardado con Google Drive ID:', {
+            filename: fileData.originalName,
+            fileId: fileData.googleDriveFileId,
+            category: fileCategory,
+            contractId: contract.id,
+            dbRecordCreated: true
+          });
+
+        } catch (uploadError) {
+          console.error(`❌ Error creating database record for Google Drive file:`, {
+            filename: fileData.originalName,
+            googleDriveId: fileData.googleDriveFileId,
+            error: uploadError.message,
+            stack: uploadError.stack
+          });
+
+          // Continue with other files, but log the error
+          console.error(`❌ Failed to create record for ${fileData.originalName}: ${uploadError.message}`);
         }
-        
-        // Crear registro de archivo
-        await ContractFile.create({
-          filename: file.originalname,
-          filepath: file.filename,
-          category,
-          fileType,
-          responseType: 'regular',
-          contractId: contract.id
-        });
       }
+      console.log('✅ Finished processing all contract files');
+    } else {
+      console.log('ℹ️  No files to process for this contract');
     }
     
     // Crear historial del contrato
@@ -505,13 +556,19 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
       contractsWithOtrosiAwaitingLawyerReview = [];
     }
 
-    const allContracts = [...contracts, ...contractsOtrosiSignedByUser, ...contractsWithOtrosiAwaitingSignature, ...contractsWithOtrosiAwaitingLawyerReview];
-    console.log('🔍 DEBUG: Total contratos en respuesta final:', allContracts.length);
+    // Combinar todos los contratos eliminando duplicados
+    const baseContracts = [...contracts, ...contractsOtrosiSignedByUser];
+    const otrosiContracts = [...contractsWithOtrosiAwaitingSignature, ...contractsWithOtrosiAwaitingLawyerReview];
+    
+    const allContracts = combineContractsWithOtrosi(baseContracts, otrosiContracts);
+    
+    console.log('🔍 DEBUG: Total contratos en respuesta final (sin duplicados):', allContracts.length);
     console.log('🔍 DEBUG: Breakdown:');
     console.log(`  - awaiting_lawyer_review: ${contracts.length}`);
     console.log(`  - signature_otrosi_already_signedByUser: ${contractsOtrosiSignedByUser.length}`);
     console.log(`  - contractsWithOtrosiAwaitingSignature: ${contractsWithOtrosiAwaitingSignature.length}`);
     console.log(`  - contractsWithOtrosiAwaitingLawyerReview: ${contractsWithOtrosiAwaitingLawyerReview.length}`);
+    console.log(`  - Total después de combinar: ${allContracts.length}`);
     res.json(allContracts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -725,13 +782,23 @@ router.get('/lawyer-finalized', auth, async (req, res) => {
 // GET /api/contracts/:id
 router.get('/:id', auth, async (req, res) => {
   try {
+    console.log('🔍 GET /api/contracts/:id called with ID:', req.params.id);
+    console.log('👤 User:', req.user.id, 'Role:', req.user.role);
+    
     const contract = await Contract.findByPk(req.params.id, {
       include: contractIncludeOptions
     });
     
     if (!contract) {
+      console.log('❌ Contract not found:', req.params.id);
       return res.status(404).json({ error: 'Contrato no encontrado' });
     }
+    
+    console.log('✅ Contract found:', {
+      id: contract.id,
+      filesCount: contract.files ? contract.files.length : 0,
+      files: contract.files ? contract.files.map(f => ({ id: f.id, filename: f.filename, category: f.category })) : []
+    });
     
     // If a lawyer opens the contract, record as viewer (first time)
     try {
@@ -750,14 +817,96 @@ router.get('/:id', auth, async (req, res) => {
       console.warn('Viewer tracking warning:', viewerErr.message);
     }
 
+    console.log('📤 Sending contract response with files:', {
+      contractId: contract.id,
+      filesInResponse: contract.files ? contract.files.length : 0
+    });
+    
     res.json(contract);
   } catch (error) {
+    console.error('❌ Error in GET /api/contracts/:id:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
+// Middleware for contract response file uploads to Google Drive
+const uploadContractResponseFiles = async (req, res, next) => {
+  upload.array('files', 10)(req, res, async (err) => {
+    if (err) {
+      console.error('Multer upload error:', err);
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return next();
+    }
+
+    try {
+      const uploadedFiles = [];
+      const contractId = req.params.id;
+      
+      for (const file of req.files) {
+        try {
+          const fileCategory = req.user.role === 'lawyer' ? 'respuesta_abogado' : 'respuesta_usuario';
+          
+          console.log(`Uploading contract response file to Google Drive from memory buffer:`, {
+            originalName: file.originalname,
+            bufferSize: file.buffer.length,
+            contractId,
+            category: fileCategory
+          });
+
+          const googleDriveResult = await googleDriveService.uploadContractFileFromBuffer(
+            file.buffer,
+            contractId,
+            file.originalname,
+            fileCategory
+          );
+
+          uploadedFiles.push({
+            originalFile: file,
+            googleDriveFileId: googleDriveResult.id,
+            googleDriveFileName: googleDriveResult.name,
+            originalName: googleDriveResult.originalName,
+            size: googleDriveResult.size,
+            webViewLink: googleDriveResult.webViewLink,
+            category: fileCategory
+          });
+
+          console.log(`Successfully uploaded contract response file to Google Drive:`, {
+            fileId: googleDriveResult.id,
+            fileName: googleDriveResult.name
+          });
+
+        } catch (uploadError) {
+          console.error(`Error uploading contract response file to Google Drive:`, uploadError);
+          
+          // No temporary files to clean up - using memory storage! 🎉
+
+          return res.status(500).json({ 
+            error: `Failed to upload file to Google Drive: ${uploadError.message}` 
+          });
+        }
+      }
+
+      // No temporary files to clean up - using memory storage! 🎉
+
+      req.googleDriveFiles = uploadedFiles;
+      next();
+    } catch (error) {
+      console.error('Error in contract response Google Drive upload middleware:', error);
+      
+      // No temporary files to clean up - using memory storage! 🎉
+
+      return res.status(500).json({ 
+        error: 'Internal server error during file upload' 
+      });
+    }
+  });
+};
+
 // POST /api/contracts/:id/respond
-router.post('/:id/respond', auth, upload.array('files', 10), async (req, res) => {
+router.post('/:id/respond', auth, uploadContractResponseFiles, async (req, res) => {
   try {
     const contract = await Contract.findByPk(req.params.id);
     if (!contract) {
@@ -829,15 +978,17 @@ router.post('/:id/respond', auth, upload.array('files', 10), async (req, res) =>
       await currentOtrosi.update({ estado: finalOtrosiStatus });
     }
 
-    if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
+    if (req.googleDriveFiles && req.googleDriveFiles.length > 0) {
+        for (const fileData of req.googleDriveFiles) {
         const category = req.user.role === 'regular' ? 'Respuesta Usuario' : 'Respuesta Abogado';
         const fileType = req.user.role === 'regular' ? 'Respuesta Usuario' : 'Respuesta Abogado';
         const responseType = req.user.role === 'regular' ? 'regular' : 'lawyer';
 
         const createData = {
-              filename: file.originalname,
-          filepath: file.filename,
+              filename: fileData.originalName,
+          filepath: fileData.googleDriveFileId, // Store Google Drive file ID
+          mimetype: 'application/pdf',
+          size: fileData.size,
           category,
           fileType,
           responseType,
@@ -852,6 +1003,11 @@ router.post('/:id/respond', auth, upload.array('files', 10), async (req, res) =>
         }
 
         await fileStorageModel.create(createData);
+        console.log('📄 Archivo de respuesta guardado con Google Drive ID:', {
+          filename: fileData.originalName,
+          fileId: fileData.googleDriveFileId,
+          category
+        });
       }
     }
 
@@ -1056,6 +1212,118 @@ router.post('/:id/return', auth, upload.array('files', 10), async (req, res) => 
     res.json({ message: 'Contrato devuelto exitosamente' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Test route to verify routing is working
+router.get('/files/test', (req, res) => {
+  console.log('🧪 TEST ROUTE HIT - routing is working!');
+  res.json({ message: 'Test route working', timestamp: new Date() });
+});
+
+// Debug route to list all contract files
+router.get('/files/debug', async (req, res) => {
+  try {
+    const ContractFile = require('../models/ContractFile');
+    const files = await ContractFile.findAll({
+      attributes: ['id', 'filename', 'filepath', 'category', 'fileType', 'contractId'],
+      limit: 10,
+      order: [['id', 'DESC']]
+    });
+    
+    console.log('📋 Contract files in database:', files.length);
+    files.forEach(file => {
+      console.log(`  - File ID: ${file.id}, Name: ${file.filename}, Contract: ${file.contractId}`);
+    });
+    
+    // Also check for the specific Google Drive ID
+    const specificFile = await ContractFile.findOne({
+      where: { filepath: '1CuCj19oo24bIOjURNigaMB-aHGa75v3Y' }
+    });
+    
+    console.log('🔍 Specific Google Drive file found:', specificFile ? {
+      id: specificFile.id,
+      filename: specificFile.filename,
+      filepath: specificFile.filepath,
+      contractId: specificFile.contractId
+    } : 'NOT FOUND');
+    
+    res.json({
+      message: 'Contract files debug info',
+      count: files.length,
+      specificGoogleDriveFile: specificFile ? {
+        id: specificFile.id,
+        filename: specificFile.filename,
+        filepath: specificFile.filepath,
+        contractId: specificFile.contractId
+      } : null,
+      files: files.map(f => ({
+        id: f.id,
+        filename: f.filename,
+        contractId: f.contractId,
+        category: f.category,
+        fileType: f.fileType,
+        filepath: f.filepath,
+        isGoogleDrive: f.filepath && f.filepath.length > 20 // Google Drive IDs are long
+      }))
+    });
+  } catch (error) {
+    console.error('Error in debug route:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/contracts/files/:fileId/download - Download a contract file
+router.get('/files/:fileId/download', auth, async (req, res) => {
+  try {
+    console.log('🔍 CONTRACT FILE DOWNLOAD ENDPOINT HIT!');
+    console.log('📥 Request params:', req.params);
+    console.log('👤 User:', req.user.id, 'Role:', req.user.role);
+    
+    const { fileId } = req.params;
+    const contractFileService = require('../services/contractFileService');
+    
+    console.log('📞 Calling contractFileService.streamFile...');
+
+    // Use the ContractFileService to handle the download with proper access validation
+    await contractFileService.streamFile(fileId, res, req.user.id, req.user.role);
+    
+    console.log('✅ contractFileService.streamFile completed');
+    
+  } catch (error) {
+    console.error('❌ Error in contract file download endpoint:', error);
+    console.error('❌ Error stack:', error.stack);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// GET /api/contracts/files/:fileId/metadata - Get contract file metadata
+router.get('/files/:fileId/metadata', auth, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const contractFileService = require('../services/contractFileService');
+    
+    console.log('Contract file metadata requested:', {
+      fileId,
+      userId: req.user.id,
+      userRole: req.user.role
+    });
+
+    const result = await contractFileService.getFileMetadata(fileId, req.user.id, req.user.role);
+    
+    if (!result.success) {
+      const statusCode = result.error.includes('not found') ? 404 :
+                        result.error.includes('Access denied') ? 403 : 500;
+      return res.status(statusCode).json({ error: result.error });
+    }
+
+    res.json(result.metadata);
+    
+  } catch (error) {
+    console.error('Error in contract file metadata endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

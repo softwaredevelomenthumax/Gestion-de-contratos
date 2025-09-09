@@ -19,9 +19,15 @@ const UserContractDetail = () => {
   useEffect(() => {
     const fetchContract = async () => {
       try {
+        console.log('🔍 Fetching contract with ID:', id);
+        console.log('🌐 API call: GET /contracts/' + id);
         const data = await getContract(id);
+        console.log('📋 Contract data received:', data);
+        console.log('📁 Files in contract:', data.files ? data.files.length : 'No files property');
+        console.log('📄 Files details:', data.files);
         setContract(data);
-      } catch {
+      } catch (error) {
+        console.error('❌ Error fetching contract:', error);
         setError('Error al cargar el contrato');
       } finally {
         setLoading(false);

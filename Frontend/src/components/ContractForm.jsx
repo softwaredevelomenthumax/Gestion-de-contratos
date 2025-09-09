@@ -267,74 +267,57 @@ const ContractForm = () => {
       console.log('🔑 Token exists:', !!token);
       console.log('🔑 Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
 
-      const response = await createContract({
-        tipoSolicitud,
-        tipoContrato,
-        descripcion,
-        nombreSolicitante,
-        area,
-        gerenteArea,
-        proveedor,
-        nitProveedor,
-        formaPago,
-        valorSinIVA,
-        porcentajeIVA,
-        valorIVA,
-        moneda,
-        fechaInicio: fechaInicio ? fechaInicio.split("T")[0] : "",
-        fechaFinal: fechaFinal ? fechaFinal.split("T")[0] : "",
-        duracion,
-        fechaIngreso: fechaIngreso ? fechaIngreso.split("T")[0] : "",
+      // Create FormData to send contract data and files together
+      const formData = new FormData();
+      
+      // Add contract data
+      formData.append('tipoSolicitud', tipoSolicitud);
+      formData.append('tipoContrato', tipoContrato);
+      formData.append('descripcion', descripcion);
+      formData.append('nombreSolicitante', nombreSolicitante);
+      formData.append('area', area);
+      formData.append('gerenteArea', gerenteArea);
+      formData.append('proveedor', proveedor);
+      formData.append('nitProveedor', nitProveedor);
+      formData.append('formaPago', formaPago);
+      formData.append('valorSinIVA', valorSinIVA);
+      formData.append('porcentajeIVA', porcentajeIVA);
+      formData.append('valorIVA', valorIVA);
+      formData.append('moneda', moneda);
+      formData.append('fechaInicio', fechaInicio ? fechaInicio.split("T")[0] : "");
+      formData.append('fechaFinal', fechaFinal ? fechaFinal.split("T")[0] : "");
+      formData.append('duracion', duracion);
+      formData.append('fechaIngreso', fechaIngreso ? fechaIngreso.split("T")[0] : "");
+
+      // Add files - all files go to 'files' field, backend will determine category by filename
+      contractFiles.forEach(file => {
+        formData.append('files', file);
       });
-      if (tipoSolicitud === "contrato") {
-        // Subir archivos de contrato
-        for (const file of contractFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("type", "contrato");
-          await api.post(`/contracts/${response.id}/files`, formData, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-            onUploadProgress: () => {
-              // Upload progress tracking removed for simplified design
-            },
-          });
-        }
-        // Subir archivos de oferta
-        for (const file of ofertaFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("type", "oferta");
-          await api.post(`/contracts/${response.id}/files`, formData, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          });
-        }
-        // Subir archivos de cámara
-        for (const file of camaraFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("type", "camara");
-          await api.post(`/contracts/${response.id}/files`, formData, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          });
-        }
-        // Subir otros documentos
-        for (const file of otrosFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("type", "otros");
-          await api.post(`/contracts/${response.id}/files`, formData, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          });
-        }
-      }
+      
+      ofertaFiles.forEach(file => {
+        formData.append('files', file);
+      });
+      
+      camaraFiles.forEach(file => {
+        formData.append('files', file);
+      });
+      
+      otrosFiles.forEach(file => {
+        formData.append('files', file);
+      });
+
+      console.log('📤 Sending contract with files to backend...');
+      console.log('📋 Contract files:', contractFiles.length);
+      console.log('📋 Oferta files:', ofertaFiles.length);
+      console.log('📋 Camara files:', camaraFiles.length);
+      console.log('📋 Otros files:', otrosFiles.length);
+
+      // Send contract creation request with files
+      const response = await api.post('/contracts', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       setShowSuccess(true);
       addNotification("Contrato enviado correctamente", "success");
     } catch (error) {

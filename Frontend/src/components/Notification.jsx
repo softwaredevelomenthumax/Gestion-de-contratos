@@ -3,7 +3,7 @@ import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { CheckCircle, XCircle, X } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import Lottie from 'lottie-react';
-import sendAnimation from '../assets/animations/send.json';
+import paperplaneAnimation from '../assets/animations/paperplane.json';
 
 const Notification = ({ notification, onRemove }) => {
   const getIcon = () => {
@@ -11,7 +11,7 @@ const Notification = ({ notification, onRemove }) => {
       case 'success':
         return (
           <Lottie
-            animationData={sendAnimation}
+            animationData={paperplaneAnimation}
             style={{
               width: 100,
               height: 100,

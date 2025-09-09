@@ -6,10 +6,36 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const port = 3001; // Using a different port than React (3000)
+const port = process.env.PORT || 3001; // Using a different port than React (3000)
+
+// 🔍 VERIFICACIÓN DE VARIABLES DE ENTORNO
+console.log('🔍 VERIFICACIÓN DE .env AL INICIAR SERVIDOR:');
+console.log('🌐 FRONTEND_URL:', process.env.FRONTEND_URL || '❌ NO CARGADO');
+console.log('📊 DB_HOST:', process.env.DB_HOST || '❌ NO CARGADO');
+console.log('🔗 Puerto del servidor:', port);
+console.log('📂 .env path:', __dirname + '/.env');
+console.log('');
 
 //backend port: 3001
 //frontend port: 3000
+
+// 📊 ENDPOINT PARA VERIFICAR VARIABLES DE ENTORNO EN TIEMPO REAL
+app.get('/api/env-check', (req, res) => {
+  res.json({
+    timestamp: new Date().toISOString(),
+    env_status: {
+      FRONTEND_URL: process.env.FRONTEND_URL || '❌ NO CARGADO',
+      DB_HOST: process.env.DB_HOST || '❌ NO CARGADO',
+      PORT: process.env.PORT || '❌ NO CARGADO'
+    },
+    server_info: {
+      port: port,
+      env_file_path: __dirname + '/.env',
+      node_version: process.version,
+      platform: process.platform
+    }
+  });
+});
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -99,9 +125,6 @@ require('./models/associations');
 // Use the login router (public route)
 app.use('/api/login', loginRouter);
 
-// Public file download routes (no auth)
-app.use('/api/contracts/:id/files', filesRouter);
-
 // Use the contracts router for /api/contracts (auth handled per route)
 app.use('/api/contracts', contractsRouter);
 
@@ -112,8 +135,8 @@ app.use('/api/traceability', traceabilityRouter);
 // Use the profile router for /api/profile (protected)
 app.use('/api/profile', auth, profileRouter);
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploaded files - DISABLED for Google Drive migration
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.send('Hello from Express.js Backend!');

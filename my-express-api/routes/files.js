@@ -65,15 +65,15 @@ router.post('/', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Upload file to Google Drive
-    const driveFile = await googleDriveService.uploadFile(
-      req.file.path,
+    // Upload file to Google Drive directly from memory buffer - no temp files!
+    const driveFile = await googleDriveService.uploadContractFileFromBuffer(
+      req.file.buffer,
+      contractId,
       req.file.originalname,
-      req.file.mimetype
+      req.body.category || req.body.type || 'contrato'
     );
 
-    // Clean up local file after uploading to Google Drive
-    fs.unlinkSync(req.file.path);
+    // No temporary files to clean up - using memory storage! 🎉
 
     const file = await ContractFile.create({
       filename: req.file.originalname,
@@ -89,10 +89,7 @@ router.post('/', upload.single('file'), async (req, res) => {
     res.status(201).json(file);
   } catch (error) {
     console.error('Error uploading file:', error);
-    // Clean up local file if upload failed
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
+    // No temporary files to clean up - using memory storage! 🎉
     res.status(500).json({ error: 'Internal server error' });
   }
 });
