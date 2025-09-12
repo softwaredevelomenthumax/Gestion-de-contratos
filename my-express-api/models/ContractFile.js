@@ -18,12 +18,14 @@ const ContractFile = sequelize.define('ContractFile', {
   fileType: {
     type: DataTypes.STRING,
     allowNull: true,
+    field: 'file_type', // Mapear a la columna de la base de datos
     comment: 'Tipo específico del archivo: Contrato, Cámara, Oferta, Respuesta Abogado, Respuesta Usuario, Firma Abogado, Firma Usuario, Contable, Archivo'
   },
   // Campo para identificar quién envió el archivo (sin ENUM para evitar errores)
   responseType: {
     type: DataTypes.STRING,
     allowNull: true,
+    field: 'response_type', // Mapear a la columna de la base de datos
     comment: 'Tipo de respuesta: lawyer (abogado) o user (usuario)'
   },
   contractId: {
@@ -36,6 +38,25 @@ const ContractFile = sequelize.define('ContractFile', {
     },
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE',
+  },
+  // Google Drive integration fields
+  driveFileId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'drive_file_id', // Mapear a la columna de la base de datos
+    comment: 'Google Drive file ID'
+  },
+  driveWebViewLink: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'drive_web_view_link', // Mapear a la columna de la base de datos
+    comment: 'Google Drive web view link'
+  },
+  driveWebContentLink: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'drive_web_content_link', // Mapear a la columna de la base de datos
+    comment: 'Google Drive web content link'
   },
 }, {
   tableName: 'ContractFiles',

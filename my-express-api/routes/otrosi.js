@@ -3,11 +3,12 @@ const router = express.Router();
 const Otrosi = require('../models/Otrosi');
 const { Contract } = require('../models/Contract');
 const auth = require('../middleware/auth');
-const { upload, uploadOtrosi } = require('../middleware/upload');
+const { upload, uploadOtrosi, uploadOtrosiWithGoogleDrive } = require('../middleware/upload');
 const { validateOtrosiActionMiddleware, getNextOtrosiStatus } = require('../middleware/otrosiAuth');
 const path = require('path');
 const fs = require('fs');
 const { recordHistory } = require('../services/traceability');
+const googleDriveService = require('../services/googleDrive');
 
 // GET /api/otrosi - Get all otrosi for the authenticated user
 router.get('/', auth, async (req, res) => {
@@ -61,7 +62,10 @@ router.get('/contract/:contractId', auth, async (req, res) => {
 
     const otrosi = await Otrosi.findAll({
       where: { contractId },
-      order: [['numeroOtrosi', 'ASC']]
+      order: [['numeroOtrosi', 'ASC']],
+      attributes: { 
+        exclude: ['cartaSolicitudPath', 'firmarOtrosiPath', 'firmaAbogadoPath'] 
+      }
     });
 
     res.json(otrosi);
@@ -72,7 +76,7 @@ router.get('/contract/:contractId', auth, async (req, res) => {
 });
 
 // POST /api/otrosi - Create a new otrosi
-router.post('/', auth, uploadOtrosi, async (req, res) => {
+router.post('/', auth, uploadOtrosiWithGoogleDrive, async (req, res) => {
   try {
     const {
       contractId,
@@ -116,29 +120,30 @@ router.post('/', auth, uploadOtrosi, async (req, res) => {
     
     const numeroOtrosi = lastOtrosi ? lastOtrosi.numeroOtrosi + 1 : 1;
 
-    // Handle file uploads and create OtrosiFile records
+    // Handle Google Drive file uploads
     let cartaSolicitudPath = null;
     let firmarOtrosiPath = null;
     let firmaAbogadoPath = null;
     
-    if (req.files && req.files.cartaSolicitud) {
-      cartaSolicitudPath = req.files.cartaSolicitud[0].filename;
+    // Get Google Drive file IDs from the upload middleware
+    if (req.googleDriveFiles && req.googleDriveFiles.cartaSolicitud) {
+      cartaSolicitudPath = req.googleDriveFiles.cartaSolicitud.googleDriveFileId;
     }
     
-    if (req.files && req.files.firmarOtrosi) {
-      firmarOtrosiPath = req.files.firmarOtrosi[0].filename;
+    if (req.googleDriveFiles && req.googleDriveFiles.firmarOtrosi) {
+      firmarOtrosiPath = req.googleDriveFiles.firmarOtrosi.googleDriveFileId;
     }
 
-    if (req.files && req.files.firmaAbogado) {
-      firmaAbogadoPath = req.files.firmaAbogado[0].filename;
+    if (req.googleDriveFiles && req.googleDriveFiles.firmaAbogado) {
+      firmaAbogadoPath = req.googleDriveFiles.firmaAbogado.googleDriveFileId;
     }
 
     // Parse dates
     const parsedFechaInicio = fechaInicio ? new Date(fechaInicio) : null;
     const parsedFechaFinal = fechaFinal ? new Date(fechaFinal) : null;
 
-    // Determine if user signed the otrosi based on file upload
-    const firmadoPorUsuario = !!(req.files && req.files.firmarOtrosi);
+    // Determine if user signed the otrosi based on Google Drive file upload
+    const firmadoPorUsuario = !!(req.googleDriveFiles && req.googleDriveFiles.firmarOtrosi);
 
     const otrosi = await Otrosi.create({
       contractId,
@@ -186,35 +191,41 @@ router.post('/', auth, uploadOtrosi, async (req, res) => {
      const OtrosiFile = require('../models/OtrosiFile');
      
      // Crear registro para carta de solicitud si existe
-     if (cartaSolicitudPath) {
+     if (cartaSolicitudPath && req.googleDriveFiles.cartaSolicitud) {
+       const cartaFile = req.googleDriveFiles.cartaSolicitud;
        await OtrosiFile.create({
          otrosiId: otrosi.id,
          contractId: contract.id,
-         filename: req.files.cartaSolicitud[0].originalname,
-         filepath: req.files.cartaSolicitud[0].path,
+         filename: cartaFile.originalName,
+         filepath: cartaFile.googleDriveFileId, // Store Google Drive file ID
+         mimetype: 'application/pdf',
+         size: cartaFile.size,
          category: 'Carta de Solicitud',
          fileType: 'Carta de Solicitud',
          responseType: 'user',
          uploadedBy: req.user.id,
          uploadedAt: new Date()
        });
-       console.log('📄 Carta de solicitud guardada en OtrosiFile');
+       console.log('📄 Carta de solicitud guardada en OtrosiFile con Google Drive ID:', cartaFile.googleDriveFileId);
      }
      
      // Crear registro para firma del otrosí si existe
-     if (firmarOtrosiPath) {
+     if (firmarOtrosiPath && req.googleDriveFiles.firmarOtrosi) {
+       const firmaFile = req.googleDriveFiles.firmarOtrosi;
        await OtrosiFile.create({
          otrosiId: otrosi.id,
          contractId: contract.id,
-         filename: req.files.firmarOtrosi[0].originalname,
-         filepath: req.files.firmarOtrosi[0].path,
+         filename: firmaFile.originalName,
+         filepath: firmaFile.googleDriveFileId, // Store Google Drive file ID
+         mimetype: 'application/pdf',
+         size: firmaFile.size,
          category: 'Firma Usuario',
          fileType: 'Firma Usuario',
          responseType: 'user',
          uploadedBy: req.user.id,
          uploadedAt: new Date()
        });
-       console.log('✍️ Firma del otrosí guardada en OtrosiFile');
+       console.log('✍️ Firma del otrosí guardada en OtrosiFile con Google Drive ID:', firmaFile.googleDriveFileId);
      }
      
      // Log resumen de archivos procesados
@@ -391,10 +402,101 @@ router.post('/:id/sign', auth, upload.single('firmaAbogado'), async (req, res) =
   }
 });
 
+// Middleware for otrosi action file uploads to Google Drive
+const uploadOtrosiActionFiles = async (req, res, next) => {
+  // Use multer to handle file validation and memory storage - no temp files!
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.error('Multer upload error:', err);
+      return res.status(400).json({ error: err.message });
+    }
+
+    // If no files were uploaded, continue to the next middleware
+    if (!req.files || req.files.length === 0) {
+      return next();
+    }
+
+    try {
+      const uploadedFiles = [];
+      const contractId = req.params.id; // This is actually the otrosi ID, we'll get contract ID from the otrosi
+      
+      // Get otrosi to find contract ID and number
+      const otrosi = await Otrosi.findByPk(contractId);
+      if (!otrosi) {
+        return res.status(404).json({ error: 'Otrosi not found' });
+      }
+
+      for (const file of req.files) {
+        try {
+          console.log(`Uploading otrosi action file to Google Drive from memory buffer:`, {
+            originalName: file.originalname,
+            bufferSize: file.buffer.length,
+            contractId: otrosi.contractId,
+            otrosiNumber: otrosi.numeroOtrosi
+          });
+
+          // Upload to Google Drive directly from memory buffer - no temp files!
+          const googleDriveResult = await googleDriveService.uploadOtrosiFileFromBuffer(
+            file.buffer,
+            otrosi.contractId,
+            otrosi.numeroOtrosi,
+            file.originalname
+          );
+
+          // Store Google Drive information for later use
+          uploadedFiles.push({
+            originalFile: file,
+            googleDriveFileId: googleDriveResult.id,
+            googleDriveFileName: googleDriveResult.name,
+            originalName: googleDriveResult.originalName,
+            size: googleDriveResult.size,
+            webViewLink: googleDriveResult.webViewLink
+          });
+
+          console.log(`Successfully uploaded otrosi action file to Google Drive:`, {
+            fileId: googleDriveResult.id,
+            fileName: googleDriveResult.name
+          });
+
+        } catch (uploadError) {
+          console.error(`Error uploading otrosi action file to Google Drive:`, uploadError);
+          
+          // No temporary files to clean up - using memory storage! 🎉
+
+          return res.status(500).json({ 
+            error: `Failed to upload file to Google Drive: ${uploadError.message}` 
+          });
+        }
+      }
+
+      // No temporary files to clean up - using memory storage! 🎉
+
+      // Attach Google Drive file information to the request
+      req.googleDriveFiles = uploadedFiles;
+      
+      console.log('All otrosi action files successfully uploaded to Google Drive:', {
+        contractId: otrosi.contractId,
+        otrosiNumber: otrosi.numeroOtrosi,
+        filesUploaded: uploadedFiles.length
+      });
+
+      next();
+    } catch (error) {
+      console.error('Error in otrosi action Google Drive upload middleware:', error);
+      
+      // No temporary files to clean up - using memory storage! 🎉
+
+      return res.status(500).json({ 
+        error: 'Internal server error during file upload' 
+      });
+    }
+  });
+};
+
 // POST /api/otrosi/:id/action - Manejar acciones del otrosí (firmar, responder, aprobar, etc.)
-router.post('/:id/action', 
-  auth, 
-  upload.array('files'),
+router.post('/:id/action',
+  auth,
+  uploadOtrosiActionFiles,
   validateOtrosiActionMiddleware(['regular', 'lawyer'], ['pendiente', 'otrosi_awaiting_user_response', 'otrosi_awaiting_lawyer_review', 'otrosi_awaiting_signature']),
   async (req, res) => {
     try {
@@ -447,21 +549,23 @@ router.post('/:id/action',
       if (nextStatus === 'otrosi_awaiting_signature') {
         updateData.fechaAprobacion = new Date();
       } else if (nextStatus === 'otrosi_signed') {
-        updateData.firmaAbogadoPath = req.files?.[0]?.filename || null;
+        updateData.firmaAbogadoPath = req.googleDriveFiles?.[0]?.googleDriveFileId || null;
       }
 
       const updatedOtrosi = await otrosi.update(updateData);
 
-      // Guardar archivos si se subieron
+      // Guardar archivos si se subieron a Google Drive
       let fileIds = [];
-      if (req.files && req.files.length > 0) {
+      if (req.googleDriveFiles && req.googleDriveFiles.length > 0) {
         const OtrosiFile = require('../models/OtrosiFile');
-        for (const file of req.files) {
+        for (const fileData of req.googleDriveFiles) {
           const savedFile = await OtrosiFile.create({
             otrosiId: otrosi.id,
             contractId: otrosi.contractId,
-            filename: file.originalname,
-            filepath: file.path,
+            filename: fileData.originalName,
+            filepath: fileData.googleDriveFileId, // Store Google Drive file ID
+            mimetype: 'application/pdf',
+            size: fileData.size,
             category: action === 'sign' ? 'Firma' : 'Respuesta',
             fileType: action === 'sign' ? 
               (req.user.role === 'lawyer' ? 'Firma Abogado' : 'Firma Usuario') : 
@@ -471,6 +575,7 @@ router.post('/:id/action',
             uploadedAt: new Date()
           });
           fileIds.push(savedFile.id);
+          console.log('📄 Archivo de acción otrosí guardado con Google Drive ID:', fileData.googleDriveFileId);
         }
       }
 
@@ -589,7 +694,13 @@ router.get('/:id/files', auth, async (req, res) => {
     
     const files = await OtrosiFile.findAll({
       where: { otrosiId: id },
-      order: [['uploadedAt', 'DESC']]
+      order: [['uploadedAt', 'DESC']],
+      attributes: { exclude: ['filepath'] } // Exclude filepath - frontend should use download endpoint
+    });
+    
+    console.log('📋 Returning otrosi files:', files.length);
+    files.forEach(file => {
+      console.log(`  - File ID: ${file.id}, Name: ${file.filename}, Category: ${file.category}`);
     });
     
     res.json(files);
@@ -645,4 +756,342 @@ router.post('/fix-states', auth, async (req, res) => {
   }
 });
 
+// Debug route to check otrosi data
+router.get('/debug', async (req, res) => {
+  try {
+    const Otrosi = require('../models/Otrosi');
+    const OtrosiFile = require('../models/OtrosiFile');
+    
+    // Check for the specific Google Drive ID in Otrosi table
+    const otrosiWithGoogleDriveId = await Otrosi.findOne({
+      where: {
+        [require('sequelize').Op.or]: [
+          { cartaSolicitudPath: '1CuCj19oo24bIOjURNigaMB-aHGa75v3Y' },
+          { firmarOtrosiPath: '1CuCj19oo24bIOjURNigaMB-aHGa75v3Y' },
+          { firmaAbogadoPath: '1CuCj19oo24bIOjURNigaMB-aHGa75v3Y' }
+        ]
+      }
+    });
+    
+    // Check in OtrosiFile table
+    const otrosiFileWithGoogleDriveId = await OtrosiFile.findOne({
+      where: { filepath: '1CuCj19oo24bIOjURNigaMB-aHGa75v3Y' }
+    });
+    
+    console.log('🔍 Otrosi with Google Drive ID found:', otrosiWithGoogleDriveId ? {
+      id: otrosiWithGoogleDriveId.id,
+      contractId: otrosiWithGoogleDriveId.contractId,
+      cartaSolicitudPath: otrosiWithGoogleDriveId.cartaSolicitudPath,
+      firmarOtrosiPath: otrosiWithGoogleDriveId.firmarOtrosiPath,
+      firmaAbogadoPath: otrosiWithGoogleDriveId.firmaAbogadoPath
+    } : 'NOT FOUND');
+    
+    console.log('🔍 OtrosiFile with Google Drive ID found:', otrosiFileWithGoogleDriveId ? {
+      id: otrosiFileWithGoogleDriveId.id,
+      filename: otrosiFileWithGoogleDriveId.filename,
+      filepath: otrosiFileWithGoogleDriveId.filepath,
+      otrosiId: otrosiFileWithGoogleDriveId.otrosiId
+    } : 'NOT FOUND');
+    
+    res.json({
+      message: 'Otrosi debug info',
+      otrosiWithGoogleDriveId: otrosiWithGoogleDriveId ? {
+        id: otrosiWithGoogleDriveId.id,
+        contractId: otrosiWithGoogleDriveId.contractId,
+        cartaSolicitudPath: otrosiWithGoogleDriveId.cartaSolicitudPath,
+        firmarOtrosiPath: otrosiWithGoogleDriveId.firmarOtrosiPath,
+        firmaAbogadoPath: otrosiWithGoogleDriveId.firmaAbogadoPath
+      } : null,
+      otrosiFileWithGoogleDriveId: otrosiFileWithGoogleDriveId ? {
+        id: otrosiFileWithGoogleDriveId.id,
+        filename: otrosiFileWithGoogleDriveId.filename,
+        filepath: otrosiFileWithGoogleDriveId.filepath,
+        otrosiId: otrosiFileWithGoogleDriveId.otrosiId
+      } : null
+    });
+  } catch (error) {
+    console.error('Error in otrosi debug route:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Temporary fix route to clear the problematic field
+router.get('/fix-google-drive-path', async (req, res) => {
+  try {
+    const Otrosi = require('../models/Otrosi');
+    
+    // Update the problematic otrosi record
+    const result = await Otrosi.update(
+      { firmarOtrosiPath: null },
+      { where: { id: 3 } }
+    );
+    
+    console.log('🔧 Fixed otrosi record - cleared firmarOtrosiPath');
+    
+    res.json({
+      message: 'Fixed otrosi record',
+      updated: result[0] > 0
+    });
+  } catch (error) {
+    console.error('Error in otrosi debug route:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/otrosi/files/:fileId/download - Download an otrosi file
+router.get('/files/:fileId/download', auth, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const otrosiFileService = require('../services/otrosiFileService');
+    
+    console.log('Otrosi file download requested:', {
+      fileId,
+      userId: req.user.id,
+      userRole: req.user.role
+    });
+
+    // Use the OtrosiFileService to handle the download with proper access validation
+    await otrosiFileService.streamFile(fileId, res, req.user.id, req.user.role);
+    
+  } catch (error) {
+    console.error('Error in otrosi file download endpoint:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// GET /api/otrosi/files/:fileId/metadata - Get otrosi file metadata
+router.get('/files/:fileId/metadata', auth, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const otrosiFileService = require('../services/otrosiFileService');
+    
+    console.log('Otrosi file metadata requested:', {
+      fileId,
+      userId: req.user.id,
+      userRole: req.user.role
+    });
+
+    const result = await otrosiFileService.getFileMetadata(fileId, req.user.id, req.user.role);
+    
+    if (!result.success) {
+      const statusCode = result.error.includes('not found') ? 404 :
+                        result.error.includes('Access denied') ? 403 : 500;
+      return res.status(statusCode).json({ error: result.error });
+    }
+
+    res.json(result.metadata);
+    
+  } catch (error) {
+    console.error('Error in otrosi file metadata endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
+// GET /api/otrosi/admin/analyze-files - Analyze OtrosiFile records for issues
+router.get('/admin/analyze-files', auth, async (req, res) => {
+  try {
+    // Only allow lawyers to access this admin endpoint
+    if (req.user.role !== 'lawyer') {
+      return res.status(403).json({ error: 'Access denied. Only lawyers can access admin endpoints.' });
+    }
+
+    const OtrosiFile = require('../models/OtrosiFile');
+    const googleDriveService = require('../services/googleDrive');
+    const fs = require('fs');
+    const path = require('path');
+
+    // Find all OtrosiFile records
+    const allOtrosiFiles = await OtrosiFile.findAll({
+      attributes: ['id', 'filename', 'filepath', 'contractId', 'otrosiId', 'uploadedAt'],
+      order: [['id', 'ASC']]
+    });
+
+    const analysis = {
+      total: allOtrosiFiles.length,
+      googleDriveFiles: [],
+      localFiles: [],
+      problematicFiles: [],
+      missingFiles: []
+    };
+
+    // Analyze each file
+    for (const file of allOtrosiFiles) {
+      const isGoogleDriveId = googleDriveService.isGoogleDriveFileId(file.filepath);
+      
+      if (isGoogleDriveId) {
+        analysis.googleDriveFiles.push({
+          id: file.id,
+          filename: file.filename,
+          filepath: file.filepath,
+          contractId: file.contractId,
+          otrosiId: file.otrosiId,
+          uploadedAt: file.uploadedAt
+        });
+      } else {
+        // Check if it looks like a local file path
+        if (file.filepath.includes('.pdf') || file.filepath.includes('uploads/')) {
+          // Check if the local file actually exists
+          const possiblePaths = [
+            path.resolve(file.filepath),
+            path.resolve(__dirname, '../uploads', file.filepath),
+            path.resolve(__dirname, '../', file.filepath)
+          ];
+
+          let fileExists = false;
+          let existingPath = null;
+
+          for (const possiblePath of possiblePaths) {
+            if (fs.existsSync(possiblePath)) {
+              fileExists = true;
+              existingPath = possiblePath;
+              break;
+            }
+          }
+
+          const fileInfo = {
+            id: file.id,
+            filename: file.filename,
+            filepath: file.filepath,
+            contractId: file.contractId,
+            otrosiId: file.otrosiId,
+            uploadedAt: file.uploadedAt,
+            exists: fileExists,
+            existingPath: existingPath
+          };
+
+          if (fileExists) {
+            analysis.localFiles.push(fileInfo);
+          } else {
+            analysis.missingFiles.push(fileInfo);
+          }
+        } else {
+          analysis.problematicFiles.push({
+            id: file.id,
+            filename: file.filename,
+            filepath: file.filepath,
+            contractId: file.contractId,
+            otrosiId: file.otrosiId,
+            uploadedAt: file.uploadedAt
+          });
+        }
+      }
+    }
+
+    // Add summary counts
+    analysis.summary = {
+      googleDriveFiles: analysis.googleDriveFiles.length,
+      localFiles: analysis.localFiles.length,
+      missingFiles: analysis.missingFiles.length,
+      problematicFiles: analysis.problematicFiles.length
+    };
+
+    res.json({
+      success: true,
+      message: 'OtrosiFile analysis completed',
+      analysis
+    });
+
+  } catch (error) {
+    console.error('Error in analyze-files endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/otrosi/admin/migrate-file/:id - Migrate a specific local file to Google Drive
+router.post('/admin/migrate-file/:id', auth, async (req, res) => {
+  try {
+    // Only allow lawyers to access this admin endpoint
+    if (req.user.role !== 'lawyer') {
+      return res.status(403).json({ error: 'Access denied. Only lawyers can access admin endpoints.' });
+    }
+
+    const fileId = parseInt(req.params.id);
+    const OtrosiFile = require('../models/OtrosiFile');
+    const googleDriveService = require('../services/googleDrive');
+    const fs = require('fs');
+    const path = require('path');
+
+    // Find the file record
+    const otrosiFile = await OtrosiFile.findByPk(fileId, {
+      include: [
+        {
+          model: require('../models/Otrosi'),
+          as: 'otrosi',
+          attributes: ['id', 'numeroOtrosi']
+        }
+      ]
+    });
+
+    if (!otrosiFile) {
+      return res.status(404).json({ error: 'OtrosiFile not found' });
+    }
+
+    // Check if it's already a Google Drive file
+    if (googleDriveService.isGoogleDriveFileId(otrosiFile.filepath)) {
+      return res.json({
+        success: true,
+        message: 'File is already stored in Google Drive',
+        fileId: otrosiFile.filepath
+      });
+    }
+
+    // Try to find the local file
+    const possiblePaths = [
+      path.resolve(otrosiFile.filepath),
+      path.resolve(__dirname, '../uploads', otrosiFile.filepath),
+      path.resolve(__dirname, '../', otrosiFile.filepath)
+    ];
+
+    let localFilePath = null;
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        localFilePath = possiblePath;
+        break;
+      }
+    }
+
+    if (!localFilePath) {
+      return res.status(404).json({ 
+        error: 'Local file not found. Cannot migrate to Google Drive.',
+        triedPaths: possiblePaths
+      });
+    }
+
+    // Upload to Google Drive
+    const otrosiNumber = otrosiFile.otrosi ? otrosiFile.otrosi.numeroOtrosi : 1;
+    const googleDriveResult = await googleDriveService.uploadOtrosiFile(
+      localFilePath,
+      otrosiFile.contractId,
+      otrosiNumber,
+      otrosiFile.filename
+    );
+
+    // Update the database record
+    await otrosiFile.update({
+      filepath: googleDriveResult.id
+    });
+
+    // Clean up the local file
+    try {
+      fs.unlinkSync(localFilePath);
+      console.log(`Cleaned up local file: ${localFilePath}`);
+    } catch (cleanupError) {
+      console.warn('Could not clean up local file:', cleanupError.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'File successfully migrated to Google Drive',
+      googleDriveFileId: googleDriveResult.id,
+      googleDriveFileName: googleDriveResult.name,
+      originalLocalPath: localFilePath
+    });
+
+  } catch (error) {
+    console.error('Error in migrate-file endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});

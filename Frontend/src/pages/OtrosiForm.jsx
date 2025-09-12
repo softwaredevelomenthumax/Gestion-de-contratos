@@ -82,6 +82,38 @@ const OtrosiForm = () => {
     }
   }, [formData.valorTotal, formData.porcentajeIVA]);
 
+  // Calcular duración del contrato automáticamente
+  const calcularDuracion = () => {
+    if (formData.fechaInicio && formData.fechaFinal) {
+      const fechaInicio = new Date(formData.fechaInicio);
+      const fechaFinal = new Date(formData.fechaFinal);
+      
+      if (fechaInicio < fechaFinal) {
+        const diferenciaTiempo = fechaFinal.getTime() - fechaInicio.getTime();
+        const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 3600 * 24));
+        
+        // Calcular años, meses y días
+        const años = Math.floor(diferenciaDias / 365);
+        const mesesRestantes = Math.floor((diferenciaDias % 365) / 30);
+        const diasRestantes = diferenciaDias % 30;
+        
+        let duracionTexto = "";
+        if (años > 0) duracionTexto += `${años} año${años > 1 ? 's' : ''}`;
+        if (mesesRestantes > 0) {
+          if (duracionTexto) duracionTexto += ", ";
+          duracionTexto += `${mesesRestantes} mes${mesesRestantes > 1 ? 'es' : ''}`;
+        }
+        if (diasRestantes > 0) {
+          if (duracionTexto) duracionTexto += " y ";
+          duracionTexto += `${diasRestantes} día${diasRestantes > 1 ? 's' : ''}`;
+        }
+        
+        return duracionTexto || "Menos de 1 día";
+      }
+    }
+    return null;
+  };
+
   // Cargar información del contrato
   useEffect(() => {
     const fetchContract = async () => {
@@ -602,6 +634,24 @@ const OtrosiForm = () => {
                   />
                 </div>
               </div>
+
+                {/* Mostrar duración calculada */}
+                {calcularDuracion() && (
+                  <div className="mb-4 p-4 bg-gradient-to-r from-green-900/20 to-emerald-900/20 border border-green-700/30 rounded-xl backdrop-blur-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-gradient-to-r from-green-700 to-emerald-700 rounded-lg">
+                        <IconCalendar size={16} className="text-white" />
+                      </div>
+                      <h4 className="text-green-200 font-semibold">Nueva Duración del Contrato</h4>
+                    </div>
+                    <p className="text-green-100 text-lg font-medium">
+                      {calcularDuracion()}
+                    </p>
+                    <p className="text-green-300 text-sm mt-1">
+                      Calculado automáticamente entre las fechas seleccionadas
+                    </p>
+                  </div>
+                )}
 
                 <Alert className="border-gray-600/30 bg-gray-800/20 backdrop-blur-sm">
                   <IconInfoCircle className="h-4 w-4 text-gray-400" />

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { getContract, getContractHistory } from '../api/contracts';
 import { getOtrosiByContract } from '../api/otrosi';
 import ContractTraceDetail from './ContractTraceDetail';
+import LoadingAnimation from '../components/LoadingAnimation';
 
 const ContractTracePage = () => {
   const { id } = useParams();
@@ -36,7 +37,7 @@ const ContractTracePage = () => {
     fetchData();
   }, [id]);
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Cargando...</div>;
+  if (loading) return <LoadingAnimation text="Cargando trazabilidad del contrato..." />;
   if (!contract) return <div className="text-center py-10 text-gray-500">Contrato no encontrado.</div>;
 
   return (

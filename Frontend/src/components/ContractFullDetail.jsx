@@ -18,12 +18,13 @@ import {
   IconEdit,
   IconRefresh,
 } from "@tabler/icons-react";
-import { getFiles } from "../api/file";
 import { getContractHistory } from "../api/contracts";
 import { getOtrosiByContract, getOtrosiFiles, returnOtrosi, performOtrosiAction } from "../api/otrosi";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
+import useDownload from "../hooks/useDownload";
+import DownloadingAnimation from "./DownloadingAnimation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
@@ -59,7 +60,7 @@ const getEstadoLabelWithContext = (estado, otrosi = []) => {
   // Caso: Usuario ya firmó el otrosí y espera firma del abogado
   if (estado === 'signature_otrosi_already_signedByUser' && otrosi.length > 0) {
     const objetivo = otrosi.find(otro => otro.estado === 'otrosi_awaiting_signature' || otro.estado === 'pendiente')
-                    || otrosi[0];
+      || otrosi[0];
     if (objetivo) {
       return `Otrosí #${objetivo.numeroOtrosi} firmado - Esperando firma del abogado`;
     }
@@ -138,7 +139,7 @@ const getHistoryTitle = (history) => {
     case 'return':
       return 'Contrato devuelto';
     case 'respond':
-      return 'Contrato respondido';
+      return 'Contrato gestionado';
     case 'otrosi_signed':
       return numero ? `Otrosí #${numero} firmado` : 'Otrosí firmado';
     case 'otrosi_returned':
@@ -154,7 +155,6 @@ const getHistoryTitle = (history) => {
   }
 };
 
-// Etiqueta contextual por otrosí: "Otrosí #N ..." con texto entendible
 const getOtrosiEstadoLabelWithContext = (otro) => {
   switch (otro.estado) {
     case 'pendiente':
@@ -177,50 +177,6 @@ const getOtrosiEstadoLabelWithContext = (otro) => {
 };
 
 // Colores por estado de otrosí para diferenciar visualmente
-const getOtrosiVisualClasses = (estado) => {
-  switch (estado) {
-    case 'pendiente':
-      return {
-        container: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700/30',
-        badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
-      };
-    case 'otrosi_awaiting_user_response':
-      return {
-        container: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/30',
-        badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-      };
-    case 'otrosi_awaiting_lawyer_review':
-      return {
-        container: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700/30',
-        badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
-      };
-    case 'otrosi_awaiting_signature':
-      return {
-        container: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700/30',
-        badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
-      };
-    case 'otrosi_signed':
-      return {
-        container: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700/30',
-        badge: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
-      };
-    case 'rechazado':
-      return {
-        container: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700/30',
-        badge: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
-      };
-    case 'devuelto':
-      return {
-        container: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700/30',
-        badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300',
-      };
-    default:
-      return {
-        container: 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700/30',
-        badge: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300',
-      };
-  }
-};
 
 const estadoVisuals = {
   new: {
@@ -285,12 +241,6 @@ const estadoVisuals = {
   },
 };
 
-function formatDate(dateString) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("es-CO");
-}
-
 const formatHistoryTimestamp = (timestamp) => {
   if (!timestamp) return "Sin fecha";
   const date = new Date(timestamp);
@@ -298,147 +248,127 @@ const formatHistoryTimestamp = (timestamp) => {
   return date.toLocaleString("es-CO", { hour12: false });
 };
 
-  // Función para determinar el tipo específico de archivo usando datos del backend
-  const getFileTypeLabel = (file) => {
-    // Si el backend ya tiene el fileType específico y no es null, usarlo directamente
-    if (file.fileType && file.fileType !== 'null' && file.fileType !== null) {
-      switch (file.fileType) {
-        case 'Contrato':
-          return 'Contrato';
-        case 'Cámara':
-          return 'Cámara';
-        case 'Oferta':
-          return 'Oferta';
-        case 'Respuesta Abogado':
-          return 'Respuesta Abogado';
-        case 'Respuesta Usuario':
-          return 'Respuesta Usuario';
-        case 'Firma Abogado':
-          return 'Firma Abogado';
-        case 'Firma Usuario':
-          return 'Firma Usuario';
-        case 'Contable':
-          return 'Contable';
-        case 'Archivo':
-          return 'Archivo';
-        default:
-          return file.fileType;
-      }
+// Función para determinar el tipo específico de archivo usando datos del backend
+const getFileTypeLabel = (file) => {
+  // Si el backend ya tiene el fileType específico y no es null, usarlo directamente
+  if (file.fileType && file.fileType !== 'null' && file.fileType !== null) {
+    switch (file.fileType) {
+      case 'Contrato':
+        return 'Contrato';
+      case 'Cámara':
+        return 'Cámara';
+      case 'Oferta':
+        return 'Oferta';
+      case 'Respuesta Abogado':
+        return 'Respuesta Abogado';
+      case 'Respuesta Usuario':
+        return 'Respuesta Usuario';
+      case 'Firma Abogado':
+        return 'Firma Abogado';
+      case 'Firma Usuario':
+        return 'Firma Usuario';
+      case 'Contable':
+        return 'Contable';
+      case 'Archivo':
+        return 'Archivo';
+      default:
+        return file.fileType;
     }
-    
-    // Si fileType es null, usar category que sí tiene datos
-    if (file.category) {
-      switch (file.category.toLowerCase()) {
-        case "contrato":
-          return "Contrato";
-        case "camara":
-          return "Cámara";
-        case "oferta":
-          return "Oferta";
-        case "contable":
-          return "Contable";
-        case "respuesta abogado":
-          return "Respuesta Abogado";
-        case "respuesta usuario":
-          return "Respuesta Usuario";
-        case "firma abogado":
-          return "Firma Abogado";
-        case "firma usuario":
-          return "Firma Usuario";
-        default:
-          // Si la categoría no es específica, intentar inferir del nombre del archivo
-          if (file.filename) {
-            const lowerFilename = file.filename.toLowerCase();
-            if (lowerFilename.includes('firma')) {
-              return file.responseType === "lawyer" ? "Firma Abogado" : "Firma Usuario";
-            }
-            if (lowerFilename.includes('respuesta')) {
-              return file.responseType === "lawyer" ? "Respuesta Abogado" : "Respuesta Usuario";
-            }
-            if (lowerFilename.includes('contrato')) {
-              return "Contrato";
-            }
-            if (lowerFilename.includes('camara') || lowerFilename.includes('cámara')) {
-              return "Cámara";
-            }
-            if (lowerFilename.includes('oferta')) {
-              return "Oferta";
-            }
-          }
-          return "Archivo";
-      }
-    }
-    
-    // Fallback más inteligente basado en responseType y nombre del archivo
-    if (file.responseType === "lawyer") {
-      // Si es del abogado, verificar si es firma o respuesta
-      if (file.filename && file.filename.toLowerCase().includes('firma')) {
-        return "Firma Abogado";
-      }
-      return "Respuesta Abogado";
-    } else if (file.responseType === "user") {
-      // Si es del usuario, verificar si es firma o respuesta
-      if (file.filename && file.filename.toLowerCase().includes('firma')) {
-        return "Firma Usuario";
-      }
-      return "Respuesta Usuario";
-    }
-    
-    // Último fallback: intentar inferir del nombre del archivo
-    if (file.filename) {
-      const lowerFilename = file.filename.toLowerCase();
-      if (lowerFilename.includes('firma')) {
-        return file.responseType === "lawyer" ? "Firma Abogado" : "Firma Usuario";
-      }
-      if (lowerFilename.includes('respuesta')) {
-        return file.responseType === "lawyer" ? "Respuesta Abogado" : "Respuesta Usuario";
-      }
-      if (lowerFilename.includes('contrato')) {
+  }
+
+  // Si fileType es null, usar category que sí tiene datos
+  if (file.category) {
+    switch (file.category.toLowerCase()) {
+      case "contrato":
         return "Contrato";
-      }
-      if (lowerFilename.includes('camara') || lowerFilename.includes('cámara')) {
+      case "camara":
         return "Cámara";
-      }
-      if (lowerFilename.includes('oferta')) {
+      case "oferta":
         return "Oferta";
-      }
+      case "contable":
+        return "Contable";
+      case "respuesta abogado":
+        return "Respuesta Abogado";
+      case "respuesta usuario":
+        return "Respuesta Usuario";
+      case "firma abogado":
+        return "Firma Abogado";
+      case "firma usuario":
+        return "Firma Usuario";
+      default:
+        // Si la categoría no es específica, intentar inferir del nombre del archivo
+        if (file.filename) {
+          const lowerFilename = file.filename.toLowerCase();
+          if (lowerFilename.includes('firma')) {
+            return file.responseType === "lawyer" ? "Firma Abogado" : "Firma Usuario";
+          }
+          if (lowerFilename.includes('respuesta')) {
+            return file.responseType === "lawyer" ? "Respuesta Abogado" : "Respuesta Usuario";
+          }
+          if (lowerFilename.includes('contrato')) {
+            return "Contrato";
+          }
+          if (lowerFilename.includes('camara') || lowerFilename.includes('cámara')) {
+            return "Cámara";
+          }
+          if (lowerFilename.includes('oferta')) {
+            return "Oferta";
+          }
+        }
+        return "Archivo";
     }
-    
-    return "Archivo";
+  }
+
+  // Fallback más inteligente basado en responseType y nombre del archivo
+  if (file.responseType === "lawyer") {
+    // Si es del abogado, verificar si es firma o respuesta
+    if (file.filename && file.filename.toLowerCase().includes('firma')) {
+      return "Firma Abogado";
+    }
+    return "Respuesta Abogado";
+  } else if (file.responseType === "user") {
+    // Si es del usuario, verificar si es firma o respuesta
+    if (file.filename && file.filename.toLowerCase().includes('firma')) {
+      return "Firma Usuario";
+    }
+    return "Respuesta Usuario";
+  }
+
+  // Último fallback: intentar inferir del nombre del archivo
+  if (file.filename) {
+    const lowerFilename = file.filename.toLowerCase();
+    if (lowerFilename.includes('firma')) {
+      return file.responseType === "lawyer" ? "Firma Abogado" : "Firma Usuario";
+    }
+    if (lowerFilename.includes('respuesta')) {
+      return file.responseType === "lawyer" ? "Respuesta Abogado" : "Respuesta Usuario";
+    }
+    if (lowerFilename.includes('contrato')) {
+      return "Contrato";
+    }
+    if (lowerFilename.includes('camara') || lowerFilename.includes('cámara')) {
+      return "Cámara";
+    }
+    if (lowerFilename.includes('oferta')) {
+      return "Oferta";
+    }
+  }
+
+  return "Archivo";
 };
 
 const formatContractType = (contractType) => {
   if (!contractType) return "";
-  
-  // Map of contract types to their proper Spanish display names
+
   const contractTypeMap = {
     'prestacion_de_servicios': 'Prestación de Servicios',
-    'compra_venta': 'Compra Venta',
-    'arrendamiento': 'Arrendamiento',
-    'licencia': 'Licencia',
-    'concesion': 'Concesión',
-    'suministro': 'Suministro',
-    'obra_civil': 'Obra Civil',
-    'consultoria': 'Consultoría',
-    'mantenimiento': 'Mantenimiento',
-    'transporte': 'Transporte',
-    'seguridad': 'Seguridad',
-    'limpieza': 'Limpieza',
-    'catering': 'Catering',
-    'tecnologia': 'Tecnología',
-    'marketing': 'Marketing',
-    'legal': 'Legal',
-    'contable': 'Contable',
-    'medica': 'Médica',
-    'educativa': 'Educativa',
-    'otro': 'Otro'
   };
-  
+
   // If it's in our map, return the formatted version
   if (contractTypeMap[contractType.toLowerCase()]) {
     return contractTypeMap[contractType.toLowerCase()];
   }
-  
+
   // Otherwise, format it by replacing underscores with spaces and capitalizing
   return contractType
     .replace(/_/g, ' ')
@@ -450,22 +380,47 @@ const formatContractType = (contractType) => {
 const ContractFullDetail = ({ contract }) => {
   const [contractFiles, setContractFiles] = useState([]);
   const [contractHistory, setContractHistory] = useState([]);
-  const [historyOrder, setHistoryOrder] = useState("oldest");
   const [otrosi, setOtrosi] = useState([]);
-  const [otrosiLoading, setOtrosiLoading] = useState(true);
+  const [_otrosiLoading, setOtrosiLoading] = useState(true);
   const [otrosiFiles, setOtrosiFiles] = useState({}); // Para almacenar archivos de cada otrosí
   const { user } = useAuth();
-  
+
+  // Hook para manejar animación de descarga
+  const { isDownloading, downloadMessage, downloadWithAnimation } = useDownload();
+
+  // Función para identificar comentarios generados automáticamente por el sistema
+  const isSystemGeneratedComment = (comment) => {
+    if (!comment || typeof comment !== 'string') return true;
+
+    try {
+      const systemPatterns = [
+        /Otrosí\s*#\d+\s*creado:\s*otrsi\s*\d+\.?\d*/i,
+        /Otrosí\s*#\d+\s*creado:\s*.*/i, // Patrón más general para creación de otrosí
+        /Firma\s+enviada/i,
+        /Respuesta\s+enviada/i,
+        /El\s+contrato\s+fue\s+creado\s+y\s+enviado\s+para\s+revisión/i,
+        /Contrato\s+creado/i,
+        /Estado\s+actualizado/i
+      ];
+
+      return systemPatterns.some(pattern => pattern.test(comment.trim()));
+    } catch (error) {
+      // En caso de error en regex, asumir que es comentario real
+      console.warn('Error evaluating comment pattern:', error);
+      return false;
+    }
+  };
+
   // Función para formatear fechas
   const formatDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible';
     try {
       return new Date(dateString).toLocaleDateString('es-CO');
-    } catch (error) {
+    } catch {
       return 'Fecha inválida';
     }
   };
-  
+
   // Función para devolver otrosí
   const handleReturnOtrosi = async (otrosiId) => {
     const comentariosAbogado = prompt('Ingrese los comentarios para la devolución del otrosí:');
@@ -473,7 +428,7 @@ const ContractFullDetail = ({ contract }) => {
       addNotification('Los comentarios son obligatorios para devolver un otrosí', 'error');
       return;
     }
-    
+
     try {
       await returnOtrosi(otrosiId, comentariosAbogado);
       addNotification('Otrosí devuelto exitosamente', 'success');
@@ -488,18 +443,18 @@ const ContractFullDetail = ({ contract }) => {
   const handleOtrosiAction = async (otrosiId, action, files = [], comment = '') => {
     try {
       await performOtrosiAction(otrosiId, action, files, comment);
-      addNotification(`Otrosí ${action === 'sign' ? 'firmado' : 
-                      'procesado'} exitosamente`, 'success');
+      addNotification(`Otrosí ${action === 'sign' ? 'firmado' :
+        'procesado'} exitosamente`, 'success');
       // Recargar la página para mostrar los cambios
       window.location.reload();
     } catch (error) {
       addNotification(`Error al ${action} el otrosí: ` + error.message, 'error');
     }
   };
-  
+
   const [filesToUpload, setFilesToUpload] = useState([]);
   const [comment, setComment] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [uploading, _setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [lawyerFilesToUpload, setLawyerFilesToUpload] = useState([]);
   const [lawyerComment, setLawyerComment] = useState("");
@@ -509,12 +464,10 @@ const ContractFullDetail = ({ contract }) => {
   const [signComment, setSignComment] = useState("");
   const [signUploading, setSignUploading] = useState(false);
   const [signError, setSignError] = useState(null);
-  const [signSuccess, setSignSuccess] = useState(null);
   const [returnComment, setReturnComment] = useState("");
   const [returnUploading, setReturnUploading] = useState(false);
   const [returnError, setReturnError] = useState(null);
-  const [returnSuccess, setReturnSuccess] = useState(null);
-  
+
   // Estados para los popups
   const [showResponder, setShowResponder] = useState(false);
   const [showLawyerResponder, setShowLawyerResponder] = useState(false);
@@ -526,20 +479,25 @@ const ContractFullDetail = ({ contract }) => {
 
 
   useEffect(() => {
-    getFiles(contract.id).then((files) => {
-      console.log('Files received:', files); // Debug para ver qué datos llegan
-      console.log('Archivos que podrían ser respuestas a otrosí:', files.filter(f => f.responseType === 'user'));
-      setContractFiles(files);
-    });
+    // Use files that are already included in the contract data
+    if (contract.files) {
+      console.log('📁 Using contract files from contract data:', contract.files);
+      console.log('📄 Files count:', contract.files.length);
+      console.log('📋 Files details:', contract.files.map(f => ({ id: f.id, filename: f.filename, category: f.category })));
+      setContractFiles(contract.files);
+    } else {
+      console.log('⚠️ No files property in contract data');
+      setContractFiles([]);
+    }
     getContractHistory(contract.id).then(setContractHistory);
-    
+
     // Cargar otrosí del contrato
     const loadOtrosi = async () => {
       try {
         setOtrosiLoading(true);
         const data = await getOtrosiByContract(contract.id);
         setOtrosi(data);
-        
+
         // Cargar archivos de cada otrosí
         const filesData = {};
         console.log('Otrosí encontrados:', data);
@@ -563,7 +521,7 @@ const ContractFullDetail = ({ contract }) => {
         setOtrosiLoading(false);
       }
     };
-    
+
     loadOtrosi();
   }, [contract.id]);
 
@@ -592,18 +550,18 @@ const ContractFullDetail = ({ contract }) => {
       action === "sign"
         ? setSignUploading
         : action === "return"
-        ? setReturnUploading
-        : user.role === "lawyer"
-        ? setLawyerUploading
-        : setSignUploading;
+          ? setReturnUploading
+          : user.role === "lawyer"
+            ? setLawyerUploading
+            : setSignUploading;
     const setError =
       action === "sign"
         ? setSignError
         : action === "return"
-        ? setReturnError
-        : user.role === "lawyer"
-        ? setLawyerUploadError
-        : setUploadError;
+          ? setReturnError
+          : user.role === "lawyer"
+            ? setLawyerUploadError
+            : setUploadError;
 
     setLoading(true);
     setError(null);
@@ -631,8 +589,8 @@ const ContractFullDetail = ({ contract }) => {
       const url = action === "sign"
         ? `http://localhost:3001/api/contracts/${contract.id}/sign`
         : action === "return"
-        ? `http://localhost:3001/api/contracts/${contract.id}/return`
-        : `http://localhost:3001/api/contracts/${contract.id}/respond`;
+          ? `http://localhost:3001/api/contracts/${contract.id}/return`
+          : `http://localhost:3001/api/contracts/${contract.id}/respond`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -674,32 +632,136 @@ const ContractFullDetail = ({ contract }) => {
   const handleReturn = () => handleContractAction("return", [], returnComment);
 
   const handleDownloadFileBlob = async (fileId, filename) => {
-    try {
+    const downloadFunction = async () => {
+      console.log('🔍 Starting file download:', { fileId, filename });
+
       const response = await fetch(
-        `/api/contracts/${contract.id}/files/${fileId}/download`,
+        `/api/contracts/files/${fileId}/download`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         }
       );
-      if (!response.ok) throw new Error("Error downloading file");
 
+      console.log('📥 Download response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Download failed:', errorText);
+        throw new Error(`Error downloading file: ${response.status} ${response.statusText}`);
+      }
+
+      console.log('📄 Creating blob from response...');
       const blob = await response.blob();
+      console.log('✅ Blob created:', {
+        size: blob.size,
+        type: blob.type
+      });
+
+      // Check if blob is valid
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+
+      if (blob.type !== 'application/pdf') {
+        console.warn('⚠️ Unexpected blob type:', blob.type);
+      }
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = filename;
       link.click();
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error downloading file:", error);
-      addNotification("Error al descargar el archivo", "error");
-    }
+
+      console.log('✅ File download completed successfully');
+    };
+
+    await downloadWithAnimation(
+      downloadFunction,
+      `Descargando "${filename}"...`
+    );
   };
 
   const handleDownload = (file) => {
     handleDownloadFileBlob(file.id, file.filename);
+  };
+
+  const handleOtrosiFileDownload = async (fileId, filename) => {
+    const downloadFunction = async () => {
+      console.log('🔍 Starting otrosi file download:', { fileId, filename });
+
+      // Validate parameters
+      if (!fileId) {
+        console.error('❌ fileId is undefined or null');
+        throw new Error("ID de archivo no válido");
+      }
+
+      if (!filename) {
+        console.error('❌ filename is undefined or null');
+        throw new Error("Nombre de archivo no válido");
+      }
+
+      const response = await fetch(
+        `/api/otrosi/files/${fileId}/download`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      console.log('📥 Otrosi download response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Otrosi download failed:', errorText);
+        throw new Error(`Error downloading otrosi file: ${response.status} ${response.statusText}`);
+      }
+
+      console.log('📄 Creating blob from otrosi response...');
+      const blob = await response.blob();
+      console.log('✅ Otrosi blob created:', {
+        size: blob.size,
+        type: blob.type
+      });
+
+      // Check if blob is valid
+      if (blob.size === 0) {
+        throw new Error('Downloaded otrosi file is empty');
+      }
+
+      if (blob.type !== 'application/pdf') {
+        console.warn('⚠️ Unexpected otrosi blob type:', blob.type);
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ Otrosi file download completed successfully');
+    };
+
+    await downloadWithAnimation(
+      downloadFunction,
+      `Descargando "${filename}"...`
+    );
   };
 
 
@@ -717,10 +779,10 @@ const ContractFullDetail = ({ contract }) => {
           const isOtrosiContext = typeof contract.estado === 'string' && contract.estado.includes('otrosi');
           const visual = isOtrosiContext
             ? {
-                color: "bg-purple-600",
-                text: "text-white",
-                icon: <IconInfoCircle size={18} className="text-purple-100" />,
-              }
+              color: "bg-purple-600",
+              text: "text-white",
+              icon: <IconInfoCircle size={18} className="text-purple-100" />,
+            }
             : baseVisual;
           return (
             <Badge className={`${visual.color} ${visual.text} text-base gap-2 px-4 py-2`}>
@@ -729,7 +791,7 @@ const ContractFullDetail = ({ contract }) => {
             </Badge>
           );
         })()}
-        
+
         {/* Número de Radicado */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-600 dark:text-muted-foreground">
@@ -748,9 +810,9 @@ const ContractFullDetail = ({ contract }) => {
           {Array.isArray(contract.viewers) && contract.viewers.length > 0 ? (
             <div className="flex gap-1 flex-wrap">
               {contract.viewers.slice(0, 3).map((viewer) => (
-                <Badge 
-                  key={viewer.id} 
-                  variant="secondary" 
+                <Badge
+                  key={viewer.id}
+                  variant="secondary"
                   className="text-xs px-2 py-1"
                 >
                   {viewer.firstName} {viewer.lastName}
@@ -770,139 +832,135 @@ const ContractFullDetail = ({ contract }) => {
         </div>
       </div>
 
+      {/* Botón para crear Otrosí - Solo usuario regular y contrato firmado */}
+      {user?.role === 'regular' && contract.estado === "signed" && (
+        <div className="mb-8">
+          <Button
+            onClick={() => navigate(`/otrosi/${contract.id}`)}
+            variant="info"
+            className="flex items-center gap-3 bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <IconPlus size={20} />
+            Crear Otrosí
+          </Button>
+        </div>
+      )}
 
-
-
-
-        {/* Botón para crear Otrosí - Solo usuario regular y contrato firmado */}
-        {user?.role === 'regular' && contract.estado === "signed" && (
+      {/* Botón Responder para usuarios regulares en awaiting_user_response, returned o otrosi_awaiting_user_response */}
+      {user?.role === "regular" &&
+        (contract.estado === "awaiting_user_response" ||
+          contract.estado === "returned" ||
+          contract.estado === "otrosi_awaiting_user_response" ||
+          contract.estado === "otrosi_awaiting_signature") && (
           <div className="mb-8">
-                  <Button
-              onClick={() => navigate(`/otrosi/${contract.id}`)}
-              variant="info"
-              className="flex items-center gap-3 bg-purple-600 hover:bg-purple-700 text-white"
+            <Button
+              onClick={() => setShowResponder(!showResponder)}
+              variant="primary"
+              className="flex items-center gap-3"
             >
-              <IconPlus size={20} />
-              Crear Otrosí
-                  </Button>
+              <IconUpload size={20} />
+              Responder Contrato
+            </Button>
+
+            {/* Formulario inline de respuesta */}
+            {showResponder && (
+              <Card className="mt-4 border-2 border-blue-200 dark:border-blue-700">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <IconUpload size={20} className="text-blue-600" />
+                    Responder Contrato
+                  </CardTitle>
+                  <CardDescription>
+                    Sube archivos PDF y añade un comentario opcional
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Alert>
+                    <IconInfoCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Adjunta <span className="font-semibold">el archivo PDF (obligatorio)</span> y un comentario opcional.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm flex items-center gap-2">
+                      <IconUpload size={16} />
+                      Subir archivos PDF:
+                    </Label>
+                    <Input
+                      type="file"
+                      accept="application/pdf"
+                      multiple
+                      onChange={handleFileChange}
+                      disabled={uploading}
+                      className="text-sm"
+                    />
+                    {filesToUpload.length > 0 && (
+                      <div className="space-y-1">
+                        {filesToUpload.map((file, index) => (
+                          <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
+                            <IconFileText size={14} />
+                            <span className="truncate">{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Comentario (opcional):</Label>
+                    <Textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      rows={3}
+                      placeholder="Escribe tu comentario..."
+                      disabled={uploading}
+                      className="resize-none text-sm"
+                    />
+                  </div>
+
+                  {uploadError && (
+                    <Alert variant="destructive">
+                      <IconAlertTriangle className="h-4 w-4" />
+                      <AlertDescription className="text-sm">{uploadError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowResponder(false)}
+                      disabled={uploading}
+                      size="sm"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleRespond}
+                      disabled={uploading}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      {uploading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          <span>Enviando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <IconUpload size={16} />
+                          <span>Enviar respuesta</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
-        {/* Botón Responder para usuarios regulares en awaiting_user_response, returned o otrosi_awaiting_user_response */}
-        {user?.role === "regular" &&
-          (contract.estado === "awaiting_user_response" ||
-            contract.estado === "returned" ||
-            contract.estado === "otrosi_awaiting_user_response" ||
-            contract.estado === "otrosi_awaiting_signature") && (
-            <div className="mb-8">
-              <Button
-                onClick={() => setShowResponder(!showResponder)}
-                variant="primary"
-                className="flex items-center gap-3"
-              >
-                <IconUpload size={20} />
-                Responder Contrato
-              </Button>
-              
-              {/* Formulario inline de respuesta */}
-              {showResponder && (
-                <Card className="mt-4 border-2 border-blue-200 dark:border-blue-700">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <IconUpload size={20} className="text-blue-600" />
-                      Responder Contrato
-                    </CardTitle>
-                    <CardDescription>
-                      Sube archivos PDF y añade un comentario opcional
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Alert>
-                      <IconInfoCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Adjunta <span className="font-semibold">el archivo PDF (obligatorio)</span> y un comentario opcional.
-                      </AlertDescription>
-                    </Alert>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm flex items-center gap-2">
-                        <IconUpload size={16} />
-                        Subir archivos PDF:
-                      </Label>
-                      <Input
-                        type="file"
-                        accept="application/pdf"
-                        multiple
-                        onChange={handleFileChange}
-                        disabled={uploading}
-                        className="text-sm"
-                      />
-                      {filesToUpload.length > 0 && (
-                        <div className="space-y-1">
-                          {filesToUpload.map((file, index) => (
-                            <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
-                              <IconFileText size={14} />
-                              <span className="truncate">{file.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm">Comentario (opcional):</Label>
-                      <Textarea
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        rows={3}
-                        placeholder="Escribe tu comentario..."
-                        disabled={uploading}
-                        className="resize-none text-sm"
-                      />
-                    </div>
-
-                    {uploadError && (
-                      <Alert variant="destructive">
-                        <IconAlertTriangle className="h-4 w-4" />
-                        <AlertDescription className="text-sm">{uploadError}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    <div className="flex gap-2 pt-4">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowResponder(false)}
-                        disabled={uploading}
-                        size="sm"
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        onClick={handleRespond}
-                        disabled={uploading}
-                        size="sm"
-                        className="gap-2"
-                      >
-                        {uploading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                            <span>Enviando...</span>
-                          </>
-                        ) : (
-                          <>
-                            <IconUpload size={16} />
-                            <span>Enviar respuesta</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-        )}
-
-        {/* Botón Responder para abogados en estado new */}
+      {/* Botón Responder para abogados en estado new */}
       {user?.role === "lawyer" && contract.estado === "new" && (
         <div className="mb-8">
           <Button
@@ -913,7 +971,7 @@ const ContractFullDetail = ({ contract }) => {
             <IconUpload size={20} />
             Responder
           </Button>
-          
+
           {/* Formulario inline de respuesta para abogados */}
           {showLawyerResponder && (
             <Card className="mt-4 border-2 border-blue-200 dark:border-blue-700">
@@ -1012,11 +1070,11 @@ const ContractFullDetail = ({ contract }) => {
         </div>
       )}
 
-        {/* Botones Firmar y Devolver para abogados en awaiting_lawyer_review, signature_otrosi_already_signedByUser o otrosi_awaiting_lawyer_review */}
+      {/* Botones Firmar y Devolver para abogados en awaiting_lawyer_review, signature_otrosi_already_signedByUser o otrosi_awaiting_lawyer_review */}
       {user?.role === "lawyer" &&
-        (contract.estado === "awaiting_lawyer_review" || 
-         contract.estado === "signature_otrosi_already_signedByUser" ||
-         contract.estado === "otrosi_awaiting_lawyer_review") && (
+        (contract.estado === "awaiting_lawyer_review" ||
+          contract.estado === "signature_otrosi_already_signedByUser" ||
+          contract.estado === "otrosi_awaiting_lawyer_review") && (
           <div className="mb-8">
             <div className="flex gap-4 flex-wrap mb-4">
               <Button
@@ -1036,7 +1094,7 @@ const ContractFullDetail = ({ contract }) => {
                 Devolver
               </Button>
             </div>
-            
+
             {/* Formulario inline de firma */}
             {showSignModal && (
               <Card className="mt-4 border-2 border-green-200 dark:border-green-700">
@@ -1132,7 +1190,7 @@ const ContractFullDetail = ({ contract }) => {
                 </CardContent>
               </Card>
             )}
-            
+
             {/* Formulario inline de devolución */}
             {showReturnModal && (
               <Card className="mt-4 border-2 border-orange-200 dark:border-orange-700">
@@ -1210,7 +1268,7 @@ const ContractFullDetail = ({ contract }) => {
           </div>
         )}
 
-                {/* Botón Firmar para usuarios regulares en awaiting_signature */}
+      {/* Botón Firmar para usuarios regulares en awaiting_signature */}
       {user?.role === "regular" &&
         contract.estado === "awaiting_signature" && (
           <div className="mb-8">
@@ -1222,7 +1280,7 @@ const ContractFullDetail = ({ contract }) => {
               <IconSignature size={20} />
               Firmar Contrato
             </Button>
-            
+
             {/* Formulario inline de firma para usuarios */}
             {showSignModal && (
               <Card className="mt-4 border-2 border-green-200 dark:border-green-700">
@@ -1323,30 +1381,30 @@ const ContractFullDetail = ({ contract }) => {
 
       {/* Detalles del contrato organizados en columnas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-8 items-start">
-        
+
         {/* COLUMNA 1: Información Básica + Información Financiera */}
         <div className="space-y-3">
-        {/* INFORMACIÓN BÁSICA */}
+          {/* INFORMACIÓN BÁSICA */}
           <Card className="border-2 border-gray-200 dark:border-gray-700 h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconFileText size={24} className="text-blue-400" />
-              Información Básica
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Descripción de la solicitud */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Descripción de la Solicitud
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base break-all">
-                {contract.descripcion}
-              </p>
-            </div>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconFileText size={24} className="text-blue-400" />
+                Información Básica
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Descripción de la solicitud */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Descripción de la Solicitud
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base break-all">
+                  {contract.descripcion}
+                </p>
+              </div>
 
               {/* Descripciones de todos los Otrosíes (si existen) */}
-            {otrosi.length > 0 && (
+              {otrosi.length > 0 && (
                 <div className="space-y-3">
                   {otrosi
                     .sort((a, b) => a.numeroOtrosi - b.numeroOtrosi) // Ordenar por número de otrosí
@@ -1355,17 +1413,16 @@ const ContractFullDetail = ({ contract }) => {
                         <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
                           Descripción del Otrosí #{otro.numeroOtrosi}
                         </span>
-                        <p className="mt-1 text-white dark:text-white text-base break-all">
+                        <p className="mt-1 text-gray-900 dark:text-white text-base break-all">
                           {otro.descripcionCambios}
                         </p>
                         <div className="mt-2 flex items-center gap-2">
-                          <Badge className={`text-xs ${
-                            otro.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                          <Badge className={`text-xs ${otro.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
                             otro.estado === 'otrosi_signed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
-                            otro.estado === 'rechazado' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
-                            otro.estado === 'firmado' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300'
-                          }`}>
+                              otro.estado === 'rechazado' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
+                                otro.estado === 'firmado' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300'
+                            }`}>
                             {getOtrosiEstadoLabelWithContext(otro)}
                           </Badge>
                           <span className="text-xs text-purple-600 dark:text-purple-400">
@@ -1375,165 +1432,164 @@ const ContractFullDetail = ({ contract }) => {
                       </div>
                     ))
                   }
+                </div>
+              )}
+
+              {/* Tipo de contrato */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Tipo de Contrato
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base">
+                  {formatContractType(contract.tipoContrato)}
+                </p>
               </div>
-            )}
+            </CardContent>
+          </Card>
 
-            {/* Tipo de contrato */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Tipo de Contrato
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base">
-                {formatContractType(contract.tipoContrato)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* INFORMACIÓN FINANCIERA ORIGINAL */}
+          {/* INFORMACIÓN FINANCIERA ORIGINAL */}
           <Card className="border-2 border-gray-200 dark:border-gray-700 h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconCurrencyDollar size={24} className="text-blue-400" />
-              Información Financiera Original
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Valor total del contrato */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Valor Total del Contrato
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base font-semibold">
-                {contract.valorSinIVA}
-              </p>
-            </div>
-
-            {/* Valor del IVA */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Valor del IVA
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base font-semibold">
-                {contract.valorIVA}
-              </p>
-            </div>
-
-            {/* Moneda */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Moneda
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base font-semibold">
-                {contract.moneda}
-              </p>
-            </div>
-
-            {/* Forma de pago */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Forma de Pago
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base break-all">
-                {contract.formaPago}
-              </p>
-            </div>
-
-            {/* Información Financiera de todos los Otrosíes (si existen) */}
-            {otrosi.length > 0 && (
-              <div className="space-y-3">
-                {otrosi
-                  .sort((a, b) => a.numeroOtrosi - b.numeroOtrosi) // Ordenar por número de otrosí
-                  .filter(otro => otro.valorTotal || otro.porcentajeIVA || otro.valorIVA || otro.moneda || otro.formaPago) // Solo mostrar otrosíes con información financiera
-                  .map((otro) => (
-                    <div key={`financial-${otro.id}`} className="p-4 rounded-xl bg-purple-50 dark:bg-purple-700/20 border border-purple-200 dark:border-purple-500/30">
-                      {/* Header del Otrosí */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                            Información Financiera - Otrosí #{otro.numeroOtrosi}
-                          </h4>
-                          <Badge className={`text-xs ${
-                            otro.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
-                            otro.estado === 'otrosi_signed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
-                            otro.estado === 'rechazado' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
-                            otro.estado === 'firmado' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300'
-                          }`}>
-                            {getOtrosiEstadoLabel(otro.estado)}
-                          </Badge>
-                        </div>
-                        <span className="text-xs text-purple-600 dark:text-purple-400">
-                          Creado: {otro.fechaCreacion ? new Date(otro.fechaCreacion).toLocaleDateString('es-CO') : 'N/A'}
-                        </span>
-                      </div>
-
-                      {/* Contenido financiero del otrosí */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Valor del contrato en el otrosí */}
-                        {otro.valorTotal && (
-                          <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                  <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                              Nuevo Valor Total del Contrato
-                  </span>
-                            <p className="mt-1 text-white dark:text-white text-base font-semibold">
-                              {otro.valorTotal}
-                  </p>
-                </div>
-              )}
-              
-                        {/* Porcentaje IVA del otrosí */}
-                        {otro.porcentajeIVA && (
-                          <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                  <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                              Nuevo Porcentaje del IVA
-                  </span>
-                            <p className="mt-1 text-white dark:text-white text-base font-semibold">
-                              {otro.porcentajeIVA}%
-                  </p>
-                </div>
-              )}
-              
-                        {/* IVA del otrosí */}
-                        {otro.valorIVA && (
-                          <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                  <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                              Nuevo Valor del IVA
-                  </span>
-                            <p className="mt-1 text-white dark:text-white text-base font-semibold">
-                              {otro.valorIVA}
-                  </p>
-                </div>
-                )}
-                
-                        {/* Moneda del otrosí */}
-                        {otro.moneda && (
-                          <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                              Nueva Moneda
-                    </span>
-                            <p className="mt-1 text-white dark:text-white text-base font-semibold">
-                              {otro.moneda}
-                    </p>
-                  </div>
-                )}
-                      </div>
-                      
-                      {/* Forma de pago del otrosí (ocupa todo el ancho) */}
-                      {otro.formaPago && (
-                        <div className="mt-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                          <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                            Nueva Forma de Pago
-                          </span>
-                          <p className="mt-1 text-white dark:text-white text-base break-all">
-                            {otro.formaPago}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                }
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconCurrencyDollar size={24} className="text-blue-400" />
+                Información Financiera Original
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Valor total del contrato */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Valor Total del Contrato
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base font-semibold">
+                  {contract.valorSinIVA}
+                </p>
               </div>
+
+              {/* Valor del IVA */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Valor del IVA
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base font-semibold">
+                  {contract.valorIVA}
+                </p>
+              </div>
+
+              {/* Moneda */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Moneda
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base font-semibold">
+                  {contract.moneda}
+                </p>
+              </div>
+
+              {/* Forma de pago */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Forma de Pago
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base break-all">
+                  {contract.formaPago}
+                </p>
+              </div>
+
+              {/* Información Financiera de todos los Otrosíes (si existen) */}
+              {otrosi.length > 0 && (
+                <div className="space-y-3">
+                  {otrosi
+                    .sort((a, b) => a.numeroOtrosi - b.numeroOtrosi) // Ordenar por número de otrosí
+                    .filter(otro => otro.valorTotal || otro.porcentajeIVA || otro.valorIVA || otro.moneda || otro.formaPago) // Solo mostrar otrosíes con información financiera
+                    .map((otro) => (
+                      <div key={`financial-${otro.id}`} className="p-4 rounded-xl bg-purple-50 dark:bg-purple-700/20 border border-purple-200 dark:border-purple-500/30">
+                        {/* Header del Otrosí */}
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                              Información Financiera - Otrosí #{otro.numeroOtrosi}
+                            </h4>
+                            <Badge className={`text-xs ${otro.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                              otro.estado === 'otrosi_signed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
+                                otro.estado === 'rechazado' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
+                                  otro.estado === 'firmado' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300'
+                              }`}>
+                              {getOtrosiEstadoLabel(otro.estado)}
+                            </Badge>
+                          </div>
+                          <span className="text-xs text-purple-600 dark:text-purple-400">
+                            Creado: {otro.fechaCreacion ? new Date(otro.fechaCreacion).toLocaleDateString('es-CO') : 'N/A'}
+                          </span>
+                        </div>
+
+                        {/* Contenido financiero del otrosí */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {/* Valor del contrato en el otrosí */}
+                          {otro.valorTotal && (
+                            <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                Nuevo Valor Total del Contrato
+                              </span>
+                              <p className="mt-1 text-gray-900 dark:text-white text-base font-semibold">
+                                {otro.valorTotal}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Porcentaje IVA del otrosí */}
+                          {otro.porcentajeIVA && (
+                            <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                Nuevo Porcentaje del IVA
+                              </span>
+                              <p className="mt-1 text-gray-900 dark:text-white text-base font-semibold">
+                                {otro.porcentajeIVA}%
+                              </p>
+                            </div>
+                          )}
+
+                          {/* IVA del otrosí */}
+                          {otro.valorIVA && (
+                            <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                Nuevo Valor del IVA
+                              </span>
+                              <p className="mt-1 text-gray-900 dark:text-white text-base font-semibold">
+                                {otro.valorIVA}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Moneda del otrosí */}
+                          {otro.moneda && (
+                            <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                Nueva Moneda
+                              </span>
+                              <p className="mt-1 text-gray-900 dark:text-white text-base font-semibold">
+                                {otro.moneda}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Forma de pago del otrosí (ocupa todo el ancho) */}
+                        {otro.formaPago && (
+                          <div className="mt-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                              Nueva Forma de Pago
+                            </span>
+                            <p className="mt-1 text-gray-900 dark:text-white text-base break-all">
+                              {otro.formaPago}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  }
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1554,7 +1610,7 @@ const ContractFullDetail = ({ contract }) => {
               <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
                 <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
                   Proveedor
-                </span> 
+                </span>
                 <p className="mt-1 text-gray-900 dark:text-foreground text-base break-all">
                   {contract.proveedor}
                 </p>
@@ -1603,178 +1659,177 @@ const ContractFullDetail = ({ contract }) => {
             </CardContent>
           </Card>
 
-        {/* FECHAS Y VIGENCIA */}
-        <Card className="border-2 border-gray-200 dark:border-gray-700 h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconCalendar size={24} className="text-orange-400" />
-              Fechas y Vigencia
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Fecha de ingreso del contrato */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Fecha de Ingreso del Contrato
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base">
-                {formatDate(contract.fechaIngreso)}
-              </p>
-            </div>
-
-            {/* Fecha de inicio del contrato */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Fecha de Inicio del Contrato
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base">
-                {formatDate(contract.fechaInicio)}
-              </p>
-            </div>
-
-            {/* Fecha final del contrato */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Fecha Final del Contrato
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base">
-                {formatDate(contract.fechaFinal)}
-              </p>
-            </div>
-
-            {/* Duración del contrato */}
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
-              <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                Duración del Contrato
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-foreground text-base">
-                {contract.duracion} días
-              </p>
-            </div>
-
-            {/* Fechas de todos los Otrosíes (si existen) */}
-            {otrosi.length > 0 && (
-              <div className="space-y-3">
-                {otrosi
-                  .sort((a, b) => a.numeroOtrosi - b.numeroOtrosi) // Ordenar por número de otrosí
-                  .filter(otro => otro.fechaInicio || otro.fechaFinal) // Solo mostrar otrosíes con fechas
-                  .map((otro) => (
-                    <div key={`dates-${otro.id}`} className="p-4 rounded-xl bg-purple-50 dark:bg-purple-700/20 border border-purple-200 dark:border-purple-500/30">
-                      {/* Header del Otrosí */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                            Fechas y Vigencia - Otrosí #{otro.numeroOtrosi}
-                          </h4>
-                          <Badge className={`text-xs ${
-                            otro.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
-                            otro.estado === 'otrosi_signed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
-                            otro.estado === 'rechazado' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
-                            otro.estado === 'firmado' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300'
-                          }`}>
-                            {getOtrosiEstadoLabel(otro.estado)}
-                          </Badge>
-                        </div>
-                        <span className="text-xs text-purple-600 dark:text-purple-400">
-                          Creado: {otro.fechaCreacion ? new Date(otro.fechaCreacion).toLocaleDateString('es-CO') : 'N/A'}
-                        </span>
-                      </div>
-
-                      {/* Contenido de fechas del otrosí */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Fecha de inicio del otrosí */}
-                        {otro.fechaInicio && (
-                          <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                              Nueva Fecha de Inicio
-                    </span>
-                            <p className="mt-1 text-white dark:text-white text-base">
-                              {formatDate(otro.fechaInicio)}
-                    </p>
-                  </div>
-                )}
-                
-                        {/* Fecha final del otrosí */}
-                        {otro.fechaFinal && (
-                          <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                              Nueva Fecha Final
-                    </span>
-                            <p className="mt-1 text-white dark:text-white text-base">
-                              {formatDate(otro.fechaFinal)}
-                    </p>
-                  </div>
-                )}
-                      </div>
-                      
-                      {/* Duración modificada si se calculó (ocupa todo el ancho) */}
-                      {otro.fechaInicio && otro.fechaFinal && (
-                        <div className="mt-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
-                          <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                            Nueva Duración del Contrato
-                          </span>
-                          <p className="mt-1 text-white dark:text-white text-base">
-                            {Math.ceil((new Date(otro.fechaFinal) - new Date(otro.fechaInicio)) / (1000 * 60 * 60 * 24))} días
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                }
+          {/* FECHAS Y VIGENCIA */}
+          <Card className="border-2 border-gray-200 dark:border-gray-700 h-fit">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconCalendar size={24} className="text-orange-400" />
+                Fechas y Vigencia
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Fecha de ingreso del contrato */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Fecha de Ingreso del Contrato
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base">
+                  {formatDate(contract.fechaIngreso)}
+                </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {/* Fecha de inicio del contrato */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Fecha de Inicio del Contrato
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base">
+                  {formatDate(contract.fechaInicio)}
+                </p>
+              </div>
+
+              {/* Fecha final del contrato */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Fecha Final del Contrato
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base">
+                  {formatDate(contract.fechaFinal)}
+                </p>
+              </div>
+
+              {/* Duración del contrato */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  Duración del Contrato
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base">
+                  {contract.duracion} días
+                </p>
+              </div>
+
+              {/* Fechas de todos los Otrosíes (si existen) */}
+              {otrosi.length > 0 && (
+                <div className="space-y-3">
+                  {otrosi
+                    .sort((a, b) => a.numeroOtrosi - b.numeroOtrosi) // Ordenar por número de otrosí
+                    .filter(otro => otro.fechaInicio || otro.fechaFinal) // Solo mostrar otrosíes con fechas
+                    .map((otro) => (
+                      <div key={`dates-${otro.id}`} className="p-4 rounded-xl bg-purple-50 dark:bg-purple-700/20 border border-purple-200 dark:border-purple-500/30">
+                        {/* Header del Otrosí */}
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                              Fechas y Vigencia - Otrosí #{otro.numeroOtrosi}
+                            </h4>
+                            <Badge className={`text-xs ${otro.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                              otro.estado === 'otrosi_signed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
+                                otro.estado === 'rechazado' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
+                                  otro.estado === 'firmado' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300'
+                              }`}>
+                              {getOtrosiEstadoLabel(otro.estado)}
+                            </Badge>
+                          </div>
+                          <span className="text-xs text-purple-600 dark:text-purple-400">
+                            Creado: {otro.fechaCreacion ? new Date(otro.fechaCreacion).toLocaleDateString('es-CO') : 'N/A'}
+                          </span>
+                        </div>
+
+                        {/* Contenido de fechas del otrosí */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {/* Fecha de inicio del otrosí */}
+                          {otro.fechaInicio && (
+                            <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                Nueva Fecha de Inicio
+                              </span>
+                              <p className="mt-1 text-gray-900 dark:text-white text-base">
+                                {formatDate(otro.fechaInicio)}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Fecha final del otrosí */}
+                          {otro.fechaFinal && (
+                            <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                Nueva Fecha Final
+                              </span>
+                              <p className="mt-1 text-gray-900 dark:text-white text-base">
+                                {formatDate(otro.fechaFinal)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Duración modificada si se calculó (ocupa todo el ancho) */}
+                        {otro.fechaInicio && otro.fechaFinal && (
+                          <div className="mt-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-purple-200/50 dark:border-purple-500/50">
+                            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                              Nueva Duración del Contrato
+                            </span>
+                            <p className="mt-1 text-gray-900 dark:text-white text-base">
+                              {Math.ceil((new Date(otro.fechaFinal) - new Date(otro.fechaInicio)) / (1000 * 60 * 60 * 24))} días
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
       {/* Archivos del Contrato Principal */}
       <div className="mb-6">
-                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-           <IconFileText className="w-5 h-5 text-blue-600" />
-           Archivos del Contrato Principal
-         </h3>
-        
-                 {/* Información sobre tipos de archivos */}
-         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-           <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-             <strong>💡 Información:</strong> Cada archivo está categorizado por tipo específico para facilitar su identificación.
-           </p>
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-             <div className="flex items-center gap-2">
-               <Badge className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">Contrato</Badge>
-             </div>
-             <div className="flex items-center gap-2">
-               <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Cámara</Badge>
-             </div>
-             <div className="flex items-center gap-2">
-               <Badge className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">Oferta</Badge>
-             </div>
-             <div className="flex items-center gap-2">
-               <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Abogado</Badge>
-             </div>
-             <div className="flex items-center gap-2">
-               <Badge className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">Usuario</Badge>
-             </div>
-             <div className="flex items-center gap-2">
-               <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Firma</Badge>
-             </div>
-             <div className="flex items-center gap-2">
-               <Badge className="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">Contable</Badge>
-             </div>
-           </div>
-           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-             Los archivos de otrosí se muestran en la sección específica más abajo.
-              </p>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <IconFileText className="w-5 h-5 text-blue-600" />
+          Archivos del Contrato Principal
+        </h3>
+
+        {/* Información sobre tipos de archivos */}
+        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+            <strong>💡 Información:</strong> Cada archivo está categorizado por tipo específico para facilitar su identificación.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">Contrato</Badge>
             </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Cámara</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">Oferta</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Abogado</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">Usuario</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Firma</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">Contable</Badge>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Los archivos de otrosí se muestran en la sección específica más abajo.
+          </p>
+        </div>
 
         {/* Lista de archivos */}
         {contractFiles
           .filter(file => {
             // Excluir archivos que son respuestas a otrosí devuelto
-            const isResponseToReturnedOtrosi = otrosi.some(otro => 
-              otro.estado === 'devuelto' && 
-              file.responseType === 'user' && 
+            const isResponseToReturnedOtrosi = otrosi.some(otro =>
+              otro.estado === 'devuelto' &&
+              file.responseType === 'user' &&
               file.created_at > otro.fechaDevolucion
             );
             return !isResponseToReturnedOtrosi;
@@ -1784,89 +1839,88 @@ const ContractFullDetail = ({ contract }) => {
             {contractFiles
               .filter(file => {
                 // Excluir archivos que son respuestas a otrosí devuelto
-                const isResponseToReturnedOtrosi = otrosi.some(otro => 
-                  otro.estado === 'devuelto' && 
-                  file.responseType === 'user' && 
+                const isResponseToReturnedOtrosi = otrosi.some(otro =>
+                  otro.estado === 'devuelto' &&
+                  file.responseType === 'user' &&
                   file.created_at > otro.fechaDevolucion
                 );
                 return !isResponseToReturnedOtrosi;
               })
               .map((file) => (
-              <Card key={file.id} className="hover:shadow-lg transition-shadow duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <IconFileText className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {file.filename}
-              </span>
-            </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0">
-                  {/* Tipo de archivo principal - Badge con colores específicos por categoría */}
-                  <div className="mb-3">
-                    <Badge className={`text-xs px-3 py-1 border ${
-                      getFileTypeLabel(file) === 'Contrato' 
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-600' :
-                      getFileTypeLabel(file) === 'Cámara'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-600' :
-                      getFileTypeLabel(file) === 'Oferta'
-                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-600' :
-                      getFileTypeLabel(file) === 'Respuesta Abogado'
-                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-600' :
-                      getFileTypeLabel(file) === 'Respuesta Usuario'
-                        ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-600' :
-                      getFileTypeLabel(file) === 'Firma Abogado' || getFileTypeLabel(file) === 'Firma Usuario'
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
-                      getFileTypeLabel(file) === 'Contable'
-                        ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300 border-teal-200 dark:border-teal-600' :
-                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600'
-                    }`}>
-                      {getFileTypeLabel(file)}
-                    </Badge>
-                  </div>
-                  
-                  {/* Información del archivo */}
-                  <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                                         <div className="flex items-center gap-2">
-                       <IconUser className="w-4 h-4" />
-                       <span>
-                         {file.responseType === "lawyer" ? "Abogado" : "Usuario"}
-              </span>
-            </div>
-
-                     <div className="flex items-center gap-2">
-                       <IconCalendar className="w-4 h-4" />
-                       <span>
-                         {file.created_at ? formatDate(file.created_at) : "Sin fecha"}
-              </span>
+                <Card key={file.id} className="hover:shadow-lg transition-shadow duration-200">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <IconFileText className="w-5 h-5 text-blue-600" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {file.filename}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-                
-                <CardFooter className="pt-0">
-                                     <Button 
-                     onClick={() => handleDownload(file)} 
-                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                     size="sm"
-                   >
-                     <IconDownload className="w-4 h-4 mr-2" />
-                     Descargar
-                   </Button>
-                </CardFooter>
-              </Card>
-                  ))}
-                </div>
-              ) : (
-                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-             <IconFileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-             <p>No hay archivos adjuntos al contrato principal</p>
-           </div>
-              )}
-            </div>
-      
+                  </CardHeader>
+
+                  <CardContent className="pt-0">
+                    {/* Tipo de archivo principal - Badge con colores específicos por categoría */}
+                    <div className="mb-3">
+                      <Badge className={`text-xs px-3 py-1 border ${getFileTypeLabel(file) === 'Contrato'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-600' :
+                        getFileTypeLabel(file) === 'Cámara'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-600' :
+                          getFileTypeLabel(file) === 'Oferta'
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-600' :
+                            getFileTypeLabel(file) === 'Respuesta Abogado'
+                              ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-600' :
+                              getFileTypeLabel(file) === 'Respuesta Usuario'
+                                ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-600' :
+                                getFileTypeLabel(file) === 'Firma Abogado' || getFileTypeLabel(file) === 'Firma Usuario'
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
+                                  getFileTypeLabel(file) === 'Contable'
+                                    ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300 border-teal-200 dark:border-teal-600' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+                        }`}>
+                        {getFileTypeLabel(file)}
+                      </Badge>
+                    </div>
+
+                    {/* Información del archivo */}
+                    <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <IconUser className="w-4 h-4" />
+                        <span>
+                          {file.responseType === "lawyer" ? "Abogado" : "Usuario"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <IconCalendar className="w-4 h-4" />
+                        <span>
+                          {file.created_at ? formatDate(file.created_at) : "Sin fecha"}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="pt-0">
+                    <Button
+                      onClick={() => handleDownload(file)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      size="sm"
+                    >
+                      <IconDownload className="w-4 h-4 mr-2" />
+                      Descargar
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <IconFileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p>No hay archivos adjuntos al contrato principal</p>
+          </div>
+        )}
+      </div>
+
       {/* Archivos y Comentarios de todos los Otrosíes - Ocupan todo el ancho */}
       {otrosi.length > 0 && (
         <div className="mt-8 mb-6">
@@ -1876,21 +1930,21 @@ const ContractFullDetail = ({ contract }) => {
               📋 Archivos y Comentarios de Otrosíes
             </Badge>
             <div className="h-px bg-gradient-to-l from-purple-200 to-transparent flex-1" />
-      </div>
-          
+          </div>
+
           {/* Nota informativa sobre respuestas */}
           <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-600">
             <p className="text-sm text-purple-700 dark:text-purple-300">
               💡 <strong>Información importante:</strong> Los archivos de otrosí se muestran desde la tabla OtrosiFile específica para cada otrosí. Las respuestas del usuario a otrosíes devueltos aparecen en la sección específica de cada otrosí, no en la sección principal de archivos del contrato.
             </p>
           </div>
-          
+
           {/* Mostrar cada otrosí con todos sus archivos y comentarios */}
           {otrosi
             .sort((a, b) => a.numeroOtrosi - b.numeroOtrosi)
             .map((otro) => (
-              <div 
-                key={`otrosi-${otro.id}`} 
+              <div
+                key={`otrosi-${otro.id}`}
                 className="mb-6 p-4 bg-gradient-to-r from-purple-50/80 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/30 rounded-lg border-2 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md transition-all duration-200"
               >
                 {/* Header del Otrosí */}
@@ -1903,16 +1957,16 @@ const ContractFullDetail = ({ contract }) => {
                       <h3 className="text-lg font-bold text-purple-900 dark:text-purple-100">
                         Otrosí #{otro.numeroOtrosi}
                       </h3>
-                                              <p className="text-sm text-purple-700 dark:text-purple-300">
-                          Estado: {otro.estado === 'pendiente' ? '⏳ Pendiente' :
-                                   otro.estado === 'otrosi_awaiting_user_response' ? '🔄 Esperando Respuesta del Usuario del Otrosí' :
-                                   otro.estado === 'otrosi_awaiting_lawyer_review' ? '👨‍💼 Esperando Revisión del Abogado' :
-                                   otro.estado === 'otrosi_awaiting_signature' ? '✍️ Esperando Firma' :
-                                   otro.estado === 'otrosi_signed' ? '✅ Firmado' :
-                                   otro.estado === 'otrosi_signed' ? '✅ Finalizado' :
-                                   otro.estado === 'rechazado' ? '❌ Rechazado' :
-                                   otro.estado === 'devuelto' ? '🔄 Devuelto' : otro.estado}
-                        </p>
+                      <p className="text-sm text-purple-700 dark:text-purple-300">
+                        Estado: {otro.estado === 'pendiente' ? '⏳ Pendiente' :
+                          otro.estado === 'otrosi_awaiting_user_response' ? '🔄 Esperando Respuesta del Usuario del Otrosí' :
+                            otro.estado === 'otrosi_awaiting_lawyer_review' ? '👨‍💼 Esperando Revisión del Abogado' :
+                              otro.estado === 'otrosi_awaiting_signature' ? '✍️ Esperando Firma' :
+                                otro.estado === 'otrosi_signed' ? '✅ Firmado' :
+                                  otro.estado === 'otrosi_signed' ? '✅ Finalizado' :
+                                    otro.estado === 'rechazado' ? '❌ Rechazado' :
+                                      otro.estado === 'devuelto' ? '🔄 Devuelto' : otro.estado}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1922,38 +1976,18 @@ const ContractFullDetail = ({ contract }) => {
                     <div className="flex items-center gap-2">
                       {/* Botón Devolver Otrosí */}
                       {user.role === 'lawyer' && ['pendiente', 'otrosi_awaiting_lawyer_review'].includes(otro.estado) && (
-                    <Button
+                        <Button
                           onClick={() => handleReturnOtrosi(otro.id)}
                           className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 text-sm"
                         >
                           🔄 Devolver Otrosí
                         </Button>
                       )}
-                      
 
-                      
-                      {/* Botón Firmar Otrosí */}
-                      {otro.estado === 'otrosi_awaiting_signature' && (
-                        <Button
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = '.pdf';
-                            input.multiple = true;
-                            input.onchange = (e) => {
-                              const files = Array.from(e.target.files);
-                              if (files.length > 0) {
-                                handleOtrosiAction(otro.id, 'sign', files);
-                              }
-                            };
-                            input.click();
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-sm"
-                        >
-                          ✍️ Firmar Otrosí
-                    </Button>
-                      )}
-                  </div>
+
+
+
+                    </div>
                   </div>
                 </div>
 
@@ -1963,7 +1997,7 @@ const ContractFullDetail = ({ contract }) => {
                     <IconFileText className="w-5 h-5 text-purple-600" />
                     Archivos del Otrosí #{otro.numeroOtrosi} (OtrosiFile)
                   </h3>
-                  
+
                   {/* Información sobre tipos de archivos */}
                   <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-600">
                     <p className="text-sm text-purple-700 dark:text-purple-300 mb-3">
@@ -2003,23 +2037,22 @@ const ContractFullDetail = ({ contract }) => {
                               </div>
                             </div>
                           </CardHeader>
-                          
+
                           <CardContent className="pt-0">
                             {/* Tipo de archivo principal - Badge con colores específicos por categoría */}
                             <div className="mb-3">
-                              <Badge className={`text-xs px-3 py-1 border ${
-                                (file.category === 'Carta de Solicitud' || file.fileType === 'Carta de Solicitud') 
-                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-600' :
+                              <Badge className={`text-xs px-3 py-1 border ${(file.category === 'Carta de Solicitud' || file.fileType === 'Carta de Solicitud')
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-600' :
                                 (file.category === 'Firma Usuario' || file.fileType === 'Firma Usuario')
                                   ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-600' :
-                                (file.category === 'Firma Abogado' || file.fileType === 'Firma Abogado')
-                                  ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-600' :
-                                'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-600'
-                              }`}>
+                                  (file.category === 'Firma Abogado' || file.fileType === 'Firma Abogado')
+                                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-600' :
+                                    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-600'
+                                }`}>
                                 {file.category || file.fileType || 'Archivo'}
                               </Badge>
                             </div>
-                            
+
                             {/* Información del archivo */}
                             <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
                               <div className="flex items-center gap-2">
@@ -2037,16 +2070,10 @@ const ContractFullDetail = ({ contract }) => {
                               </div>
                             </div>
                           </CardContent>
-                          
+
                           <CardFooter className="pt-0">
-                            <Button 
-                              onClick={() => {
-                                const downloadUrl = `http://localhost:3001/uploads/${file.filepath.split('/').pop()}`;
-                                const link = document.createElement("a");
-                                link.href = downloadUrl;
-                                link.download = file.filename;
-                                link.click();
-                              }} 
+                            <Button
+                              onClick={() => handleOtrosiFileDownload(file.id, file.filename)}
                               className="w-full bg-purple-600 hover:bg-purple-700 text-white"
                               size="sm"
                             >
@@ -2098,12 +2125,12 @@ const ContractFullDetail = ({ contract }) => {
                   )}
 
                   {/* Estado de Otrosí Devuelto */}
-                                  {['otrosi_awaiting_user_response', 'devuelto'].includes(otro.estado) && (
-                  <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-600">
-                    <h5 className="font-semibold text-orange-900 dark:text-orange-100 mb-3 flex items-center gap-2">
-                      <IconRefresh size={16} className="text-orange-600 dark:text-orange-400" />
-                      Otrosí Requiere Respuesta del Usuario
-                    </h5>
+                  {['otrosi_awaiting_user_response', 'devuelto'].includes(otro.estado) && (
+                    <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-600">
+                      <h5 className="font-semibold text-orange-900 dark:text-orange-100 mb-3 flex items-center gap-2">
+                        <IconRefresh size={16} className="text-orange-600 dark:text-orange-400" />
+                        Otrosí Requiere Respuesta del Usuario
+                      </h5>
                       <p className="text-sm text-orange-700 dark:text-orange-300 mb-3">
                         El abogado ha devuelto este otrosí. El usuario debe responder con los cambios solicitados del otrosí.
                       </p>
@@ -2126,7 +2153,7 @@ const ContractFullDetail = ({ contract }) => {
                       <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
                         Archivos del usuario en respuesta al otrosí devuelto (desde OtrosiFile):
                       </p>
-                      
+
                       {/* Mostrar SOLO archivos de OtrosiFile para este otrosí */}
                       {otrosiFiles[otro.id] && otrosiFiles[otro.id].length > 0 ? (
                         otrosiFiles[otro.id].map((file) => (
@@ -2152,14 +2179,7 @@ const ContractFullDetail = ({ contract }) => {
                                 </div>
                               </div>
                               <Button
-                                onClick={() => {
-                                  // Construir URL de descarga para archivos de OtrosiFile
-                                  const downloadUrl = `http://localhost:3001/uploads/${file.filepath.split('/').pop()}`;
-                                  const link = document.createElement("a");
-                                  link.href = downloadUrl;
-                                  link.download = file.filename;
-                                  link.click();
-                                }}
+                                onClick={() => handleOtrosiFileDownload(file.id, file.filename)}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-sm"
                               >
                                 <IconDownload size={16} className="mr-1" />
@@ -2175,7 +2195,7 @@ const ContractFullDetail = ({ contract }) => {
                           </p>
                         </div>
                       )}
-                      
+
                       {/* Mensaje informativo sobre OtrosiFile */}
                       <div className="mt-3 p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-500">
                         <p className="text-xs text-blue-700 dark:text-blue-300">
@@ -2229,122 +2249,125 @@ const ContractFullDetail = ({ contract }) => {
         <CardContent>
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
             <p className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>💡 Información:</strong> Esta sección muestra los comentarios realizados durante el flujo normal del contrato (excluyendo respuestas a otrosí devuelto) 
+              <strong>💡 Información:</strong> Esta sección muestra los comentarios realizados durante el flujo normal del contrato (excluyendo respuestas a otrosí devuelto)
               (firmas, devoluciones, respuestas). Los comentarios de otrosí se muestran en la sección específica de otrosíes más arriba.
             </p>
           </div>
-          {contractHistory.filter(history => history.comment && history.comment.trim()).length === 0 ? (
-            <div className="text-muted-foreground">No hay comentarios aún.</div>
+          {contractHistory.filter(history =>
+            history.comment &&
+            history.comment.trim() &&
+            !isSystemGeneratedComment(history.comment)
+          ).length === 0 ? (
+            <div className="text-muted-foreground">No hay comentarios de usuarios disponibles.</div>
           ) : (
             <ul className="space-y-4">
               {contractHistory
-                .filter(history => history.comment && history.comment.trim())
+                .filter(history =>
+                  history.comment &&
+                  history.comment.trim() &&
+                  !isSystemGeneratedComment(history.comment)
+                )
                 .map((history) => (
-                <li key={history.id} className="p-4 bg-gray-50 dark:bg-muted rounded-lg border border-gray-300 dark:border-gray-600">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${
-                        history.action === 'sign' ? 'bg-green-500/20' :
-                        history.action === 'return' ? 'bg-orange-500/20' :
-                        history.action === 'respond' ? 'bg-blue-500/20' :
-                        'bg-gray-500/20'
-                      }`}>
-                        {history.action === 'sign' ? (
-                          <IconSignature size={16} className="text-green-400" />
-                        ) : history.action === 'return' ? (
-                          <IconRotate size={16} className="text-orange-400" />
-                        ) : history.action === 'respond' ? (
-                          <IconUpload size={16} className="text-blue-400" />
-                        ) : (
-                          <IconMessageCircle size={16} className="text-gray-400" />
-                        )}
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-900 dark:text-foreground">
-                          {getHistoryTitle(history)}
-                        </span>
-                        <div className="flex items-center gap-2 mt-1">
-                          {history.user && (
-                            <span className="text-xs text-gray-600 dark:text-muted-foreground">
-                              por {history.user.firstName} {history.user.lastName}
-                            </span>
-                          )}
-                          {history.user && (
-                            <Badge variant={history.user.role === 'lawyer' ? 'secondary' : 'default'} className="text-xs dark:text-black">
-                              {history.user.role === 'lawyer' ? 'Abogado' : 'Usuario'}
-                            </Badge>
+                  <li key={history.id} className="p-4 bg-gray-50 dark:bg-muted rounded-lg border border-gray-300 dark:border-gray-600">
+                    <div className="flex items-start justify-between mb-3 gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${history.action === 'sign' ? 'bg-green-500/20' :
+                          history.action === 'return' ? 'bg-orange-500/20' :
+                            history.action === 'respond' ? 'bg-blue-500/20' :
+                              'bg-gray-500/20'
+                          }`}>
+                          {history.action === 'sign' ? (
+                            <IconSignature size={16} className="text-green-400" />
+                          ) : history.action === 'return' ? (
+                            <IconRotate size={16} className="text-orange-400" />
+                          ) : history.action === 'respond' ? (
+                            <IconUpload size={16} className="text-blue-400" />
+                          ) : (
+                            <IconMessageCircle size={16} className="text-gray-400" />
                           )}
                         </div>
-                        {/* Resumen amigable del resultado */}
-                        {(history.oldStatus || history.newStatus) && (
-                          <div className="mt-1 text-xs text-gray-700 dark:text-muted-foreground">
-                            {history.action === 'sign' && history.newStatus === 'signed'
-                              ? 'El contrato quedó firmado.'
-                              : history.action === 'otrosi_signed'
-                                ? (() => {
+                        <div>
+                          <span className="font-medium text-gray-900 dark:text-foreground">
+                            {getHistoryTitle(history)}
+                          </span>
+                          <div className="flex items-center gap-2 mt-1">
+                            {history.user && (
+                              <span className="text-xs text-gray-600 dark:text-muted-foreground">
+                                por {history.user.firstName} {history.user.lastName}
+                              </span>
+                            )}
+                            {history.user && (
+                              <Badge variant={history.user.role === 'lawyer' ? 'secondary' : 'default'} className="text-xs dark:text-black">
+                                {history.user.role === 'lawyer' ? 'Abogado' : 'Usuario'}
+                              </Badge>
+                            )}
+                          </div>
+                          {/* Resumen amigable del resultado */}
+                          {(history.oldStatus || history.newStatus) && (
+                            <div className="mt-1 text-xs text-gray-700 dark:text-muted-foreground">
+                              {history.action === 'sign' && history.newStatus === 'signed'
+                                ? 'El contrato quedó firmado.'
+                                : history.action === 'otrosi_signed'
+                                  ? (() => {
                                     const n = extractOtrosiNumber(history.comment);
                                     return `El Otrosí${n ? ` #${n}` : ''} quedó firmado.`;
                                   })()
-                                : history.oldStatus && history.newStatus
-                                  ? `Pasó de ${getStatusHumanLabel(history.oldStatus)} a ${getStatusHumanLabel(history.newStatus)}.`
-                                  : history.newStatus
-                                    ? `Ahora está: ${getStatusHumanLabel(history.newStatus)}.`
-                                    : null}
-                          </div>
-                        )}
+                                  : history.oldStatus && history.newStatus
+                                    ? `Pasó de ${getStatusHumanLabel(history.oldStatus)} a ${getStatusHumanLabel(history.newStatus)}.`
+                                    : history.newStatus
+                                      ? `Ahora está: ${getStatusHumanLabel(history.newStatus)}.`
+                                      : null}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-600 dark:text-muted-foreground">
-                        {formatHistoryTimestamp(history.timestamp)}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-muted-foreground">
-                        {history.timestamp && !isNaN(new Date(history.timestamp).getTime()) 
-                          ? new Date(history.timestamp).toLocaleDateString('es-CO', {
+                      <div className="text-right flex-shrink-0 min-w-0">
+                        <div className="text-xs text-gray-600 dark:text-muted-foreground whitespace-nowrap">
+                          {formatHistoryTimestamp(history.timestamp)}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-muted-foreground whitespace-nowrap">
+                          {history.timestamp && !isNaN(new Date(history.timestamp).getTime())
+                            ? new Date(history.timestamp).toLocaleDateString('es-CO', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric'
                             })
-                          : 'Fecha no disponible'
-                        }
+                            : 'Fecha no disponible'
+                          }
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {history.comment && (
-                    <div className="text-sm leading-relaxed bg-white dark:bg-background p-3 rounded-lg border border-gray-200 dark:border-border text-gray-900 dark:text-black">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs border-blue-200 dark:border-blue-600">
-                          📋 Comentario del Contrato
-                        </Badge>
-                        <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300 text-xs border-gray-200 dark:border-gray-600">
-                          {history.action === 'sign' ? '✍️ Firma' :
-                           history.action === 'return' ? '🔄 Devolución' :
-                           history.action === 'respond' ? '📤 Respuesta' :
-                           '💬 Comentario'}
-                        </Badge>
+                    {history.comment && (
+                      <div className="text-sm leading-relaxed bg-white dark:bg-background p-3 rounded-lg border border-gray-200 dark:border-border text-gray-900 dark:text-black">
+                        <p className="text-gray-900 dark:text-black">{history.comment}</p>
                       </div>
-                      <p className="text-gray-900 dark:text-black">{history.comment}</p>
-                    </div>
-                  )}
-                  {history.files && history.files.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-border">
-                      <p className="text-xs text-gray-600 dark:text-muted-foreground mb-2">Archivos adjuntos:</p>
-                      <div className="space-y-1">
-                        {history.files.map((file, index) => (
-                          <div key={index} className="flex items-center gap-2 text-xs text-gray-700 dark:text-foreground">
-                            <IconFileText size={12} className="text-blue-400" />
-                            <span>{file.filename}</span>
-                          </div>
-                        ))}
+                    )}
+                    {history.files && history.files.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-border">
+                        <p className="text-xs text-gray-600 dark:text-muted-foreground mb-2">Archivos adjuntos:</p>
+                        <div className="space-y-1">
+                          {history.files.map((file, index) => (
+                            <div key={index} className="flex items-center gap-2 text-xs text-gray-700 dark:text-foreground">
+                              <IconFileText size={12} className="text-blue-400" />
+                              <span>{file.filename}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </li>
-              ))}
+                    )}
+                  </li>
+                ))}
             </ul>
           )}
         </CardContent>
       </Card>
+
+      {/* Animación de descarga */}
+      <DownloadingAnimation
+        isVisible={isDownloading}
+        message={downloadMessage}
+        size="medium"
+      />
     </div>
   );
 };

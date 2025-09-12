@@ -18,7 +18,7 @@ const auth = async (req, res, next) => {
     // Verify the token
     let decoded;
     try {
-      decoded = jwt.verify(token, 'your_jwt_secret');
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
     } catch (jwtError) {
       if (jwtError.name === 'TokenExpiredError') {
         return res.status(401).json({ 

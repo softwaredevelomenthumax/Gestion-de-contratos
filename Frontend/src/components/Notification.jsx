@@ -1,13 +1,25 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { CheckCircle, XCircle, X } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
+import Lottie from 'lottie-react';
+import paperplaneAnimation from '../assets/animations/paperplane.json';
 
 const Notification = ({ notification, onRemove }) => {
   const getIcon = () => {
     switch (notification.type) {
       case 'success':
-        return <CheckCircle className="h-5 w-5 text-green-400" />;
+        return (
+          <Lottie
+            animationData={paperplaneAnimation}
+            style={{
+              width: 100,
+              height: 100,
+            }}
+            loop={false}
+            autoplay={true}
+          />
+        );
       case 'error':
         return <XCircle className="h-5 w-5 text-red-400" />;
       default:
@@ -27,7 +39,7 @@ const Notification = ({ notification, onRemove }) => {
   };
 
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0, y: -50, scale: 0.3 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
@@ -45,7 +57,7 @@ const Notification = ({ notification, onRemove }) => {
           <X className="h-4 w-4" />
         </button>
       </div>
-    </motion.div>
+    </Motion.div>
   );
 };
 
