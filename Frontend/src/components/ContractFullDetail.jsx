@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import api from "../api/axiosInstance";
 import {
   IconFileText,
   IconInfoCircle,
@@ -585,26 +586,16 @@ const ContractFullDetail = ({ contract }) => {
       formData.append("comment", comment || "");
       formData.append("action", action);
 
-      // Route to the correct endpoint based on action
-      const url = action === "sign"
-        ? `http://localhost:3001/api/contracts/${contract.id}/sign`
+      // Call proper endpoint via shared axios client
+      const endpoint = action === "sign"
+        ? `/contracts/${contract.id}/sign`
         : action === "return"
-          ? `http://localhost:3001/api/contracts/${contract.id}/return`
-          : `http://localhost:3001/api/contracts/${contract.id}/respond`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: formData,
+          ? `/contracts/${contract.id}/return`
+          : `/contracts/${contract.id}/respond`;
+
+      const { data: result } = await api.post(endpoint, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error del servidor");
-      }
-
-      const result = await response.json();
       addNotification(result.message || "Operación exitosa", "success");
       // Cerrar el formulario correspondiente
       setShowResponder(false);

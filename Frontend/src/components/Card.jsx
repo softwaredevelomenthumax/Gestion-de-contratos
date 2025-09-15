@@ -1,6 +1,6 @@
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import api from '../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import * as React from "react"
 
@@ -127,9 +127,7 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
     
     const checkOtrosi = async () => {
       try {
-        const response = await axios.get(`http://localhost:3001/api/otrosi/contract/${contract.id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const response = await api.get(`/otrosi/contract/${contract.id}`);
         setHasOtrosi(response.data && response.data.length > 0);
       } catch (error) {
         console.log(error);
@@ -160,9 +158,7 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
   const handleCardClick = async () => {
     if (!contract?.id) return;
     try {
-      await axios.patch(`http://localhost:3001/api/contracts/${contract.id}/viewed`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      await api.patch(`/contracts/${contract.id}/viewed`);
     } catch { /* intentionally ignore error */ }
     if (user?.role === 'lawyer') {
       navigate(`/lawyer/contracts/${contract.id}`);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import api from "../api/axiosInstance";
 import {
   IconFileText,
   IconCurrencyDollar,
@@ -118,17 +119,9 @@ const OtrosiForm = () => {
   useEffect(() => {
     const fetchContract = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:3001/api/contracts/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const contractData = await response.json();
+        const response = await api.get(`/contracts/${id}`);
+        if (response && response.data) {
+          const contractData = response.data;
           setContract(contractData);
         } else {
           addNotification("Error al cargar el contrato", "error");
@@ -241,19 +234,14 @@ const OtrosiForm = () => {
         formDataToSend.append("firmarOtrosi", formData.firmarOtrosi);
       }
 
-      const response = await fetch(
-        `http://localhost:3001/api/otrosi`,
-        {
-          method: "POST",
-        headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-          body: formDataToSend,
-        }
+      const response = await api.post(
+        '/otrosi',
+        formDataToSend,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
       );
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response && response.data) {
+        const result = response.data;
         addNotification(`Otrosí creado exitosamente: ${result.message}`, "success");
         // Navigate based on user role
         if (user?.role === "lawyer") {
@@ -262,11 +250,7 @@ const OtrosiForm = () => {
           navigate(`/user/contracts/${id}`);
         }
       } else {
-        const errorData = await response.json();
-        addNotification(
-          errorData.error || "Error al enviar el otrosí",
-          "error"
-        );
+        addNotification("Error al enviar el otrosí", "error");
       }
     } catch (error) {
       console.error("Error submitting otrosi:", error);
