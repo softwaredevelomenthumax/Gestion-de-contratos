@@ -20,6 +20,7 @@ module.exports = {
     {
       name: 'contract-frontend',
       script: 'npm',
+      interpreter: 'none',
       args: 'run preview -- --host 0.0.0.0 --port 5173',
       cwd: 'C:\\Apps\\Gestion-de-contratos\\Frontend',
       instances: 1,
