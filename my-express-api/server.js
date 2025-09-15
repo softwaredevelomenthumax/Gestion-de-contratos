@@ -68,13 +68,24 @@ const upload = multer({
 });
 
 // Use CORS and JSON parsing middleware BEFORE your routes
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL || 'http://10.255.6.4:5173'
+].filter(Boolean);
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://10.255.6.4:5173'
-  ],
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser tools
+    const isAllowed = allowedOrigins.includes(origin);
+    callback(isAllowed ? null : new Error('Not allowed by CORS'), isAllowed);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Explicitly handle preflight
+app.options('*', cors());
 app.use(express.json());
 
 // Connect to SQL Server database
