@@ -25,32 +25,7 @@ jobs:
           git reset --hard origin/main
           git clean -fd
 
-      - name: Apply production API URL and codemods
-        env:
-          API_URL: http://10.255.6.4:3001/api
-        run: |
-          $projectRoot = 'C:\Apps\Gestion-de-contratos'
-          $files = @(
-            (Join-Path $projectRoot 'Frontend\src\pages\OtrosiForm.jsx'),
-            (Join-Path $projectRoot 'Frontend\src\components\Card.jsx'),
-            (Join-Path $projectRoot 'Frontend\src\components\ContractFullDetail.jsx'),
-            (Join-Path $projectRoot 'Frontend\src\api\profile.js'),
-            (Join-Path $projectRoot 'Frontend\src\api\axiosInstance.js'),
-            (Join-Path $projectRoot 'Frontend\vite.config.js')
-          )
-          foreach ($file in $files) {
-            if (Test-Path $file) {
-              (Get-Content $file -Raw) -replace 'http://localhost:3001/api', $env:API_URL |
-                Set-Content $file -Encoding UTF8
-            }
-          }
-          # Remove dev proxy target if present (not used in production)
-          $vite = Join-Path $projectRoot 'Frontend\vite.config.js'
-          if (Test-Path $vite) {
-            $content = Get-Content $vite -Raw
-            $content = $content -replace "target:\s*'http://localhost:3001',", ''
-            Set-Content $vite $content -Encoding UTF8
-          }
+      # Codemods removed: all API calls now go through axiosInstance
 
       - name: Install backend dependencies
         run: |
