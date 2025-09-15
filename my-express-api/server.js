@@ -67,16 +67,26 @@ const upload = multer({
   }
 });
 
-// Use CORS and JSON parsing middleware BEFORE your routes (permissive for corp network)
+// Use CORS and JSON parsing middleware BEFORE your routes (restrict to known frontends)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://10.255.6.4:5173'
+];
+
 app.use(cors({
-  origin: true, // reflect request origin
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Explicitly handle preflight
-app.options('*', cors());
+// Explicitly handle preflight in Express v5 without path patterns
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 app.use(express.json());
 
 // Connect to SQL Server database
