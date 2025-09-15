@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3001/api';
+// Use localhost during development and server IP in production builds
+const API_URL =
+  (import.meta && import.meta.env && import.meta.env.DEV)
+    ? 'http://localhost:3001/api'
+    : 'http://10.255.6.4:3001/api';
 
 const api = axios.create({
   baseURL: API_URL,
