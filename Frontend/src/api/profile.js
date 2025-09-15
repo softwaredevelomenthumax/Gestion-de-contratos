@@ -1,12 +1,12 @@
-import axios from 'axios';
+import api from './axiosInstance';
 
 export const getProfile = async () => {
-  const response = await axios.get('http://localhost:3001/api/profile');
+  const response = await api.get('/profile');
   return response.data;
 };
 
 export const updateProfile = async (profileData) => {
-  const response = await axios.put('http://localhost:3001/api/profile', profileData);
+  const response = await api.put('/profile', profileData);
   return response.data;
 };
 

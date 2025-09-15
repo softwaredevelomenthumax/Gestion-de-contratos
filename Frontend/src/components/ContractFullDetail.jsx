@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import api from "../api/axiosInstance";
 import {
   IconFileText,
   IconInfoCircle,
@@ -585,26 +586,16 @@ const ContractFullDetail = ({ contract }) => {
       formData.append("comment", comment || "");
       formData.append("action", action);
 
-      // Route to the correct endpoint based on action
-      const url = action === "sign"
-        ? `http://localhost:3001/api/contracts/${contract.id}/sign`
+      // Call proper endpoint via shared axios client
+      const endpoint = action === "sign"
+        ? `/contracts/${contract.id}/sign`
         : action === "return"
-          ? `http://localhost:3001/api/contracts/${contract.id}/return`
-          : `http://localhost:3001/api/contracts/${contract.id}/respond`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: formData,
+          ? `/contracts/${contract.id}/return`
+          : `/contracts/${contract.id}/respond`;
+
+      const { data: result } = await api.post(endpoint, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error del servidor");
-      }
-
-      const result = await response.json();
       addNotification(result.message || "Operación exitosa", "success");
       // Cerrar el formulario correspondiente
       setShowResponder(false);
@@ -635,13 +626,9 @@ const ContractFullDetail = ({ contract }) => {
     const downloadFunction = async () => {
       console.log('🔍 Starting file download:', { fileId, filename });
 
-      const response = await fetch(
-        `/api/contracts/files/${fileId}/download`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+      const response = await api.get(
+        `/contracts/files/${fileId}/download`,
+        { responseType: 'blob' }
       );
 
       console.log('📥 Download response:', {
@@ -652,14 +639,7 @@ const ContractFullDetail = ({ contract }) => {
         contentLength: response.headers.get('content-length')
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Download failed:', errorText);
-        throw new Error(`Error downloading file: ${response.status} ${response.statusText}`);
-      }
-
-      console.log('📄 Creating blob from response...');
-      const blob = await response.blob();
+      const blob = response.data;
       console.log('✅ Blob created:', {
         size: blob.size,
         type: blob.type
@@ -709,13 +689,9 @@ const ContractFullDetail = ({ contract }) => {
         throw new Error("Nombre de archivo no válido");
       }
 
-      const response = await fetch(
-        `/api/otrosi/files/${fileId}/download`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+      const response = await api.get(
+        `/otrosi/files/${fileId}/download`,
+        { responseType: 'blob' }
       );
 
       console.log('📥 Otrosi download response:', {
