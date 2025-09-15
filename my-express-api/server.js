@@ -68,7 +68,13 @@ const upload = multer({
 });
 
 // Use CORS and JSON parsing middleware BEFORE your routes
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://10.255.6.4:5173'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Connect to SQL Server database
