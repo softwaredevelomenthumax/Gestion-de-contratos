@@ -1,10 +1,18 @@
 import axios from 'axios';
 
-// Use localhost during development and server IP in production builds
-const API_URL =
-  (import.meta && import.meta.env && import.meta.env.DEV)
-    ? 'http://localhost:3001/api'
-    : 'http://10.255.6.4:3001/api';
+// Base URL que acepta dos hosts (OR): localhost o 10.255.6.4
+function getApiBaseUrl() {
+  const hostname = (typeof window !== 'undefined' && window.location)
+    ? window.location.hostname
+    : null;
+
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+  const targetHost = isLocal ? 'localhost' : '10.255.6.4';
+
+  return `http://${targetHost}:3001/api`;
+}
+
+const API_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_URL,
@@ -12,7 +20,6 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
 // Request interceptor to add the token to headers
 api.interceptors.request.use(
   (config) => {
