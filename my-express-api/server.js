@@ -67,18 +67,9 @@ const upload = multer({
   }
 });
 
-// Use CORS and JSON parsing middleware BEFORE your routes
-const allowedOrigins = [
-  'http://localhost:5173',
-  process.env.FRONTEND_URL || 'http://10.255.6.4:5173'
-].filter(Boolean);
-
+// Use CORS and JSON parsing middleware BEFORE your routes (permissive for corp network)
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow non-browser tools
-    const isAllowed = allowedOrigins.includes(origin);
-    callback(isAllowed ? null : new Error('Not allowed by CORS'), isAllowed);
-  },
+  origin: true, // reflect request origin
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
