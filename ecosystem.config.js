@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'contract-api',
       script: 'server.js',
-      cwd: '\\\\SVR2\\Users\\miguel.isaza\\App',
+      cwd: 'C:\\Apps\\Gestion-de-contratos\\my-express-api',
       instances: 1,
       autorestart: true,
       watch: false,
@@ -20,8 +20,8 @@ module.exports = {
     {
       name: 'contract-frontend',
       script: 'npm',
-      args: 'run preview',
-      cwd: '\\\\SVR2\\Users\\miguel.isaza\\App\\Frontend',
+      args: 'run preview -- --host 0.0.0.0 --port 5173',
+      cwd: 'C:\\Apps\\Gestion-de-contratos\\Frontend',
       instances: 1,
       autorestart: true,
       watch: false,
