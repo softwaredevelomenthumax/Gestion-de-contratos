@@ -96,28 +96,28 @@ Accesos:
 ```powershell
 # 1) Obtener última versión
 cd C:\Apps\Gestion-de-contratos
-git fetch --all
+git fetch --all --prune
 git checkout main
-git pull --ff-only
-# Si falla por cambios locales:
-# Opción A (descartar todo lo no comprometido en el servidor)
-# git reset --hard origin/main
-# Opción B (guardar trabajo local y traer cambios)
-# git stash push --include-untracked -m "pre-deploy"
-# git pull --ff-only
+git reset --hard origin/main
+git clean -fd      # elimina archivos y carpetas no rastreados
+# Si aún ves basura generada/ignorados (por ejemplo de build), usa:
+# git clean -fdx   # incluye ignorados (.gitignore). Más agresivo.
 
 # 2) Backend: instalar y reiniciar
 cd C:\Apps\Gestion-de-contratos\my-express-api
-npm install --production
-pm2 restart contract-api
+pm2 delete contract-api
+npm i 
+pm2 start server.js --name contract-api --cwd "C:\software\Gestion-de-contratos\my-express-api" --time
 pm2 logs contract-api --lines 50
-
+pm2 save
 # 3) Frontend: build y recarga
 cd C:\Apps\Gestion-de-contratos\Frontend
-npm install
+pm2 delete contract-frontend
+npm i
 npm run build
-pm2 reload contract-frontend
+pm2 serve "C:\software\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
 pm2 logs contract-frontend --lines 30
+Pm2 save
 
 # 4) Verificar
 pm2 status
