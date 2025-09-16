@@ -1,3 +1,34 @@
+## 🚀 Inicio rápido (desarrollo local)
+
+Requisitos mínimos: Node.js 18/20/22 + npm, Git, (opcional) SQL Server en local si vas a usar la base de datos real.
+
+1) Clonar y abrir en un IDE moderno (VS Code recomendado):
+```powershell
+git clone https://github.com/<org>/<repo>.git
+cd Gestion-de-contratos
+code .   # opcional: abre la carpeta en el IDLE
+```
+
+2) Levantar el backend (Express):
+```powershell
+cd my-express-api
+npm install
+nodemon server.js    # http://localhost:3001
+```
+
+3) Levantar el frontend (Vite):
+```powershell
+cd Frontend
+npm install
+npm run dev       # http://localhost:5173
+```
+
+Notas rápidas:
+- Si usas DB real, configura `my-express-api/.env` (SQL Server, JWT, Google Drive, etc.).
+- El frontend usa `axiosInstance` para apuntar a `http://localhost:3001/api` cuando corres en `localhost`.
+
+---
+
 ## Gestión de Contratos — Guía de despliegue (Windows Server + PM2)
 
 Aplicación con frontend React (Vite) y backend Express.js. Backend usa SQL Server con Sequelize y archivos en Google Drive mediante API.
