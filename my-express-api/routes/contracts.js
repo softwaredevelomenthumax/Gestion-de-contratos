@@ -1029,7 +1029,7 @@ router.post('/:id/respond', auth, uploadContractResponseFiles, async (req, res) 
 });
 
 // POST /api/contracts/:id/sign
-router.post('/:id/sign', auth, upload.array('files', 10), async (req, res) => {
+router.post('/:id/sign', auth, uploadContractResponseFiles, async (req, res) => {
   try {
     const contract = await Contract.findByPk(req.params.id);
     if (!contract) {
@@ -1092,15 +1092,17 @@ router.post('/:id/sign', auth, upload.array('files', 10), async (req, res) => {
       await currentOtrosi.update({ estado: finalOtrosiStatus });
     }
 
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
+    if (req.googleDriveFiles && req.googleDriveFiles.length > 0) {
+      for (const fileData of req.googleDriveFiles) {
         const category = req.user.role === 'regular' ? 'Firma Usuario' : 'Firma Abogado';
         const fileType = req.user.role === 'regular' ? 'Firma Usuario' : 'Firma Abogado';
         const responseType = req.user.role === 'regular' ? 'regular' : 'lawyer';
 
         const createData = {
-          filename: file.originalname,
-          filepath: file.filename,
+          filename: fileData.originalName,
+          filepath: fileData.googleDriveFileId, // Store Google Drive file ID
+          mimetype: 'application/pdf',
+          size: fileData.size,
           category,
           fileType,
           responseType,
@@ -1114,6 +1116,7 @@ router.post('/:id/sign', auth, upload.array('files', 10), async (req, res) => {
         }
 
         await fileStorageModel.create(createData);
+        console.log('✍️  Firma guardada con Google Drive ID:', fileData.googleDriveFileId);
       }
     }
 
