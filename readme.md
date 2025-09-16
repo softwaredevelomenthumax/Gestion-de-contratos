@@ -2,7 +2,7 @@
 
 Requisitos mínimos: Node.js 18/20/22 + npm, Git, (opcional) SQL Server en local si vas a usar la base de datos real.
 
-1) Clonar y abrir en un IDE moderno (VS Code recomendado):
+1) Clonar y abrir en un IDE:
 ```powershell
 git clone https://github.com/<org>/<repo>.git
 cd Gestion-de-contratos
