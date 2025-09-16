@@ -20,12 +20,14 @@ import {
   IconRefresh,
 } from "@tabler/icons-react";
 import { getContractHistory } from "../api/contracts";
-import { getOtrosiByContract, getOtrosiFiles, returnOtrosi, performOtrosiAction } from "../api/otrosi";
+import { getOtrosiByContract, getOtrosiFiles, returnOtrosi } from "../api/otrosi";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
 import useDownload from "../hooks/useDownload";
 import DownloadingAnimation from "./DownloadingAnimation";
+import LottieAnimation from "./LottieAnimation";
+import signAnimation from "../assets/animations/Uploading to cloud.json";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
@@ -440,18 +442,7 @@ const ContractFullDetail = ({ contract }) => {
     }
   };
 
-  // Función para manejar acciones de otrosí
-  const handleOtrosiAction = async (otrosiId, action, files = [], comment = '') => {
-    try {
-      await performOtrosiAction(otrosiId, action, files, comment);
-      addNotification(`Otrosí ${action === 'sign' ? 'firmado' :
-        'procesado'} exitosamente`, 'success');
-      // Recargar la página para mostrar los cambios
-      window.location.reload();
-    } catch (error) {
-      addNotification(`Error al ${action} el otrosí: ` + error.message, 'error');
-    }
-  };
+  // (Eliminado) Función para manejar acciones de otrosí no utilizada
 
   const [filesToUpload, setFilesToUpload] = useState([]);
   const [comment, setComment] = useState("");
@@ -2335,6 +2326,21 @@ const ContractFullDetail = ({ contract }) => {
           )}
         </CardContent>
       </Card>
+
+      {(signUploading || lawyerUploading) && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[9999]">
+          <div className="w-64 h-64">
+            <LottieAnimation
+              animationData={signAnimation}
+              width="100%"
+              height="100%"
+              loop={true}
+              autoplay={true}
+              speed={1}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Animación de descarga */}
       <DownloadingAnimation
