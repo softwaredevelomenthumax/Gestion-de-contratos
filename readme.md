@@ -1,114 +1,238 @@
-# Contract Management Application
+## 🚀 Inicio rápido (desarrollo local)
 
-This is a contract management application with a React frontend and Express.js backend.
+Requisitos mínimos: Node.js 18/20/22 + npm, Git, (opcional) SQL Server en local si vas a usar la base de datos real.
 
-## License and Usage
+1) Clonar y abrir en un IDE:
+```powershell
+git clone https://github.com/<org>/<repo>.git
+cd Gestion-de-contratos
+code .   # opcional: abre la carpeta en el IDLE
+```
 
-This software is proprietary to Bausch Health and is intended for internal use only. 
-All rights reserved. Unauthorized copying, distribution, or use is strictly prohibited.
+2) Levantar el backend (Express):
+```powershell
+cd my-express-api
+npm install
+nodemon server.js    # http://localhost:3001
+```
 
-© 2025 Bausch Health. Internal contract management system.
+3) Levantar el frontend (Vite):
+```powershell
+cd Frontend
+npm install
+npm run dev       # http://localhost:5173
+```
 
-## Prerequisites
+Notas rápidas:
+- Si usas DB real, configura `my-express-api/.env` (SQL Server, JWT, Google Drive, etc.).
+- El frontend usa `axiosInstance` para apuntar a `http://localhost:3001/api` cuando corres en `localhost`.
 
-Before running this application, make sure you have the following installed:
+---
 
-1. **Node.js** (version 16 or higher) - Download from https://nodejs.org/
-2. **PostgreSQL** - Download from https://www.postgresql.org/download/
-3. **npm** (comes with Node.js)
+## Gestión de Contratos — Guía de despliegue (Windows Server + PM2)
 
-## Database Setup
+Aplicación con frontend React (Vite) y backend Express.js. Backend usa SQL Server con Sequelize y archivos en Google Drive mediante API.
 
-1. Install and start PostgreSQL on your local machine
-2. Create a database named `test` (or update the DB_NAME in the .env file)
-3. Make sure PostgreSQL is running on port 5432 (default)
-4. Update the database credentials in `my-express-api/.env` if needed
+### Licencia y uso
+Software interno de Bausch Health. Todos los derechos reservados.
 
-## Running the Application
+---
 
-### Backend (Express.js API)
+## Infraestructura objetivo
+- Windows Server 2012 R2 (o similar)
+- Node.js LTS (18/20/22) + npm
+- Git
+- PM2 (administrador de procesos Node)
+- SQL Server (puerto típico 1433)
 
-1. Navigate to the backend directory:
-   ```powershell
-   cd my-express-api
-   ```
+### Rutas y puertos
+- Carpeta del proyecto en servidor: `C:\Apps\Gestion-de-contratos`
+- Backend: `http://<server-ip>:3001` (API bajo `/api`)
+- Frontend: `http://<server-ip>:5173`
 
-2. Install dependencies:
-   ```powershell
-   npm install
-   ```
+---
 
-3. Start the backend server:
-   ```powershell
-   node server.js
-   ```
+## Variables de entorno (backend `my-express-api/.env`)
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (SQL Server)
+- `JWT_SECRET`
+- `PORT=3001`
+- `FRONTEND_URL=http://localhost:5173,http://<server-ip>:5173`  ← varias permitidas separadas por coma
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_REFRESH_TOKEN`
+- `GOOGLE_DRIVE_FOLDER_NAME=Contract Management Files` (opcional)
 
-   The backend will be available at http://localhost:3001
+Nota CORS: el backend permite múltiples orígenes. Asegúrate de incluir `localhost` y la IP del servidor.
 
-### Frontend (React)
+---
 
-1. Open a new terminal window/tab
-2. Navigate to the frontend directory:
-   ```powershell
-   cd Frontend
-   ```
+## Instalación inicial en el servidor (una sola vez)
+```powershell
+mkdir C:\Apps\Gestion-de-contratos
+cd C:\Apps\Gestion-de-contratos
+git clone https://github.com/<org>/<repo>.git .
 
-3. Install dependencies:
-   ```powershell
-   npm install
-   ```
+# Backend
+cd C:\Apps\Gestion-de-contratos\my-express-api
+pm2 start server.js --name contract-api --cwd "C:\software\Gestion-de-contratos\my-express-api" --time
 
-4. Start the development server:
-   ```powershell
-   npm run dev
-   ```
+# Frontend
+cd C:\Apps\Gestion-de-contratos\Frontend
+npm install
+npm run build
 
-   The frontend will be available at http://localhost:5173
+# PM2 procesos
+pm2 start server.js --name contract-api --cwd "C:\Apps\Gestion-de-contratos\my-express-api" --time
+pm2 serve "C:\Apps\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
+pm2 status
+pm2 save  
+```
 
-## Default Test Users
+Accesos:
+- Frontend: `http://<server-ip>:5173`
+- Backend salud: `curl.exe -i http://localhost:3001/api/login` (o tu endpoint de salud)
 
-The application creates test users automatically:
+---
 
-- **Regular User**: 
-  - Email: user@test.com
-  - Password: password123
+## Actualizar después de un `git push` (deploy manual)
+```powershell
+# 1) Obtener última versión
+cd C:\Apps\Gestion-de-contratos
+git fetch --all
+git checkout main
+git pull --ff-only
+# Si falla por cambios locales:
+# Opción A (descartar todo lo no comprometido en el servidor)
+# git reset --hard origin/main
+# Opción B (guardar trabajo local y traer cambios)
+# git stash push --include-untracked -m "pre-deploy"
+# git pull --ff-only
 
-- **Lawyer User**: 
-  - Email: lawyer@test.com
-  - Password: password123
+# 2) Backend: instalar y reiniciar
+cd C:\Apps\Gestion-de-contratos\my-express-api
+npm install --production
+pm2 restart contract-api
+pm2 logs contract-api --lines 50
 
-## File Uploads
+# 3) Frontend: build y recarga
+cd C:\Apps\Gestion-de-contratos\Frontend
+npm install
+npm run build
+pm2 reload contract-frontend
+pm2 logs contract-frontend --lines 30
 
-Uploaded files are stored in the `my-express-api/uploads/` directory.
+# 4) Verificar
+pm2 status
+```
 
-## Environment Variables
+Si PM2 apunta a otra ruta (UNC o Escritorio), recrea los procesos manualmente:
+```powershell
+pm2 delete contract-api
+pm2 delete contract-frontend
+pm2 start server.js --name contract-api --cwd "C:\Apps\Gestion-de-contratos\my-express-api" --time
+pm2 serve "C:\Apps\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
+pm2 save
+```
 
-### Backend (my-express-api/.env)
-The backend uses environment variables for configuration. Key variables include:
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` - Database connection
-- `JWT_SECRET` - JWT token secret
-- `PORT` - Backend server port (default: 3001)
+---
 
-### Frontend (Optional)
-You can create a `.env.local` file in the Frontend directory to customize:
-- `VITE_API_URL` - Backend API URL (default: http://localhost:3001/api)
+## Actualizaciones
 
-## Troubleshooting
+1) Pull latest code
+Powershell (admin mode)
 
-1. **Database Connection Issues**: Make sure PostgreSQL is running and the credentials in `.env` are correct
-2. **Port Conflicts**: If ports 3001 or 5173 are in use, you can change them in the respective configuration files
-3. **Dependencies Issues**: Delete `node_modules` folders and run `npm install` again
+```powershell
+cd C:\Apps\Gestion-de-contratos
 
-## Project Structure
+# If you have no local changes:
+git fetch --all
+git checkout main
+git pull --ff-only
 
-- `Frontend/` - React frontend application
-- `my-express-api/` - Express.js backend API
+# If pull fails due to local changes:
+# Option A (discard everything not committed on server)
+git reset --hard origin/main
 
-## Preguntas
+# Option B (stash local uncommitted work safely)
+# git stash push --include-untracked -m "pre-deploy"
+# git pull --ff-only
+```
 
-1. Visualizado por: *nombre del abogado* ¿Los usuarios tambien puede ver eso o solo los abogados?
-2. ¿Se deberia crear una seccion de comentarios similar a la de "archivos adjuntos" o poner los comentarios en los archivos adjuntos
-3. Como se hace el otrosi
+2) Backend: install and restart
+Powershell (admin mode)
 
-RL Humax
+```powershell
+cd C:\Apps\Gestion-de-contratos\my-express-api
+pm2 delete contract-api
+pm2 start server.js --name contract-api --cwd "C:\software\Gestion-de-contratos\my-express-api" --time
+pm2 logs contract-api --lines 50
+pm2 save
+```
 
+3)
+Powershell (admin mode)
+
+```powershell
+cd C:\Apps\Gestion-de-contratos\Frontend
+npm install
+npm run build
+pm2 delete contract-frontend
+pm2 serve "C:\software\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
+pm2 logs contract-frontend --lines 30
+Pm2 save
+```
+
+4) Check
+Powershell (admin mode)
+
+```powershell
+Pm2 status
+```
+
+asi es como se va a hacer alguna actualizacion
+
+---
+
+## Comandos útiles de PM2
+```powershell
+pm2 ls                      # lista procesos
+pm2 describe <name> | cat   # detalles (cwd, script)
+pm2 logs <name> --lines 100 # ver logs
+pm2 restart <name>          # reinicio (API)
+pm2 reload <name>           # recarga sin downtime (estático)
+pm2 delete <name>           # borrar proceso
+pm2 save; pm2 resurrect     # persistencia al reiniciar
+pm2 kill                    # mata el daemon si está corrupto
+```
+
+---
+
+## Solución de problemas
+- **Process X not found / ids cambiantes**: usa `pm2 ls`; maneja por nombre. Si quedó inconsistente: `pm2 delete <name>` y vuelve a crear.
+- **PM2 daemon corrupto (EPERM rpc.sock / pm2_env TypeError)**:
+  ```powershell
+  pm2 kill
+  # (opcional) borra carpeta PM2_HOME si está dañada
+  # setx PM2_HOME C:\pm2   # para usar una carpeta propia
+  ```
+- **Vite/UNC path**: no construyas desde `\\SVR2\...`. Usa ruta local `C:\Apps\...`.
+- **CORS**: incluye `localhost` y la IP en `FRONTEND_URL`. Preflight debe responder 204 y enviar `Access-Control-Allow-Origin` con el origen solicitado.
+- **Descarga de archivos**: el backend debe enviar `Content-Disposition` y exponerlo: `Access-Control-Expose-Headers: Content-Disposition, Content-Length`.
+- **Express 5 y preflight**: evita `app.options('*', cors())`; usa middleware que responda 204 a `OPTIONS`.
+
+---
+
+## Desarrollo local
+```powershell
+# Backend
+cd my-express-api
+npm install
+node server.js   # http://localhost:3001
+
+# Frontend
+cd Frontend
+npm install
+npm run dev      # http://localhost:5173
+```
+
+---
+
+© 2025 Bausch Health. Uso interno.
