@@ -14,8 +14,10 @@ const Trazabilidad = () => {
   
   // Hooks para filtros
   const {
-    searchTerm,
-    setSearchTerm,
+    filter,
+    setFilter,
+    ticketFilter,
+    setTicketFilter,
     sortType,
     setSortType,
     filteredContracts
@@ -41,8 +43,10 @@ const Trazabilidad = () => {
       {/* Filtros */}
       <div className="mb-8">
         <ContractFilters 
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
+          filter={filter}
+          setFilter={setFilter}
+          ticketFilter={ticketFilter}
+          setTicketFilter={setTicketFilter}
           sortType={sortType}
           setSortType={setSortType}
         />

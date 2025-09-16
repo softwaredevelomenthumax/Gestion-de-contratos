@@ -9,17 +9,22 @@ const filterOptions = [
   { value: 'with-otrosi', label: 'Solo con otrosí' },
   { value: 'without-otrosi', label: 'Sin otrosí' },
 ];
-
 const ContractFilters = ({ 
   filter, 
   setFilter, 
   ticketFilter, 
   setTicketFilter, 
+  searchTerm,
+  setSearchTerm,
   sortType, 
   setSortType,
   showTitle = false,
   title = "Contratos"
 }) => {
+  // Prefer explicit ticketFilter props; fall back to searchTerm aliases
+  const effectiveTicketFilter = typeof ticketFilter !== 'undefined' ? ticketFilter : (searchTerm || '');
+  const handleSetTicketFilter = typeof setTicketFilter === 'function' ? setTicketFilter : (setSearchTerm || (() => {}));
+
   return (
     <>
       {/* Filtros */}
@@ -33,7 +38,7 @@ const ContractFilters = ({
               id="filter-input"
               placeholder="Buscar contratos..."
               value={filter}
-              onChange={e => setFilter(e.target.value)}
+              onChange={e => setFilter && setFilter(e.target.value)}
               autoComplete="off"
               className="w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20"
             />
@@ -45,8 +50,8 @@ const ContractFilters = ({
             <Input
               id="ticket-filter"
               placeholder="Número de radicado..."
-              value={ticketFilter}
-              onChange={e => setTicketFilter(e.target.value)}
+              value={effectiveTicketFilter}
+              onChange={e => handleSetTicketFilter(e.target.value)}
               autoComplete="off"
               className="w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20"
             />
@@ -71,7 +76,6 @@ const ContractFilters = ({
         </div>
       </div>
 
-      {/* Título opcional */}
       {showTitle && (
         <div className="mb-8 flex items-center">
           <div className="flex-1 border-t border-gray-200 dark:border-gray-700"></div>

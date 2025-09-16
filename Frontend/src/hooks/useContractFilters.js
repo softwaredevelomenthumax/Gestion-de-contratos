@@ -73,6 +73,8 @@ export const useContractFilters = (contracts) => {
   return {
     filter,
     setFilter,
+    ticketFilter,
+    setTicketFilter,
     searchTerm: ticketFilter,
     setSearchTerm: setTicketFilter,
     sortType,
@@ -81,6 +83,3 @@ export const useContractFilters = (contracts) => {
     filteredAndSortedContracts
   };
 };
-//en el formulario agregar un campo opcional el cual diga "firmar otrosi" (ya que en este caso el usuario tambien puede firmar primero) y si es firmado debe ser pasado a un estado llamado signature_otrosi_already_signedByUser y si no es firmado pasa al estado llamado awaiting_lawyer_review".
- 
-//en devuelto si el contrato tiene el estado llamado signature_otrosi_already_signedByUser debe estar aparecer al hacerle clic a la carta contratos devueltos y es firmado por el abogado pasa directamente a signed y el contrato otrosi pasa a aprovado pero si tiene el estado awaiting_lawyer_review sigue con ciclo de vida normal
