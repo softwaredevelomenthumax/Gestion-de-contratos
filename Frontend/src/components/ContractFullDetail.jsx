@@ -98,19 +98,19 @@ const getEstadoLabelWithContext = (estado, otrosi = []) => {
 const getOtrosiEstadoLabel = (estado) => {
   switch (estado) {
     case 'pendiente':
-      return '⏳ Pendiente';
+      return '⏳ Pendiente del Otrosí';
     case 'otrosi_awaiting_user_response':
       return '🔄 Esperando Respuesta del Usuario del Otrosí';
     case 'otrosi_awaiting_lawyer_review':
-      return '👨‍💼 Esperando Revisión del Abogado';
+      return '👨‍💼 Esperando Revisión del Abogado del Otrosí';
     case 'otrosi_awaiting_signature':
-      return '✍️ Esperando Firma';
+      return '✍️ Esperando Firma del Otrosí';
     case 'otrosi_signed':
-      return '✅ Finalizado';
+      return '✅ Otrosí finalizado';
     case 'rechazado':
-      return '❌ Rechazado';
+      return '❌ Otrosí rechazado';
     case 'devuelto':
-      return '🔄 Devuelto';
+      return '🔄 Otrosí devuelto';
     default:
       return estado;
   }
@@ -1048,7 +1048,13 @@ const ContractFullDetail = ({ contract }) => {
           <div className="mb-8">
             <div className="flex gap-4 flex-wrap mb-4">
               <Button
-                onClick={() => setShowSignModal(!showSignModal)}
+                onClick={() =>
+                  setShowSignModal(prev => {
+                    const next = !prev;
+                    if (next) setShowReturnModal(false);
+                    return next;
+                  })
+                }
                 variant="signature"
                 className="flex items-center gap-3"
               >
@@ -1056,7 +1062,13 @@ const ContractFullDetail = ({ contract }) => {
                 Firmar
               </Button>
               <Button
-                onClick={() => setShowReturnModal(!showReturnModal)}
+                onClick={() =>
+                  setShowReturnModal(prev => {
+                    const next = !prev;
+                    if (next) setShowSignModal(false);
+                    return next;
+                  })
+                }
                 variant="warning"
                 className="flex items-center gap-3"
               >
@@ -1897,16 +1909,9 @@ const ContractFullDetail = ({ contract }) => {
           <div className="flex items-center gap-2 mb-6">
             <div className="h-px bg-gradient-to-r from-purple-200 to-transparent flex-1" />
             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">
-              📋 Archivos y Comentarios de Otrosíes
+              📋 Archivos Otrosí
             </Badge>
             <div className="h-px bg-gradient-to-l from-purple-200 to-transparent flex-1" />
-          </div>
-
-          {/* Nota informativa sobre respuestas */}
-          <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-600">
-            <p className="text-sm text-purple-700 dark:text-purple-300">
-              💡 <strong>Información importante:</strong> Los archivos de otrosí se muestran desde la tabla OtrosiFile específica para cada otrosí. Las respuestas del usuario a otrosíes devueltos aparecen en la sección específica de cada otrosí, no en la sección principal de archivos del contrato.
-            </p>
           </div>
 
           {/* Mostrar cada otrosí con todos sus archivos y comentarios */}
@@ -1944,8 +1949,8 @@ const ContractFullDetail = ({ contract }) => {
                       Otrosí #{otro.numeroOtrosi}
                     </Badge>
                     <div className="flex items-center gap-2">
-                      {/* Botón Devolver Otrosí */}
-                      {user.role === 'lawyer' && ['pendiente', 'otrosi_awaiting_lawyer_review'].includes(otro.estado) && (
+                      {/* Botón Devolver Otrosí (oculto cuando está en revisión del abogado) */}
+                      {user.role === 'lawyer' && otro.estado === 'pendiente' && (
                         <Button
                           onClick={() => handleReturnOtrosi(otro.id)}
                           className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 text-sm"
@@ -1988,7 +1993,7 @@ const ContractFullDetail = ({ contract }) => {
                       </div>
                     </div>
                     <p className="text-xs text-purple-500 dark:text-purple-400 mt-2">
-                      Los archivos se muestran desde la tabla OtrosiFile específica para este otrosí.
+                      Solo se muestran los archivos del otrosí.
                     </p>
                   </div>
 
@@ -2213,14 +2218,13 @@ const ContractFullDetail = ({ contract }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <IconMessageCircle size={28} className="text-blue-400" />
-            📋 Comentarios del Contrato Principal
+            📋 Comentarios del Contrato
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
             <p className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>💡 Información:</strong> Esta sección muestra los comentarios realizados durante el flujo normal del contrato (excluyendo respuestas a otrosí devuelto)
-              (firmas, devoluciones, respuestas). Los comentarios de otrosí se muestran en la sección específica de otrosíes más arriba.
+              <strong>💡 Información:</strong> Esta sección muestra los comentarios realizados durante el flujo normal del contrato. Aparecen los comentarios de los usuarios y los de los abogados.
             </p>
           </div>
           {contractHistory.filter(history =>
