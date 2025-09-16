@@ -634,9 +634,9 @@ const ContractFullDetail = ({ contract }) => {
       console.log('📥 Download response:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        contentType: response.headers.get('content-type'),
-        contentLength: response.headers.get('content-length')
+        headers: response.headers,
+        contentType: response.headers?.['content-type'],
+        contentLength: response.headers?.['content-length']
       });
 
       const blob = response.data;
@@ -697,19 +697,13 @@ const ContractFullDetail = ({ contract }) => {
       console.log('📥 Otrosi download response:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        contentType: response.headers.get('content-type'),
-        contentLength: response.headers.get('content-length')
+        headers: response.headers,
+        contentType: response.headers?.['content-type'],
+        contentLength: response.headers?.['content-length']
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Otrosi download failed:', errorText);
-        throw new Error(`Error downloading otrosi file: ${response.status} ${response.statusText}`);
-      }
-
       console.log('📄 Creating blob from otrosi response...');
-      const blob = await response.blob();
+      const blob = response.data;
       console.log('✅ Otrosi blob created:', {
         size: blob.size,
         type: blob.type

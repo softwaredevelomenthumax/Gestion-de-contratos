@@ -46,39 +46,11 @@ const UserSentContracts = () => {
     }
   }, [user, refreshTrigger]);
 
-  if (loading) {
-    return (
-      <LoadingAnimation text="Cargando contratos enviados..." />
-    );
-  }
-
-  if (error && contracts.length === 0 && (
-    error === "Invalid contract or file id" ||
-    error === "Invalid contract id" ||
-    error === "Internal server error"
-  )) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <span className="text-lg text-muted-foreground">No hay contratos disponibles.</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="bg-red-900/20 border border-red-700 text-red-300 px-4 py-3 rounded animate-fade-in" role="alert">{error}</div>
-      </div>
-    );
-  }
-
-  if (filteredAndSortedContracts.length === 0 && !loading && !error) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <span className="text-lg text-muted-foreground">No hay contratos disponibles.</span>
-      </div>
-    );
-  }
+  const isEmptyContractsError = error && contracts.length === 0 && (
+    error === 'Invalid contract or file id' ||
+    error === 'Invalid contract id' ||
+    error === 'Internal server error'
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
@@ -93,27 +65,45 @@ const UserSentContracts = () => {
         title="Mis Contratos"
       />
 
-      <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredAndSortedContracts.map((contract) => (
-          <div key={contract.id}>
-            <Card
-              descripcion={contract.descripcion}
-              solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
-              contract={contract}
-            />
-            <div className="mt-4 flex justify-end">
-              <Button
-                asChild
-                className="!px-4 !py-2 !rounded-lg !bg-blue-500 hover:!bg-blue-600 !text-white !shadow-md"
-              >
-                <Link to={`/user/contracts/${contract.id}`} state={{ fromMyContracts: true }}>
-                  Ver Contrato
-                </Link>
-              </Button>
+      {loading ? (
+        <LoadingAnimation text="Cargando contratos enviados..." />
+      ) : isEmptyContractsError ? (
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <span className="text-lg text-muted-foreground">No hay contratos disponibles.</span>
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <div className="bg-red-900/20 border border-red-700 text-red-300 px-4 py-3 rounded animate-fade-in" role="alert">{error}</div>
+        </div>
+      ) : filteredAndSortedContracts.length === 0 ? (
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <span className="text-lg text-muted-foreground">
+            {contracts.length > 0 ? 'No hay contratos que coincidan con los filtros aplicados.' : 'No hay contratos disponibles.'}
+          </span>
+        </div>
+      ) : (
+        <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredAndSortedContracts.map((contract) => (
+            <div key={contract.id}>
+              <Card
+                descripcion={contract.descripcion}
+                solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
+                contract={contract}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  asChild
+                  className="!px-4 !py-2 !rounded-lg !bg-blue-500 hover:!bg-blue-600 !text-white !shadow-md"
+                >
+                  <Link to={`/user/contracts/${contract.id}`} state={{ fromMyContracts: true }}>
+                    Ver Contrato
+                  </Link>
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
