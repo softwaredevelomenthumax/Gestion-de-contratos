@@ -124,20 +124,26 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
   // Check if contract has otrosi
   React.useEffect(() => {
     if (!contract?.id) return;
+    // Only attempt if we have a user and they likely have access (lawyer or owner)
+    const isOwner = user && (contract?.solicitante?.id === user.id || contract?.solicitanteId === user.id);
+    const hasAccess = user && (user.role === 'lawyer' || isOwner);
+    if (!hasAccess) return;
     
     const checkOtrosi = async () => {
       try {
         const response = await api.get(`/otrosi/contract/${contract.id}`);
         setHasOtrosi(response.data && response.data.length > 0);
       } catch (error) {
-        console.log(error);
+        if (error.response?.status !== 403) {
+          console.log(error);
+        }
         // Silently fail - just don't show otrosi indicator
         setHasOtrosi(false);
       }
     };
     
     checkOtrosi();
-  }, [contract?.id]);
+  }, [contract?.id, contract?.solicitante?.id, contract?.solicitanteId, user, user?.id, user?.role]);
 
   // Helper function to safely extract solicitante name
   const getSolicitanteDisplay = (solicitante) => {
@@ -280,9 +286,7 @@ export function LawyerCard({ contract }) {
     
     const checkOtrosi = async () => {
       try {
-        const response = await axios.get(`http://localhost:3001/api/otrosi/contract/${contract.id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const response = await api.get(`/otrosi/contract/${contract.id}`);
         setHasOtrosi(response.data && response.data.length > 0);
       } catch (error) {console.log(error)
         // Silently fail - just don't show otrosi indicator
@@ -296,9 +300,7 @@ export function LawyerCard({ contract }) {
   const handleCardClick = async () => {
     if (!contract?.id) return;
     try {
-      await axios.patch(`http://localhost:3001/api/contracts/${contract.id}/viewed`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      await api.patch(`/contracts/${contract.id}/viewed`);
     } catch (error) {
       console.error('Failed to mark contract as viewed', error);
     }

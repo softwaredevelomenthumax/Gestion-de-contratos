@@ -16,12 +16,22 @@ router.post('/', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
+    // Check if user account is approved
+    if (user.status !== 'approved') {
+      if (user.status === 'pending') {
+        return res.status(403).json({ success: false, error: 'Your account is pending approval. Please wait for an administrator to approve your account.' });
+      } else if (user.status === 'rejected') {
+        return res.status(403).json({ success: false, error: 'Your account has been rejected. Please contact an administrator.' });
+      }
+    }
+
     // Compare the provided password with the stored password (hashed)
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
+
 
     // Generate a JWT token using the Sequelize user ID
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '24h' });
@@ -57,9 +67,9 @@ router.post('/register', async (req, res) => {
     if (existingUser) {
       return res.status(409).json({ success: false, error: 'Email already registered.' });
     }
-    // Create user (password will be hashed by model hook)
-    const user = await User.create({ firstName, lastName, email, password, role });
-    res.status(201).json({ success: true, message: 'User registered successfully.' });
+    // Create user with pending status (password will be hashed by model hook)
+    const user = await User.create({ firstName, lastName, email, password, role, status: 'pending' });
+    res.status(201).json({ success: true, message: 'User registered successfully. Your account is pending approval by an administrator.' });
   } catch (error) {
     console.error('Error during registration:', error);
     res.status(500).json({ success: false, error: 'Internal server error' });

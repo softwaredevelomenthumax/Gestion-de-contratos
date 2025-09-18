@@ -103,6 +103,22 @@ sequelize.authenticate()
       await sequelize.sync({ force: false });
       console.log('Database models synchronized successfully.');
       
+      // Seed admin user if none exists
+      const User = require('./models/User');
+      const existingAdmin = await User.findOne({ where: { role: 'admin' } });
+      
+      if (!existingAdmin) {
+        await User.create({
+          firstName: 'Admin',
+          lastName: 'User',
+          email: 'admin@example.com',
+          password: 'admin123',
+          role: 'admin',
+          status: 'approved'
+        });
+        console.log('✅ Admin user created: admin@example.com / admin123');
+      }
+      
       // Start server after successful sync
       app.listen(port, () => {
         console.log(`Server running on port ${port}`);
@@ -126,6 +142,7 @@ const loginRouter = require('./routes/login');
 const filesRouter = require('./routes/files');
 const otrosiRouter = require('./routes/otrosi');
 const traceabilityRouter = require('./routes/traceability');
+const adminRouter = require('./routes/admin');
 
 console.log('🚀 Servidor cargando rutas...');
 console.log('📋 Ruta contracts cargada:', contractsRouter ? '✅' : '❌');
@@ -138,6 +155,7 @@ const User = require('./models/User');
 const { Contract } = require('./models/Contract');
 const ContractFile = require('./models/ContractFile');
 const ContractHistory = require('./models/ContractHistory');
+const RejectedUser = require('./models/RejectedUser');
 require('./models/associations');
 
 // Use the login router (public route)
@@ -152,6 +170,9 @@ app.use('/api/traceability', traceabilityRouter);
 
 // Use the profile router for /api/profile (protected)
 app.use('/api/profile', auth, profileRouter);
+
+// Use the admin router for /api/admin (admin-protected)
+app.use('/api/admin', adminRouter);
 
 // Serve uploaded files - DISABLED for Google Drive migration
 // app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

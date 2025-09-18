@@ -6,13 +6,13 @@ import ThemeToggle from './ThemeToggle';
 
 import {  
   Home,
-  FileText,
   Send,
-  Users,
   LogOut,
   Menu,
   X,
   Search,
+  Shield,
+  UserPlus
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -21,14 +21,20 @@ const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  const navigation = [
-    { name: 'Estados', href: '/', icon: Home },
-
-    ...(user?.role === 'regular' ? [
-      { name: 'Enviar Contrato', href: '/send_contracts', icon: Send },
-    ] : []),
-    { name: 'Consultar Información', href: '/trazabilidad', icon: Search },
-  ];
+  const navigation = (
+    user?.role === 'admin'
+      ? [
+          { name: 'Gestión de cuentas', href: '/admin/users', icon: Shield },
+          { name: 'Crear administrador', href: '/admin/create', icon: UserPlus },
+        ]
+      : [
+          { name: 'Estados', href: '/', icon: Home },
+          ...(user?.role === 'regular' ? [
+            { name: 'Enviar Contrato', href: '/send_contracts', icon: Send },
+          ] : []),
+          { name: 'Consultar Información', href: '/trazabilidad', icon: Search },
+        ]
+  );
   
   return (
     <div className="min-h-screen bg-background flex">
@@ -54,7 +60,7 @@ const Layout = ({ children }) => {
                   className="text-xs" 
                   style={{ color: 'var(--foreground)' }}
                 >
-                  {user?.role === 'lawyer' ? 'Abogado' : 'Usuario'}
+                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'lawyer' ? 'Abogado' : 'Usuario'}
                 </p>
               </div>
             )}
@@ -173,7 +179,7 @@ const Layout = ({ children }) => {
                   {user?.firstName} {user?.lastName}
                 </p>
                 <p className="text-xs text-foreground">
-                  {user?.role === 'lawyer' ? 'Abogado' : 'Usuario'}
+                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'lawyer' ? 'Abogado' : 'Usuario'}
                 </p>
               </div>
             </div>

@@ -30,7 +30,15 @@ const User = sequelize.define('User', {
     allowNull: false,
     defaultValue: 'regular',
     validate: {
-      isIn: [['regular', 'lawyer']]
+      isIn: [['regular', 'lawyer', 'admin']]
+    }
+  },
+  status: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'pending',
+    validate: {
+      isIn: [['pending', 'approved', 'rejected']]
     }
   },
 }, {

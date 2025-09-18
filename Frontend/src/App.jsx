@@ -24,6 +24,8 @@ import Register from "./pages/Register";
 import OtrosiForm from "./pages/OtrosiForm";
 import Trazabilidad from './pages/Trazabilidad';
 import ContractTracePage from './pages/ContractTracePage';
+import AdminUsers from './pages/AdminUsers';
+import CreateAdmin from './pages/CreateAdmin';
 import { RefreshProvider } from "./context/RefreshContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import NotificationContainer from "./components/Notification";
@@ -56,6 +58,8 @@ const App = () => {
                 <Route path="/trazabilidad/:id" element={<ProtectedRoute><ContractTracePage /></ProtectedRoute>} />
                 <Route path="/lawyer_ended" element={<ProtectedRoute><LawyerFinalizado /></ProtectedRoute>} />
                 <Route path="/user_ended" element={<ProtectedRoute><UserFinalizado /></ProtectedRoute>} />
+                <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+                <Route path="/admin/create" element={<ProtectedRoute><CreateAdmin /></ProtectedRoute>} />
               </Routes>
             </Router>
             <NotificationContainer />

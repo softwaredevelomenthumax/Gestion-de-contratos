@@ -105,18 +105,30 @@ git clean -fd      # elimina archivos y carpetas no rastreados
 
 # 2) Backend: instalar y reiniciar
 cd C:\Apps\Gestion-de-contratos\my-express-api
+
 pm2 delete contract-api
+
 npm i 
+
 pm2 start server.js --name contract-api --cwd "C:\software\Gestion-de-contratos\my-express-api" --time
+
 pm2 logs contract-api --lines 50
+
 pm2 save
+
 # 3) Frontend: build y recarga
 cd C:\Apps\Gestion-de-contratos\Frontend
+
 pm2 delete contract-frontend
+
 npm i
+
 npm run build
+
 pm2 serve "C:\software\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
+
 pm2 logs contract-frontend --lines 30
+
 Pm2 save
 
 # 4) Verificar
@@ -140,21 +152,14 @@ pm2 save
 Powershell (admin mode)
 
 ```powershell
-cd C:\Apps\Gestion-de-contratos
+cd C:\software\Gestion-de-contratos
 
-# If you have no local changes:
-git fetch --all
+git fetch --all --prune
 git checkout main
-git pull --ff-only
-
-# If pull fails due to local changes:
-# Option A (discard everything not committed on server)
 git reset --hard origin/main
-
-# Option B (stash local uncommitted work safely)
-# git stash push --include-untracked -m "pre-deploy"
-# git pull --ff-only
-```
+git clean -fd      # elimina archivos y carpetas no rastreados
+# Si aún ves basura generada/ignorados (por ejemplo de build), usa:
+# git clean -fdx   # incluye ignorados (.gitignore). Más agresivo.
 
 2) Backend: install and restart
 Powershell (admin mode)
