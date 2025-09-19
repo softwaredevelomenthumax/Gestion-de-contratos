@@ -36,9 +36,7 @@ export const getAllContracts = async () => {
 };
 
 export const getReturnedContracts = async () => {
-  console.log('🔍 DEBUG API: Llamando a /contracts/returned');
   const response = await api.get('/contracts/returned');
-  console.log('🔍 DEBUG API: Respuesta recibida:', response.data.length, 'contratos');
   return response.data;
 };
 
@@ -91,17 +89,13 @@ export const getLawyerAwaitingResponseContracts = async () => {
 };
 
 export const getLawyerAwaitingReviewContracts = async () => {
-  console.log('🔍 DEBUG API: Llamando a /contracts/lawyer-awaiting-response para review');
   const response = await api.get('/contracts/lawyer-awaiting-response');
-  console.log('🔍 DEBUG API: Respuesta recibida:', response.data.length, 'contratos');
   return response.data;
 };
 
 // Get new contracts (for lawyer view)
 export const getNewContracts = async () => {
-  console.log('🔍 DEBUG - getNewContracts: Llamando a /contracts/new');
   const response = await api.get('/contracts/new');
-  console.log('📥 DEBUG - getNewContracts: Respuesta recibida:', response.data.length, 'contratos');
   return response.data;
 };
 

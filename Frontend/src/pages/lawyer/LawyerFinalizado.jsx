@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Card from '../../components/Card';
+import { useNavigate } from 'react-router-dom';
 import { getLawyerFinalizedContracts } from '../../api/contracts';
 import ContractFilters from '../../components/ContractFilters';
 import { useContractFilters } from '../../hooks/useContractFilters';
@@ -9,6 +10,7 @@ const LawyerFinalizado = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const navigate = useNavigate();
     
     // Use custom hook for filtering
     const {
@@ -59,7 +61,7 @@ const LawyerFinalizado = () => {
                     <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {filteredAndSortedContracts.map(contract => (
                             <div key={contract.id}>
-                                <Card descripcion={contract.descripcion} solicitante={contract.solicitante} contract={contract} />
+                                <Card descripcion={contract.descripcion} solicitante={contract.solicitante} contract={contract} onClick={() => navigate(`/lawyer/contracts/${contract.id}`)} />
                             </div>
                         ))}
                     </div>

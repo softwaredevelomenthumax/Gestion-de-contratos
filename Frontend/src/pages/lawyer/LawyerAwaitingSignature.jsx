@@ -4,11 +4,14 @@ import { getAwaitingSignatureContracts } from '../../api/contracts';
 import ContractFilters from '../../components/ContractFilters';
 import { useContractFilters } from '../../hooks/useContractFilters';
 import LoadingAnimation from '../../components/LoadingAnimation';
+import { useNavigate } from 'react-router-dom';
+
 
 const LawyerAwaitingSignature = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const navigate = useNavigate();
     
     // Use custom hook for filtering
     const {
@@ -76,6 +79,7 @@ const LawyerAwaitingSignature = () => {
                             descripcion={contract.descripcion}
                             solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
                             contract={contract}
+                            onClick={() => navigate(`/lawyer/contracts/${contract.id}`)}
                         />
                     ))}
                 </div>

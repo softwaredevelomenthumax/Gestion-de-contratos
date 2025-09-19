@@ -72,7 +72,7 @@ export const returnOtrosi = async (otrosiId, comentariosAbogado) => {
     const response = await axios.post(`/otrosi/${otrosiId}/return`, { comentariosAbogado });
     return response.data;
   } catch (error) {
-    console.error('Error returning otrosí:', error);
+    console.error('❌ Error returning otrosí:', error);
     throw error;
   }
 };

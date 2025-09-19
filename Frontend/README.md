@@ -51,7 +51,7 @@ npm install
 npm run build
 pm2 serve "C:\Apps\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
 pm2 status
-pm2 save  # opcional para resurrect
+pm2 save  
 ```
 
 Actualizaciones después de un git push:
@@ -59,8 +59,11 @@ Actualizaciones después de un git push:
 cd C:\Apps\Gestion-de-contratos\Frontend
 npm install
 npm run build
-pm2 reload contract-frontend
+pm2 delete contract-frontend
+pm2 serve "C:\software\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
 pm2 logs contract-frontend --lines 30
+pm2 status
+pm2 save  
 ```
 
 Abrir en navegador: `http://<server-ip>:5173`
@@ -91,7 +94,5 @@ Utilidades incluidas:
   - Verifica que el backend corre en `http://<server-ip>:3001` y la IP en `axiosInstance.js`.
 - Error CORS: agrega la URL del frontend en la whitelist del backend; refresca con Ctrl+F5.
 - Cambios no visibles tras deploy: limpia caché fuerte (Ctrl+F5) y revisa `pm2 logs contract-frontend`.
-
 ---
-
 © 2025 Bausch Health — Uso interno

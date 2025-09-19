@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const emailService = require('../services/emailService');
 
 // POST /api/login
 router.post('/', async (req, res) => {
@@ -69,6 +70,42 @@ router.post('/register', async (req, res) => {
     }
     // Create user with pending status (password will be hashed by model hook)
     const user = await User.create({ firstName, lastName, email, password, role, status: 'pending' });
+    
+    // Enviar notificación de registro al usuario
+    try {
+      await emailService.sendUserRegistrationNotification(user.email, {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role
+      });
+      console.log('✅ Email de registro enviado a:', user.email);
+    } catch (emailError) {
+      console.error('❌ Error enviando email de registro:', emailError);
+      // No fallar el registro por un error de email
+    }
+
+    // Notificar a los administradores sobre el nuevo usuario
+    try {
+      const admins = await User.findAll({
+        where: { role: 'admin', status: 'approved' },
+        attributes: ['email']
+      });
+      
+      if (admins.length > 0) {
+        const adminEmails = admins.map(admin => admin.email);
+        await emailService.sendAdminNewUserNotification(adminEmails, {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role
+        });
+        console.log('✅ Email de nuevo usuario enviado a administradores:', adminEmails);
+      }
+    } catch (emailError) {
+      console.error('❌ Error enviando email a administradores:', emailError);
+    }
+    
     res.status(201).json({ success: true, message: 'User registered successfully. Your account is pending approval by an administrator.' });
   } catch (error) {
     console.error('Error during registration:', error);

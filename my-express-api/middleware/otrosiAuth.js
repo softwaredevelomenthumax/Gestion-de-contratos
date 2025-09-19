@@ -1,4 +1,4 @@
-const { Otrosi } = require('../models/Otrosi');
+const Otrosi = require('../models/Otrosi');
 
 // Función para obtener el siguiente estado de otrosí basado en la acción y rol
 function getNextOtrosiStatus(currentStatus, userRole, action) {
@@ -58,11 +58,13 @@ function validateOtrosiActionMiddleware(allowedRoles, allowedStatuses) {
       const { id } = req.params;
       const { action } = req.body;
       
+      
       // Buscar el otrosí
       Otrosi.findByPk(id).then(otrosi => {
         if (!otrosi) {
           return res.status(404).json({ error: 'Otrosí no encontrado' });
         }
+
 
         // Validar rol del usuario
         if (!allowedRoles.includes(req.user.role)) {
@@ -71,12 +73,14 @@ function validateOtrosiActionMiddleware(allowedRoles, allowedStatuses) {
           });
         }
 
+
         // Validar estado del otrosí
         if (!allowedStatuses.includes(otrosi.estado)) {
           return res.status(400).json({ 
             error: `Acción no permitida desde el estado ${otrosi.estado}` 
           });
         }
+
 
         // Validar transición de estado
         if (action && !validateOtrosiAction(otrosi.estado, req.user.role, action)) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Card from '../../components/Card';
+import { useNavigate } from 'react-router-dom';
 import { getAwaitingSignatureContracts } from '../../api/contracts';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -18,6 +19,7 @@ const AwaitingSignature = () => {
     const [filter, setFilter] = useState('');
     const [ticketFilter, setTicketFilter] = useState('');
     const [sortType, setSortType] = useState('newest');
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchContracts();
@@ -154,6 +156,7 @@ const AwaitingSignature = () => {
                             descripcion={contract.descripcion}
                             solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
                             contract={contract}
+                            onClick={() => navigate(`/user/contracts/${contract.id}`)}
                         />
                     ))}
                 </div>

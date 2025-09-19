@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const RejectedUser = require('../models/RejectedUser');
 const adminAuth = require('../middleware/adminAuth');
+const emailService = require('../services/emailService');
 
 // All routes in this file require admin authentication
 router.use(adminAuth);
@@ -42,6 +43,20 @@ router.post('/users/:id/approve', async (req, res) => {
 
     await user.update({ status: 'approved' });
 
+    // Enviar notificación de aprobación por email
+    try {
+      await emailService.sendUserApprovalNotification(user.email, {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role
+      });
+      console.log('✅ Email de aprobación enviado a:', user.email);
+    } catch (emailError) {
+      console.error('❌ Error enviando email de aprobación:', emailError);
+      // No fallar la aprobación por un error de email
+    }
+
     res.json({
       success: true,
       message: 'User approved successfully',
@@ -72,6 +87,20 @@ router.post('/users/:id/reject', async (req, res) => {
 
     if (user.status !== 'pending') {
       return res.status(400).json({ success: false, error: 'User is not pending approval' });
+    }
+
+    // Enviar notificación de rechazo por email antes de eliminar
+    try {
+      await emailService.sendUserRejectionNotification(user.email, {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role
+      });
+      console.log('✅ Email de rechazo enviado a:', user.email);
+    } catch (emailError) {
+      console.error('❌ Error enviando email de rechazo:', emailError);
+      // Continuar con el proceso aunque falle el email
     }
 
     // Save rejected user data before deletion
@@ -162,3 +191,5 @@ router.get('/rejected-users', async (req, res) => {
 });
 
 module.exports = router;
+
+//admin@example.com   admin123
