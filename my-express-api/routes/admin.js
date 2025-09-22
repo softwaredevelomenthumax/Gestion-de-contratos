@@ -23,7 +23,7 @@ router.get('/users/pending', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching pending users:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -34,11 +34,11 @@ router.post('/users/:id/approve', async (req, res) => {
     
     const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     }
 
     if (user.status !== 'pending') {
-      return res.status(400).json({ success: false, error: 'User is not pending approval' });
+      return res.status(400).json({ success: false, error: 'El usuario no está pendiente de aprobación' });
     }
 
     await user.update({ status: 'approved' });
@@ -59,7 +59,7 @@ router.post('/users/:id/approve', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'User approved successfully',
+      message: 'Usuario aprobado exitosamente',
       user: {
         id: user.id,
         firstName: user.firstName,
@@ -71,7 +71,7 @@ router.post('/users/:id/approve', async (req, res) => {
     });
   } catch (error) {
     console.error('Error approving user:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -82,11 +82,11 @@ router.post('/users/:id/reject', async (req, res) => {
     
     const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     }
 
     if (user.status !== 'pending') {
-      return res.status(400).json({ success: false, error: 'User is not pending approval' });
+      return res.status(400).json({ success: false, error: 'El usuario no está pendiente de aprobación' });
     }
 
     // Enviar notificación de rechazo por email antes de eliminar
@@ -117,11 +117,11 @@ router.post('/users/:id/reject', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'User rejected and deleted successfully'
+      message: 'Usuario rechazado y eliminado exitosamente'
     });
   } catch (error) {
     console.error('Error rejecting user:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -130,14 +130,14 @@ router.post('/create-admin', async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   
   if (!firstName || !lastName || !email || !password) {
-    return res.status(400).json({ success: false, error: 'All fields are required.' });
+    return res.status(400).json({ success: false, error: 'Todos los campos son requeridos.' });
   }
 
   try {
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(409).json({ success: false, error: 'Email already registered.' });
+      return res.status(409).json({ success: false, error: 'El correo electrónico ya está registrado.' });
     }
 
     // Create admin user with approved status
@@ -152,7 +152,7 @@ router.post('/create-admin', async (req, res) => {
 
     res.status(201).json({ 
       success: true, 
-      message: 'Admin user created successfully.',
+      message: 'Usuario administrador creado exitosamente.',
       user: {
         id: adminUser.id,
         firstName: adminUser.firstName,
@@ -164,7 +164,7 @@ router.post('/create-admin', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating admin user:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -186,7 +186,7 @@ router.get('/rejected-users', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching rejected users:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 

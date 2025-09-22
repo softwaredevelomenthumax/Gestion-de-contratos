@@ -39,29 +39,29 @@ const CreateAdmin = () => {
     const newErrors = {};
 
     if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
+      newErrors.firstName = 'El nombre es requerido';
     }
 
     if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
+      newErrors.lastName = 'El apellido es requerido';
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = 'El email es requerido';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = 'El email es inválido';
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = 'La contraseña es requerida';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
+      newErrors.confirmPassword = 'Por favor confirma tu contraseña';
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
     setErrors(newErrors);
@@ -85,7 +85,7 @@ const CreateAdmin = () => {
       });
 
       if (response.data.success) {
-        addNotification('Admin user created successfully', 'success');
+        addNotification('Usuario administrador creado exitosamente', 'success');
         setFormData({
           firstName: '',
           lastName: '',
@@ -96,7 +96,7 @@ const CreateAdmin = () => {
       }
     } catch (error) {
       console.error('Error creating admin:', error);
-      const errorMessage = error.response?.data?.error || 'Error creating admin user';
+      const errorMessage = error.response?.data?.error || 'Error al crear usuario administrador';
       addNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
@@ -109,8 +109,8 @@ const CreateAdmin = () => {
         <div className="flex items-center justify-center min-h-96">
           <div className="text-center">
             <XCircle className="mx-auto h-12 w-12 text-red-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Access Denied</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">You need admin privileges to access this page.</p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Acceso Denegado</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Necesitas privilegios de administrador para acceder a esta página.</p>
           </div>
         </div>
       </Layout>
@@ -125,9 +125,9 @@ const CreateAdmin = () => {
           <div className="flex items-center">
             <UserPlus className="h-8 w-8 text-blue-600 dark:text-blue-400 mr-3" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Administrator</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Crear Administrador</h1>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Create a new administrator account with full privileges
+                Crear una nueva cuenta de administrador con privilegios completos
               </p>
             </div>
           </div>
@@ -140,7 +140,7 @@ const CreateAdmin = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    First Name *
+                    Nombre *
                   </label>
                   <input
                     type="text"
@@ -153,7 +153,7 @@ const CreateAdmin = () => {
                         ? 'border-red-300 dark:border-red-600' 
                         : 'border-gray-300 dark:border-gray-600'
                     } dark:bg-gray-700 dark:text-white`}
-                    placeholder="Enter first name"
+                    placeholder="Ingresa el nombre"
                   />
                   {errors.firstName && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.firstName}</p>
@@ -162,7 +162,7 @@ const CreateAdmin = () => {
 
                 <div>
                   <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Last Name *
+                    Apellido *
                   </label>
                   <input
                     type="text"
@@ -175,7 +175,7 @@ const CreateAdmin = () => {
                         ? 'border-red-300 dark:border-red-600' 
                         : 'border-gray-300 dark:border-gray-600'
                     } dark:bg-gray-700 dark:text-white`}
-                    placeholder="Enter last name"
+                    placeholder="Ingresa el apellido"
                   />
                   {errors.lastName && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.lastName}</p>
@@ -184,7 +184,7 @@ const CreateAdmin = () => {
 
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Email *
+                    Correo Electrónico *
                   </label>
                   <input
                     type="email"
@@ -197,7 +197,7 @@ const CreateAdmin = () => {
                         ? 'border-red-300 dark:border-red-600' 
                         : 'border-gray-300 dark:border-gray-600'
                     } dark:bg-gray-700 dark:text-white`}
-                    placeholder="Enter email address"
+                    placeholder="Ingresa la dirección de correo"
                   />
                   {errors.email && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>
@@ -206,7 +206,7 @@ const CreateAdmin = () => {
 
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Password *
+                    Contraseña *
                   </label>
                   <div className="relative">
                     <input
@@ -220,7 +220,7 @@ const CreateAdmin = () => {
                           ? 'border-red-300 dark:border-red-600' 
                           : 'border-gray-300 dark:border-gray-600'
                       } dark:bg-gray-700 dark:text-white`}
-                      placeholder="Enter password"
+                      placeholder="Ingresa la contraseña"
                     />
                     <button
                       type="button"
@@ -241,7 +241,7 @@ const CreateAdmin = () => {
 
                 <div>
                   <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Confirm Password *
+                    Confirmar Contraseña *
                   </label>
                   <div className="relative">
                     <input
@@ -255,7 +255,7 @@ const CreateAdmin = () => {
                           ? 'border-red-300 dark:border-red-600' 
                           : 'border-gray-300 dark:border-gray-600'
                       } dark:bg-gray-700 dark:text-white`}
-                      placeholder="Confirm password"
+                      placeholder="Confirma la contraseña"
                     />
                     <button
                       type="button"
@@ -283,12 +283,12 @@ const CreateAdmin = () => {
                     {loading ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Creating Admin...
+                        Creando Administrador...
                       </>
                     ) : (
                       <>
                         <UserPlus className="h-4 w-4 mr-2" />
-                        Create Administrator
+                        Crear Administrador
                       </>
                     )}
                   </button>

@@ -14,15 +14,15 @@ router.post('/', async (req, res) => {
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
     }
 
     // Check if user account is approved
     if (user.status !== 'approved') {
       if (user.status === 'pending') {
-        return res.status(403).json({ success: false, error: 'Your account is pending approval. Please wait for an administrator to approve your account.' });
+        return res.status(403).json({ success: false, error: 'Tu cuenta está pendiente de aprobación. Por favor espera a que un administrador apruebe tu cuenta.' });
       } else if (user.status === 'rejected') {
-        return res.status(403).json({ success: false, error: 'Your account has been rejected. Please contact an administrator.' });
+        return res.status(403).json({ success: false, error: 'Tu cuenta ha sido rechazada. Por favor contacta a un administrador.' });
       }
     }
 
@@ -30,7 +30,7 @@ router.post('/', async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
     }
 
 
@@ -49,7 +49,7 @@ router.post('/', async (req, res) => {
     }); 
   } catch (error) {
     console.error('Error during login:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -57,16 +57,16 @@ router.post('/', async (req, res) => {
 router.post('/register', async (req, res) => {
   const { firstName, lastName, email, password, role } = req.body;
   if (!firstName || !lastName || !email || !password || !role) {
-    return res.status(400).json({ success: false, error: 'All fields are required.' });
+    return res.status(400).json({ success: false, error: 'Todos los campos son requeridos.' });
   }
   if (!['regular', 'lawyer'].includes(role)) {
-    return res.status(400).json({ success: false, error: 'Invalid role.' });
+    return res.status(400).json({ success: false, error: 'Rol inválido.' });
   }
   try {
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(409).json({ success: false, error: 'Email already registered.' });
+      return res.status(409).json({ success: false, error: 'El correo electrónico ya está registrado.' });
     }
     // Create user with pending status (password will be hashed by model hook)
     const user = await User.create({ firstName, lastName, email, password, role, status: 'pending' });
@@ -106,10 +106,10 @@ router.post('/register', async (req, res) => {
       console.error('❌ Error enviando email a administradores:', emailError);
     }
     
-    res.status(201).json({ success: true, message: 'User registered successfully. Your account is pending approval by an administrator.' });
+    res.status(201).json({ success: true, message: 'Usuario registrado exitosamente. Tu cuenta está pendiente de aprobación por un administrador.' });
   } catch (error) {
     console.error('Error during registration:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 

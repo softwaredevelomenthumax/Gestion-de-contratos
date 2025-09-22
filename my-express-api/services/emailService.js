@@ -114,6 +114,17 @@ class EmailService {
     });
   }
 
+  async sendContractSentToLawyerNotification(userEmail, contractData) {
+    const subject = `Nuevo contrato enviado para revisión - ${contractData.descripcion}`;
+    const html = this.getContractSentToLawyerTemplate(contractData);
+    
+    return await this.sendEmail({
+      to: userEmail,
+      subject,
+      html
+    });
+  }
+
   async sendUserRegistrationNotification(userEmail, userData) {
     const subject = 'Registro exitoso - Sistema de Gestión de Contratos';
     const html = this.getUserRegistrationTemplate(userData);
@@ -181,8 +192,8 @@ class EmailService {
                 <td style="padding: 8px 0;">${contractData.proveedor}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Valor Total:</td>
-                <td style="padding: 8px 0;">${contractData.moneda} ${contractData.valorTotal?.toLocaleString() || 'N/A'}</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Descripción:</td>
+                <td style="padding: 8px 0;">${contractData.descripcion || 'N/A'}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Estado:</td>
@@ -282,8 +293,8 @@ class EmailService {
                 <td style="padding: 8px 0;">${contractData.proveedor}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Valor:</td>
-                <td style="padding: 8px 0;">${contractData.moneda} ${contractData.valorTotal?.toLocaleString() || 'N/A'}</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Descripción:</td>
+                <td style="padding: 8px 0;">${contractData.descripcion || 'N/A'}</td>
               </tr>
             </table>
           </div>
@@ -437,6 +448,52 @@ class EmailService {
                 <strong>Acción requerida:</strong> Ingrese al panel de administración para aprobar o rechazar esta solicitud.
               </p>
             </div>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">
+            Este es un mensaje automático del Sistema de Gestión de Contratos.
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  getContractSentToLawyerTemplate(contractData) {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2563eb; margin-bottom: 20px;">📋 Nuevo Contrato Enviado para Revisión</h2>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+            <h3 style="color: #374151; margin-bottom: 15px;">Detalles del Contrato</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">ID:</td>
+                <td style="padding: 8px 0;">${contractData.id}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Descripción:</td>
+                <td style="padding: 8px 0;">${contractData.descripcion}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Proveedor:</td>
+                <td style="padding: 8px 0;">${contractData.proveedor}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Descripción:</td>
+                <td style="padding: 8px 0;">${contractData.descripcion || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Estado:</td>
+                <td style="padding: 8px 0;"><span style="background-color: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px;">NUEVO</span></td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #92400e;">
+              <strong>Acción requerida:</strong> Un nuevo contrato ha sido enviado para su revisión legal. Por favor, revise los detalles y tome la acción correspondiente en el sistema.
+            </p>
           </div>
           
           <p style="color: #6b7280; font-size: 14px; margin: 0;">

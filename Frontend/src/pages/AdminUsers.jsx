@@ -14,7 +14,7 @@ const AdminUsers = () => {
 
   useEffect(() => {
     if (user?.role !== 'admin') {
-      addNotification('Access denied. Admin privileges required.', 'error');
+      addNotification('Acceso denegado. Se requieren privilegios de administrador.', 'error');
       return;
     }
     fetchPendingUsers();
@@ -29,7 +29,7 @@ const AdminUsers = () => {
       }
     } catch (error) {
       console.error('Error fetching pending users:', error);
-      addNotification('Error loading pending users', 'error');
+      addNotification('Error al cargar usuarios pendientes', 'error');
     } finally {
       setLoading(false);
     }
@@ -40,19 +40,19 @@ const AdminUsers = () => {
       setProcessingUser(userId);
       const response = await api.post(`/admin/users/${userId}/approve`);
       if (response.data.success) {
-        addNotification('User approved successfully', 'success');
+        addNotification('Usuario aprobado exitosamente', 'success');
         fetchPendingUsers(); // Refresh the list
       }
     } catch (error) {
       console.error('Error approving user:', error);
-      addNotification('Error approving user', 'error');
+      addNotification('Error al aprobar usuario', 'error');
     } finally {
       setProcessingUser(null);
     }
   };
 
   const handleReject = async (userId) => {
-    if (!window.confirm('Are you sure you want to reject this user? This action cannot be undone and the user account will be deleted.')) {
+    if (!window.confirm('¿Estás seguro de que quieres rechazar este usuario? Esta acción no se puede deshacer y la cuenta del usuario será eliminada.')) {
       return;
     }
 
@@ -60,12 +60,12 @@ const AdminUsers = () => {
       setProcessingUser(userId);
       const response = await api.post(`/admin/users/${userId}/reject`);
       if (response.data.success) {
-        addNotification('User rejected and deleted successfully', 'success');
+        addNotification('Usuario rechazado y eliminado exitosamente', 'success');
         fetchPendingUsers(); // Refresh the list
       }
     } catch (error) {
       console.error('Error rejecting user:', error);
-      addNotification('Error rejecting user', 'error');
+      addNotification('Error al rechazar usuario', 'error');
     } finally {
       setProcessingUser(null);
     }
@@ -77,8 +77,8 @@ const AdminUsers = () => {
         <div className="flex items-center justify-center min-h-96">
           <div className="text-center">
             <XCircle className="mx-auto h-12 w-12 text-red-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Access Denied</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">You need admin privileges to access this page.</p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Acceso Denegado</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Necesitas privilegios de administrador para acceder a esta página.</p>
           </div>
         </div>
       </Layout>
@@ -93,9 +93,9 @@ const AdminUsers = () => {
           <div className="flex items-center">
             <Users className="h-8 w-8 text-blue-600 dark:text-blue-400 mr-3" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Usuarios</h1>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Approve or reject pending user registrations
+                Aprobar o rechazar registros de usuarios pendientes
               </p>
             </div>
           </div>
@@ -105,19 +105,19 @@ const AdminUsers = () => {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600 dark:text-gray-400">Loading pending users...</span>
+            <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando usuarios pendientes...</span>
           </div>
         ) : pendingUsers.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No pending users</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">All user registrations have been processed.</p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No hay usuarios pendientes</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Todos los registros de usuarios han sido procesados.</p>
           </div>
         ) : (
           <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-                Pending Approvals ({pendingUsers.length})
+                Aprobaciones Pendientes ({pendingUsers.length})
               </h3>
               <div className="space-y-4">
                 {pendingUsers.map((pendingUser) => (
@@ -146,7 +146,7 @@ const AdminUsers = () => {
                             </span>
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 ml-2">
                               <Clock className="h-3 w-3 mr-1" />
-                              Pending
+                              Pendiente
                             </span>
                           </div>
                         </div>
@@ -162,7 +162,7 @@ const AdminUsers = () => {
                           ) : (
                             <CheckCircle className="h-4 w-4 mr-2" />
                           )}
-                          Approve
+                          Aprobar
                         </button>
                         <button
                           onClick={() => handleReject(pendingUser.id)}
@@ -174,7 +174,7 @@ const AdminUsers = () => {
                           ) : (
                             <XCircle className="h-4 w-4 mr-2" />
                           )}
-                          Reject
+                          Rechazar
                         </button>
                       </div>
                     </div>

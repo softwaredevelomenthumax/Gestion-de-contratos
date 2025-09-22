@@ -290,39 +290,41 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
 
       const solicitanteEmail = contractWithSolicitante.solicitante?.email;
 
-      // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
-      const allEmails = [];
-      
-      // Agregar email del solicitante
+      // 1. Enviar "Contrato Creado" al solicitante
       if (solicitanteEmail) {
-        allEmails.push(solicitanteEmail);
-      }
-      
-      // Agregar emails de abogados
-      const lawyers = await User.findAll({
-        where: { role: 'lawyer', status: 'approved' },
-        attributes: ['email']
-      });
-        const lawyerEmails = lawyers.map(lawyer => lawyer.email);
-      allEmails.push(...lawyerEmails);
-      
-      // Enviar estado actualizado a todos
-      if (allEmails.length > 0) {
-        await emailService.sendContractStatusChangeNotification(
-          allEmails,
+        await emailService.sendContractCreatedNotification(
+          solicitanteEmail,
           {
             id: contract.id,
             descripcion: contract.descripcion,
             proveedor: contract.proveedor,
             valorTotal: contract.valorTotal,
             moneda: contract.moneda
-          },
-          'new',
-          'awaiting_lawyer_review'
+          }
+        );
+      }
+      
+      // 2. Enviar "Nuevo Contrato Enviado para Revisión" a los abogados
+      const lawyers = await User.findAll({
+        where: { role: 'lawyer', status: 'approved' },
+        attributes: ['email']
+      });
+      const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+      
+      if (lawyerEmails.length > 0) {
+        await emailService.sendContractSentToLawyerNotification(
+          lawyerEmails,
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          }
         );
       }
 
-      // 2. Enviar "Acción Requerida" SOLO a quien debe responder (abogados)
+      // 3. Enviar "Acción Requerida" SOLO a quien debe responder (abogados)
       if (lawyerEmails.length > 0) {
         await emailService.sendContractActionRequiredNotification(
           lawyerEmails, 

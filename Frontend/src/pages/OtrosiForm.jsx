@@ -316,19 +316,6 @@ const OtrosiForm = () => {
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-8">
-          
-          {/* Nota general sobre OtrosiFile */}
-          <div className="p-4 bg-purple-900/20 border border-purple-700/30 rounded-lg">
-            <div className="flex items-center gap-3 mb-2">
-              <IconInfoCircle size={20} className="text-purple-400" />
-              <h3 className="text-lg font-semibold text-purple-200">💾 Información sobre Almacenamiento de Archivos</h3>
-            </div>
-            <p className="text-purple-300 text-sm">
-              <strong>Importante:</strong> Todos los archivos subidos en este formulario (carta de solicitud y firma del otrosí) 
-              se guardarán en la tabla <strong>OtrosiFile</strong> específica para este otrosí, no en la tabla general de archivos del contrato. 
-              Esto permite mantener una separación clara entre los archivos del contrato principal y los archivos relacionados con modificaciones (otrosí).
-            </p>
-          </div>
           {/* Descripción de cambios - Creative Card */}
           <div className="group">
             <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:shadow-gray-600/20 hover:border-gray-600/50">
