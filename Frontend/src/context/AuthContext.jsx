@@ -159,8 +159,15 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+  // Return safe defaults if called outside of provider (e.g., early during route changes)
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    return {
+      user: null,
+      error: null,
+      loading: true,
+      login: async () => ({ success: false, error: 'Auth not initialized' }),
+      logout: () => {}
+    };
   }
   return context;
 };

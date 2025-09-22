@@ -1940,8 +1940,8 @@ const ContractFullDetail = ({ contract }) => {
                       Otrosí #{otro.numeroOtrosi}
                     </Badge>
                     <div className="flex items-center gap-2">
-                      {/* Botón Devolver Otrosí (oculto cuando está en revisión del abogado) */}
-                      {user.role === 'lawyer' && otro.estado === 'pendiente' && (
+                      {/* Botón Devolver Otrosí - visible para múltiples estados */}
+                      {user.role === 'lawyer' && ['pendiente', 'otrosi_awaiting_lawyer_review', 'otrosi_awaiting_signature'].includes(otro.estado) && (
                         <Button
                           onClick={() => handleReturnOtrosi(otro.id)}
                           className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 text-sm"

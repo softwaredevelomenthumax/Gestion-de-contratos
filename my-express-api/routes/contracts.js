@@ -7,6 +7,7 @@ const User = require('../models/User');
 const { recordHistory } = require('../services/traceability');
 // const ContractHistory = require('../models/ContractHistory');
 const auth = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 // Removed unused filesRouter import
 // Ensure associations are registered (Contract <-> User via ContractViewer)
@@ -67,12 +68,18 @@ router.get('/', auth, async (req, res) => {
   try {
     let whereClause;
     
+    // Estados permitidos para contratos enviados
+    const allowedStates = ['new', 'awaiting_lawyer_review', 'signature_otrosi_already_signedByUser', 'otrosi_awaiting_lawyer_review'];
+    
     if (req.user.role === 'lawyer') {
-      // Los abogados pueden ver todos los contratos
-      whereClause = {};
+      // Los abogados pueden ver todos los contratos con los estados especificados
+      whereClause = { estado: allowedStates };
     } else {
-      // Los usuarios regulares solo pueden ver sus propios contratos
-      whereClause = { solicitanteId: req.user.id };
+      // Los usuarios regulares solo pueden ver sus propios contratos con los estados especificados
+      whereClause = { 
+        solicitanteId: req.user.id,
+        estado: allowedStates
+      };
     }
     
     const contracts = await Contract.findAll({
@@ -196,16 +203,8 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
     });
     
     // Procesar archivos subidos a Google Drive por el middleware
-    console.log('🔍 Checking for uploaded files from Google Drive middleware...');
-    console.log('📁 req.googleDriveFiles:', req.googleDriveFiles ? req.googleDriveFiles.length : 'No files');
-    console.log('📁 Files details:', req.googleDriveFiles ? req.googleDriveFiles.map(f => ({
-      name: f.originalName,
-      googleDriveId: f.googleDriveFileId,
-      size: f.size
-    })) : 'None');
 
     if (req.googleDriveFiles && req.googleDriveFiles.length > 0) {
-      console.log(`📤 Processing ${req.googleDriveFiles.length} files for contract ${contract.id}`);
 
       // Create database records for files already uploaded to Google Drive
       for (const fileData of req.googleDriveFiles) {
@@ -282,6 +281,70 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       comment: 'El contrato fue creado y enviado para revisión',
     });
     
+    // Enviar notificaciones por email - PATRÓN ESTÁNDAR
+    try {
+      // Obtener datos del contrato con solicitante
+      const contractWithSolicitante = await Contract.findByPk(contract.id, {
+        include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
+      });
+
+      const solicitanteEmail = contractWithSolicitante.solicitante?.email;
+
+      // 1. Enviar "Contrato Creado" al solicitante
+      if (solicitanteEmail) {
+        await emailService.sendContractCreatedNotification(
+          solicitanteEmail,
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          }
+        );
+      }
+      
+      // 2. Enviar "Nuevo Contrato Enviado para Revisión" a los abogados
+      const lawyers = await User.findAll({
+        where: { role: 'lawyer', status: 'approved' },
+        attributes: ['email']
+      });
+      const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+      
+      if (lawyerEmails.length > 0) {
+        await emailService.sendContractSentToLawyerNotification(
+          lawyerEmails,
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          }
+        );
+      }
+
+      // 3. Enviar "Acción Requerida" SOLO a quien debe responder (abogados)
+      if (lawyerEmails.length > 0) {
+        await emailService.sendContractActionRequiredNotification(
+          lawyerEmails, 
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          }, 
+          'review', 
+          'lawyer'
+        );
+      }
+
+    } catch (emailError) {
+      console.error('❌ Error enviando emails:', emailError);
+      // No fallar la operación por error de email
+    }
+    
     // Obtener el contrato completo con archivos
     const contractWithFiles = await Contract.findByPk(contract.id, {
       include: contractIncludeOptions
@@ -314,14 +377,12 @@ router.get('/all', auth, async (req, res) => {
 // GET /api/contracts/new
 router.get('/new', auth, async (req, res) => {
   try {
-    console.log('🔍 DEBUG - Endpoint /new llamado por usuario:', req.user.role, req.user.id);
     
     if (req.user.role !== 'lawyer') {
       console.log('❌ Usuario no es abogado, acceso denegado');
       return res.status(403).json({ error: 'Solo los abogados pueden acceder a esta información' });
     }
     
-    console.log('✅ Usuario es abogado, buscando contratos con estado "new"');
     
     const contracts = await Contract.findAll({
       where: { estado: 'new' },
@@ -329,8 +390,6 @@ router.get('/new', auth, async (req, res) => {
       order: [['id', 'DESC']],
     });
     
-    console.log('📋 Contratos encontrados con estado "new":', contracts.length);
-    console.log('📊 Estados de contratos encontrados:', contracts.map(c => ({ id: c.id, estado: c.estado })));
     
     res.json(contracts);
   } catch (error) {
@@ -342,17 +401,12 @@ router.get('/new', auth, async (req, res) => {
 // GET /api/contracts/returned
 router.get('/returned', auth, async (req, res) => {
   try {
-    console.log('🔍 DEBUG /returned: Buscando contratos devueltos...');
     
     // First, let's see all contract states in the database
     const allContracts = await Contract.findAll({
       attributes: ['id', 'estado', 'nombreSolicitante'],
       order: [['id', 'DESC']],
       limit: 20
-    });
-    console.log('🔍 DEBUG: Estados de todos los contratos:');
-    allContracts.forEach(contract => {
-      console.log(`  - Contract ID: ${contract.id}, Estado: ${contract.estado}, Solicitante: ${contract.nombreSolicitante}`);
     });
     
     // Contratos devueltos incluye tanto 'awaiting_lawyer_review' como 'otrosi_awaiting_lawyer_review'
@@ -364,10 +418,6 @@ router.get('/returned', auth, async (req, res) => {
       order: [['id', 'DESC']],
     });
     
-    console.log('🔍 DEBUG /returned: Contratos encontrados:', contracts.length);
-    contracts.forEach(contract => {
-      console.log(`  - Contract ID: ${contract.id}, Estado: ${contract.estado}, Solicitante: ${contract.nombreSolicitante}`);
-    });
     
     res.json(contracts);
   } catch (error) {
@@ -515,41 +565,27 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
         order: [['id', 'DESC']],
         limit: 10
       });
-      console.log('🔍 DEBUG: Todos los otrosi en la DB (últimos 10):');
-      allOtrosi.forEach(o => {
-        console.log(`  - Otrosi ID: ${o.id}, Contract ID: ${o.contractId}, Estado: ${o.estado}, Número: ${o.numeroOtrosi}`);
-      });
       
       // Now check specifically for contracts in otrosi_awaiting_lawyer_review state
       const contractsInOtrosiState = await Contract.findAll({
         where: { estado: 'otrosi_awaiting_lawyer_review' },
         attributes: ['id', 'estado', 'nombreSolicitante']
       });
-      console.log('🔍 DEBUG: Contratos en estado otrosi_awaiting_lawyer_review:');
-      contractsInOtrosiState.forEach(c => {
-        console.log(`  - Contract ID: ${c.id}, Estado: ${c.estado}, Solicitante: ${c.nombreSolicitante}`);
-      });
       
-      console.log('🔍 DEBUG: Buscando otrosi con estado otrosi_awaiting_lawyer_review...');
       const otrosiCount = await Otrosi.count({ where: { estado: 'otrosi_awaiting_lawyer_review' } });
-      console.log('🔍 DEBUG: Otrosi encontrados:', otrosiCount);
       
       if (otrosiCount > 0) {
         const otrosiDetails = await Otrosi.findAll({
           where: { estado: 'otrosi_awaiting_lawyer_review' },
           attributes: ['id', 'contractId', 'estado', 'numeroOtrosi']
         });
-        console.log('🔍 DEBUG: Detalles de otrosi:', otrosiDetails.map(o => ({ id: o.id, contractId: o.contractId, estado: o.estado })));
-        
         const contractIds = otrosiDetails.map(o => o.contractId);
-        console.log('🔍 DEBUG: Contract IDs extraídos:', contractIds);
         
         contractsWithOtrosiAwaitingLawyerReview = await Contract.findAll({
           where: { id: contractIds },
           include: contractIncludeOptions,
           order: [['id', 'DESC']],
         });
-        console.log('🔍 DEBUG: Contratos con otrosi awaiting lawyer review encontrados:', contractsWithOtrosiAwaitingLawyerReview.length);
       }
     } catch (otrosiError) {
       console.error('❌ Error buscando otrosi awaiting lawyer review:', otrosiError);
@@ -562,13 +598,6 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
     
     const allContracts = combineContractsWithOtrosi(baseContracts, otrosiContracts);
     
-    console.log('🔍 DEBUG: Total contratos en respuesta final (sin duplicados):', allContracts.length);
-    console.log('🔍 DEBUG: Breakdown:');
-    console.log(`  - awaiting_lawyer_review: ${contracts.length}`);
-    console.log(`  - signature_otrosi_already_signedByUser: ${contractsOtrosiSignedByUser.length}`);
-    console.log(`  - contractsWithOtrosiAwaitingSignature: ${contractsWithOtrosiAwaitingSignature.length}`);
-    console.log(`  - contractsWithOtrosiAwaitingLawyerReview: ${contractsWithOtrosiAwaitingLawyerReview.length}`);
-    console.log(`  - Total después de combinar: ${allContracts.length}`);
     res.json(allContracts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -782,23 +811,15 @@ router.get('/lawyer-finalized', auth, async (req, res) => {
 // GET /api/contracts/:id
 router.get('/:id', auth, async (req, res) => {
   try {
-    console.log('🔍 GET /api/contracts/:id called with ID:', req.params.id);
-    console.log('👤 User:', req.user.id, 'Role:', req.user.role);
     
     const contract = await Contract.findByPk(req.params.id, {
       include: contractIncludeOptions
     });
     
     if (!contract) {
-      console.log('❌ Contract not found:', req.params.id);
       return res.status(404).json({ error: 'Contrato no encontrado' });
     }
     
-    console.log('✅ Contract found:', {
-      id: contract.id,
-      filesCount: contract.files ? contract.files.length : 0,
-      files: contract.files ? contract.files.map(f => ({ id: f.id, filename: f.filename, category: f.category })) : []
-    });
     
     // If a lawyer opens the contract, record as viewer (first time)
     try {
@@ -1022,6 +1043,103 @@ router.post('/:id/respond', auth, uploadContractResponseFiles, async (req, res) 
       comment: comment || 'Respuesta enviada',
     });
 
+    // Enviar notificaciones por email - PATRÓN ESTÁNDAR
+    try {
+      // Obtener datos del contrato con solicitante
+      const contractWithSolicitante = await Contract.findByPk(contract.id, {
+        include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
+      });
+
+      const solicitanteEmail = contractWithSolicitante.solicitante?.email;
+
+      // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
+      const allEmails = [];
+      
+      // Agregar email del solicitante
+      if (solicitanteEmail) {
+        allEmails.push(solicitanteEmail);
+      }
+      
+      // Agregar emails de abogados
+      const lawyers = await User.findAll({
+        where: { role: 'lawyer', status: 'approved' },
+        attributes: ['email']
+      });
+      const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+      allEmails.push(...lawyerEmails);
+      
+      // Enviar estado actualizado a todos
+      if (allEmails.length > 0) {
+      await emailService.sendContractStatusChangeNotification(
+          allEmails,
+        {
+          id: contract.id,
+          descripcion: contract.descripcion,
+          proveedor: contract.proveedor,
+          valorTotal: contract.valorTotal,
+          moneda: contract.moneda
+        },
+        oldStatusRespond,
+        finalContractStatus
+      );
+    }
+
+      // 2. Enviar "Acción Requerida" SOLO a quien debe responder
+      if (finalContractStatus === 'awaiting_user_response' || finalContractStatus === 'otrosi_awaiting_user_response') {
+        // Notificar al usuario solicitante
+        if (solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'respond',
+            'regular'
+          );
+        }
+      } else if (finalContractStatus === 'awaiting_lawyer_review' || finalContractStatus === 'otrosi_awaiting_lawyer_review') {
+        // Notificar a los abogados
+        if (lawyerEmails.length > 0) {
+          await emailService.sendContractActionRequiredNotification(
+            lawyerEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'review',
+            'lawyer'
+          );
+        }
+      } else if (finalContractStatus === 'awaiting_signature' || finalContractStatus === 'otrosi_awaiting_signature') {
+        // Notificar para firma
+        if (solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'sign',
+            'regular'
+          );
+        }
+      }
+
+    } catch (emailError) {
+      console.error('❌ Error enviando emails:', emailError);
+      // No fallar la operación por error de email
+    }
+
     res.json({ message: 'Respuesta enviada exitosamente' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -1130,6 +1248,103 @@ router.post('/:id/sign', auth, uploadContractResponseFiles, async (req, res) => 
       comment: comment || 'Firma enviada',
     });
 
+    // Enviar notificaciones por email - PATRÓN ESTÁNDAR
+    try {
+      // Obtener datos del contrato con solicitante
+      const contractWithSolicitante = await Contract.findByPk(contract.id, {
+        include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
+      });
+
+      const solicitanteEmail = contractWithSolicitante.solicitante?.email;
+
+      // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
+      const allEmails = [];
+      
+      // Agregar email del solicitante
+      if (solicitanteEmail) {
+        allEmails.push(solicitanteEmail);
+      }
+      
+      // Agregar emails de abogados
+      const lawyers = await User.findAll({
+        where: { role: 'lawyer', status: 'approved' },
+        attributes: ['email']
+      });
+      const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+      allEmails.push(...lawyerEmails);
+      
+      // Enviar estado actualizado a todos
+      if (allEmails.length > 0) {
+      await emailService.sendContractStatusChangeNotification(
+          allEmails,
+        {
+          id: contract.id,
+          descripcion: contract.descripcion,
+          proveedor: contract.proveedor,
+          valorTotal: contract.valorTotal,
+          moneda: contract.moneda
+        },
+        oldStatusSign,
+        finalContractStatus
+      );
+      }
+
+      // 2. Enviar "Acción Requerida" SOLO a quien debe responder (si aplica)
+      if (finalContractStatus === 'awaiting_user_response' || finalContractStatus === 'otrosi_awaiting_user_response') {
+        // Notificar al usuario solicitante
+        if (solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'respond',
+            'regular'
+          );
+        }
+      } else if (finalContractStatus === 'awaiting_lawyer_review' || finalContractStatus === 'otrosi_awaiting_lawyer_review') {
+        // Notificar a los abogados
+        if (lawyerEmails.length > 0) {
+          await emailService.sendContractActionRequiredNotification(
+            lawyerEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'review',
+            'lawyer'
+          );
+        }
+      } else if (finalContractStatus === 'awaiting_signature' || finalContractStatus === 'otrosi_awaiting_signature') {
+        // Notificar para firma
+        if (solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'sign',
+            'regular'
+          );
+        }
+      }
+
+    } catch (emailError) {
+      console.error('❌ Error enviando emails:', emailError);
+      // No fallar la operación por error de email
+    }
+
     res.json({ message: 'Firma enviada exitosamente' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1211,6 +1426,87 @@ router.post('/:id/return', auth, upload.array('files', 10), async (req, res) => 
       newStatus: finalContractStatus,
       comment: comment || 'Contrato devuelto',
     });
+
+    // Enviar notificaciones por email - PATRÓN ESTÁNDAR
+    try {
+      // Obtener datos del contrato con solicitante
+      const contractWithSolicitante = await Contract.findByPk(contract.id, {
+        include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
+      });
+
+      const solicitanteEmail = contractWithSolicitante.solicitante?.email;
+
+      // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
+      const allEmails = [];
+      
+      // Agregar email del solicitante
+      if (solicitanteEmail) {
+        allEmails.push(solicitanteEmail);
+      }
+      
+      // Agregar emails de abogados
+      const lawyers = await User.findAll({
+        where: { role: 'lawyer', status: 'approved' },
+        attributes: ['email']
+      });
+      const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+      allEmails.push(...lawyerEmails);
+      
+      // Enviar estado actualizado a todos
+      if (allEmails.length > 0) {
+        await emailService.sendContractStatusChangeNotification(
+          allEmails,
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          },
+          oldStatusReturn,
+          finalContractStatus
+        );
+      }
+
+      // 2. Enviar "Acción Requerida" SOLO a quien debe responder
+      if (finalContractStatus === 'awaiting_user_response' || finalContractStatus === 'otrosi_awaiting_user_response') {
+        // Notificar al usuario solicitante
+        if (solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'respond',
+            'regular'
+          );
+        }
+      } else if (finalContractStatus === 'awaiting_lawyer_review' || finalContractStatus === 'otrosi_awaiting_lawyer_review') {
+        // Notificar a los abogados
+        if (lawyerEmails.length > 0) {
+          await emailService.sendContractActionRequiredNotification(
+            lawyerEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'review',
+            'lawyer'
+          );
+        }
+      }
+
+    } catch (emailError) {
+      console.error('❌ Error enviando emails:', emailError);
+      // No fallar la operación por error de email
+    }
 
     res.json({ message: 'Contrato devuelto exitosamente' });
   } catch (error) {

@@ -21,7 +21,6 @@ const ContractFilters = ({
   showTitle = false,
   title = "Contratos"
 }) => {
-  // Prefer explicit ticketFilter props; fall back to searchTerm aliases
   const effectiveTicketFilter = typeof ticketFilter !== 'undefined' ? ticketFilter : (searchTerm || '');
   const handleSetTicketFilter = typeof setTicketFilter === 'function' ? setTicketFilter : (setSearchTerm || (() => {}));
 

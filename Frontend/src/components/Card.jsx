@@ -4,75 +4,6 @@ import api from '../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import * as React from "react"
 
-const estadoStyles = {
-  nuevo: {
-    label: 'Nuevo',
-    badge: 'gray',
-    color: 'bg-gray-500',
-  },
-  visto: {
-    label: 'Visto',
-    badge: 'blue',
-    color: 'bg-blue-500',
-  },
-  respondido: {
-    label: 'Respondido',
-    badge: 'yellow',
-    color: 'bg-yellow-500',
-  },
-  'awaiting_user_response': {
-    label: 'Esperando respuesta de usuario',
-    badge: 'orange',
-    color: 'bg-orange-500',
-  },
-  'awaiting_lawyer_review': {
-    label: 'Esperando revisión de abogado',
-    badge: 'purple',
-    color: 'bg-purple-500',
-  },
-  'awaiting_signature': {
-    label: 'Esperando firma del usuario',
-    badge: 'teal',
-    color: 'bg-teal-500',
-  },
-  'signature_otrosi_already_signedByUser': {
-    label: 'Otrosí firmado - Esperando firma del abogado',
-    badge: 'indigo',
-    color: 'bg-indigo-600',
-  },
-  
-  devuelto: {
-    label: 'Devuelto',
-    badge: 'blue',
-    color: 'bg-blue-500',
-  },
-  firmado: {
-    label: 'Firmado',
-    badge: 'green',
-    color: 'bg-green-600', // Use the same green as the section
-  },
-  signed: {
-    label: 'Firmado',
-    badge: 'green',
-    color: 'bg-green-600', // Use the same green as the section
-  },
-  vencido: {
-    label: 'Vencido',
-    badge: 'red',
-    color: 'bg-red-500',
-  },
-  default: {
-    label: 'Otro',
-    badge: 'gray',
-    color: 'bg-gray-500',
-  },
-};
-
-function getEstadoStyle(estado) {
-  if (!estado) return estadoStyles.default;
-  const key = estado.toLowerCase();
-  return estadoStyles[key] || estadoStyles.default;
-}
 
 // Helper to format contract types for display
 const formatContractType = (contractType) => {
@@ -124,20 +55,26 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
   // Check if contract has otrosi
   React.useEffect(() => {
     if (!contract?.id) return;
+    // Only attempt if we have a user and they likely have access (lawyer or owner)
+    const isOwner = user && (contract?.solicitante?.id === user.id || contract?.solicitanteId === user.id);
+    const hasAccess = user && (user.role === 'lawyer' || isOwner);
+    if (!hasAccess) return;
     
     const checkOtrosi = async () => {
       try {
         const response = await api.get(`/otrosi/contract/${contract.id}`);
         setHasOtrosi(response.data && response.data.length > 0);
       } catch (error) {
-        console.log(error);
+        if (error.response?.status !== 403) {
+          console.log(error);
+        }
         // Silently fail - just don't show otrosi indicator
         setHasOtrosi(false);
       }
     };
     
     checkOtrosi();
-  }, [contract?.id]);
+  }, [contract?.id, contract?.solicitante?.id, contract?.solicitanteId, user, user?.id, user?.role]);
 
   // Helper function to safely extract solicitante name
   const getSolicitanteDisplay = (solicitante) => {
@@ -175,9 +112,9 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
         "hover:border-blue-400"
       )}
     >
-      {contract?.id && (
+      {contract?.id != null && (
         <div className="absolute top-2 right-4 z-10 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1 rounded-full text-xs font-semibold shadow">
-          Ticket: {contract.id}
+          Radicado: {contract.id}
         </div>
       )}
       
@@ -218,7 +155,7 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
             strokeLinejoin="round"
             className="h-4 w-4"
           >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <path d="M20 21v-2a4 4 0 0 0-4-4H 8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
           <span className="truncate">{getSolicitanteDisplay(solicitante)}</span>
@@ -271,7 +208,6 @@ export function LawyerCardSkeleton() {
 
 export function LawyerCard({ contract }) {
   const navigate = useNavigate();
-  const estadoStyle = getEstadoStyle(contract.estado);
   const [hasOtrosi, setHasOtrosi] = React.useState(false);
 
   // Check if contract has otrosi
@@ -280,9 +216,7 @@ export function LawyerCard({ contract }) {
     
     const checkOtrosi = async () => {
       try {
-        const response = await axios.get(`http://localhost:3001/api/otrosi/contract/${contract.id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const response = await api.get(`/otrosi/contract/${contract.id}`);
         setHasOtrosi(response.data && response.data.length > 0);
       } catch (error) {console.log(error)
         // Silently fail - just don't show otrosi indicator
@@ -296,9 +230,7 @@ export function LawyerCard({ contract }) {
   const handleCardClick = async () => {
     if (!contract?.id) return;
     try {
-      await axios.patch(`http://localhost:3001/api/contracts/${contract.id}/viewed`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      await api.patch(`/contracts/${contract.id}/viewed`);
     } catch (error) {
       console.error('Failed to mark contract as viewed', error);
     }
@@ -315,14 +247,16 @@ export function LawyerCard({ contract }) {
         'hover:shadow-lg hover:scale-105'
       )}
     >
-      <div className={`h-2 ${estadoStyle.color}`}></div>
+      {contract?.id != null && (
+        <div className="absolute top-2 right-4 z-10 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1 rounded-full text-xs font-semibold shadow">
+          Ticket: {contract.id}
+        </div>
+      )}
+      <div className="h-2 bg-gray-500"></div>
 
       <div className="p-5">
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${estadoStyle.color} text-white`}>
-              {estadoStyle.label}
-            </span>
             {/* Indicador de Otrosí */}
             {hasOtrosi && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-600 text-purple-50 border border-purple-500/20">
@@ -345,9 +279,7 @@ export function LawyerCard({ contract }) {
               </span>
             )}
           </div>
-          <span className="text-xs text-muted-foreground">
-            Radicado: {contract.id}
-          </span>
+          
         </div>
 
         <h3 className="text-lg font-semibold text-foreground mb-1 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">

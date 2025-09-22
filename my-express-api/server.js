@@ -9,12 +9,6 @@ const app = express();
 const port = process.env.PORT || 3001; // Using a different port than React (3000)
 
 // 🔍 VERIFICACIÓN DE VARIABLES DE ENTORNO
-console.log('🔍 VERIFICACIÓN DE .env AL INICIAR SERVIDOR:');
-console.log('🌐 FRONTEND_URL:', process.env.FRONTEND_URL || '❌ NO CARGADO');
-console.log('📊 DB_HOST:', process.env.DB_HOST || '❌ NO CARGADO');
-console.log('🔗 Puerto del servidor:', port);
-console.log('📂 .env path:', __dirname + '/.env');
-console.log('');
 
 //backend port: 3001
 //frontend port: 3000
@@ -26,7 +20,10 @@ app.get('/api/env-check', (req, res) => {
     env_status: {
       FRONTEND_URL: process.env.FRONTEND_URL || '❌ NO CARGADO',
       DB_HOST: process.env.DB_HOST || '❌ NO CARGADO',
-      PORT: process.env.PORT || '❌ NO CARGADO'
+      PORT: process.env.PORT || '❌ NO CARGADO',
+      SMTP_HOST: process.env.SMTP_HOST || '❌ NO CARGADO',
+      SMTP_PORT: process.env.SMTP_PORT || '❌ NO CARGADO',
+      FROM_EMAIL: process.env.FROM_EMAIL || '❌ NO CARGADO'
     },
     server_info: {
       port: port,
@@ -35,6 +32,75 @@ app.get('/api/env-check', (req, res) => {
       platform: process.platform
     }
   });
+});
+
+// Configure JSON parsing middleware BEFORE routes
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 📧 ENDPOINT PARA PROBAR FUNCIONALIDAD DE EMAIL
+app.post('/api/test-email', async (req, res) => {
+  try {
+    const emailService = require('./services/emailService');
+    const { to, subject, message } = req.body;
+    
+    if (!to || !subject || !message) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Campos requeridos: to, subject, message' 
+      });
+    }
+
+    // Test connection first
+    const connectionTest = await emailService.testConnection();
+    if (!connectionTest.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Email service connection failed',
+        details: connectionTest.error
+      });
+    }
+
+    // Send test email
+    const result = await emailService.sendEmail({
+      to,
+      subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #2563eb; margin-bottom: 20px;">🧪 Email de Prueba</h2>
+            <div style="background-color: white; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+              <p style="color: #374151; margin-bottom: 15px;">${message}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">
+              Este es un email de prueba del Sistema de Gestión de Contratos.
+            </p>
+          </div>
+        </div>
+      `
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Email de prueba enviado exitosamente',
+        messageId: result.messageId
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Error enviando email de prueba',
+        details: result.error
+      });
+    }
+  } catch (error) {
+    console.error('Error in test email endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
 });
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -87,7 +153,7 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(express.json());
+// JSON parsing already configured above
 
 // Connect to SQL Server database
 const sequelize = require('./config/database');
@@ -102,6 +168,22 @@ sequelize.authenticate()
       // Use { force: false } to avoid altering existing tables
       await sequelize.sync({ force: false });
       console.log('Database models synchronized successfully.');
+      
+      // Seed admin user if none exists
+      const User = require('./models/User');
+      const existingAdmin = await User.findOne({ where: { role: 'admin' } });
+      
+      if (!existingAdmin) {
+        await User.create({
+          firstName: 'Admin',
+          lastName: 'User',
+          email: 'admin@example.com',
+          password: 'admin123',
+          role: 'admin',
+          status: 'approved'
+        });
+        console.log('✅ Admin user created: admin@example.com / admin123');
+      }
       
       // Start server after successful sync
       app.listen(port, () => {
@@ -126,9 +208,8 @@ const loginRouter = require('./routes/login');
 const filesRouter = require('./routes/files');
 const otrosiRouter = require('./routes/otrosi');
 const traceabilityRouter = require('./routes/traceability');
+const adminRouter = require('./routes/admin');
 
-console.log('🚀 Servidor cargando rutas...');
-console.log('📋 Ruta contracts cargada:', contractsRouter ? '✅' : '❌');
 
 // Import the authentication middleware
 const auth = require('./middleware/auth');
@@ -138,6 +219,7 @@ const User = require('./models/User');
 const { Contract } = require('./models/Contract');
 const ContractFile = require('./models/ContractFile');
 const ContractHistory = require('./models/ContractHistory');
+const RejectedUser = require('./models/RejectedUser');
 require('./models/associations');
 
 // Use the login router (public route)
@@ -153,6 +235,9 @@ app.use('/api/traceability', traceabilityRouter);
 // Use the profile router for /api/profile (protected)
 app.use('/api/profile', auth, profileRouter);
 
+// Use the admin router for /api/admin (admin-protected)
+app.use('/api/admin', adminRouter);
+
 // Serve uploaded files - DISABLED for Google Drive migration
 // app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -162,5 +247,5 @@ app.get('/', (req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: err.message || 'Something went wrong!' });
+  res.status(500).json({ error: err.message || '¡Algo salió mal!' });
 });

@@ -54,14 +54,14 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle 401/403 errors
+// Response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    // Only redirect on authentication errors, not network errors
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+    // Only redirect on authentication errors (401). For 403, let caller handle (e.g., insufficient permissions)
+    if (error.response && error.response.status === 401) {
       // Clear token and user data
       localStorage.removeItem('token');
       localStorage.removeItem('user');

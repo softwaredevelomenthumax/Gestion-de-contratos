@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Card from '../../components/Card';
+import { useNavigate } from 'react-router-dom';
 import { getFinalizadoContracts } from '../../api/contracts';
 import ContractFilters from '../../components/ContractFilters';
 import { useContractFilters } from '../../hooks/useContractFilters';
@@ -9,6 +10,7 @@ const UserFinalizado = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const navigate = useNavigate();
     
     // Use custom hook for filtering
     const {
@@ -76,6 +78,7 @@ const UserFinalizado = () => {
                             descripcion={contract.descripcion}
                             solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
                             contract={contract}
+                            onClick={() => navigate(`/user/contracts/${contract.id}`)}
                         />
                     ))}
                 </div>

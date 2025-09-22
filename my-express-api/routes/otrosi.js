@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
+
 const Otrosi = require('../models/Otrosi');
 const { Contract } = require('../models/Contract');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { upload, uploadOtrosi, uploadOtrosiWithGoogleDrive } = require('../middleware/upload');
 const { validateOtrosiActionMiddleware, getNextOtrosiStatus } = require('../middleware/otrosiAuth');
@@ -9,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const { recordHistory } = require('../services/traceability');
 const googleDriveService = require('../services/googleDrive');
+const emailService = require('../services/emailService');
 
 // GET /api/otrosi - Get all otrosi for the authenticated user
 router.get('/', auth, async (req, res) => {
@@ -178,13 +181,10 @@ router.post('/', auth, uploadOtrosiWithGoogleDrive, async (req, res) => {
        // Si el usuario NO firma el otrosí, el contrato va a otrosi_awaiting_lawyer_review
        // El abogado debe revisar y aprobar antes de que vaya a firma
        newStatus = 'otrosi_awaiting_lawyer_review';
-       console.log('🔍 DEBUG: Setting contract state to:', newStatus);
-       await contract.update({ estado: newStatus });
-       await contract.reload(); // Reload to ensure we have the latest state
-       console.log('🔍 DEBUG: Contract state after update and reload:', contract.estado);
+      await contract.update({ estado: newStatus });
+      await contract.reload(); // Reload to ensure we have the latest state
        // IMPORTANTE: También actualizar el estado del otrosí para que coincida
        await otrosi.update({ estado: 'otrosi_awaiting_lawyer_review' });
-       console.log('🔍 DEBUG: Otrosi state updated to: otrosi_awaiting_lawyer_review');
      }
 
      // Crear registros en OtrosiFile para los archivos subidos
@@ -229,14 +229,87 @@ router.post('/', auth, uploadOtrosiWithGoogleDrive, async (req, res) => {
      }
      
      // Log resumen de archivos procesados
-     console.log('📊 RESUMEN DE ARCHIVOS OTROSÍ:');
-     console.log(`   Otrosí ID: ${otrosi.id}`);
-     console.log(`   Contrato ID: ${contract.id}`);
-     console.log(`   Carta de solicitud: ${cartaSolicitudPath ? 'SÍ' : 'NO'}`);
-     console.log(`   Firma del otrosí: ${firmarOtrosiPath ? 'SÍ' : 'NO'}`);
-     console.log(`   Estado del contrato: ${oldStatus} → ${newStatus}`);
-     console.log(`   Firmado por usuario: ${firmadoPorUsuario ? 'SÍ' : 'NO'}`);
-     console.log('🔍 DEBUG: Final contract state before response:', contract.estado);
+
+    // Enviar notificaciones por email - PATRÓN ESTÁNDAR
+    try {
+      // Obtener datos del contrato con solicitante
+      const contractWithSolicitante = await Contract.findByPk(contract.id, {
+        include: [{ model: require('../models/User'), as: 'solicitante', attributes: ['email'] }]
+      });
+
+      const solicitanteEmail = contractWithSolicitante?.solicitante?.email;
+
+      // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
+      const allEmails = [];
+      
+      // Agregar email del solicitante
+      if (solicitanteEmail) {
+        allEmails.push(solicitanteEmail);
+      }
+      
+      // Agregar emails de abogados
+      const lawyers = await User.findAll({
+        where: { role: 'lawyer', status: 'approved' },
+        attributes: ['email']
+      });
+      const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+      allEmails.push(...lawyerEmails);
+      
+      // Enviar estado actualizado a todos
+      if (allEmails.length > 0) {
+        await emailService.sendContractStatusChangeNotification(
+          allEmails,
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          },
+          oldStatus,
+          newStatus
+        );
+      }
+
+      // 2. Enviar "Acción Requerida" SOLO a quien debe responder
+      if (newStatus === 'otrosi_awaiting_lawyer_review') {
+        // Notificar a los abogados
+        if (lawyerEmails.length > 0) {
+          await emailService.sendContractActionRequiredNotification(
+            lawyerEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'review',
+            'lawyer'
+          );
+        }
+      } else if (newStatus === 'signature_otrosi_already_signedByUser' || newStatus === 'otrosi_awaiting_signature') {
+        // Notificar al usuario para firma
+        if (solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'sign',
+            'regular'
+          );
+        }
+      }
+
+    } catch (emailErr) {
+      console.error('❌ Error enviando emails:', emailErr);
+      // No fallar la operación por error de email
+    }
 
     try {
       const { recordHistory } = require('../services/traceability');
@@ -391,6 +464,75 @@ router.post('/:id/sign', auth, upload.single('firmaAbogado'), async (req, res) =
       });
     } catch (_) {}
 
+    // Enviar notificaciones por email - PATRÓN ESTÁNDAR
+    try {
+      // Obtener datos del contrato con solicitante
+      const contractWithUser = await Contract.findByPk(otrosi.contractId, {
+        include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
+      });
+
+      const solicitanteEmail = contractWithUser?.solicitante?.email;
+
+      // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
+      const allEmails = [];
+      
+      // Agregar email del solicitante
+      if (solicitanteEmail) {
+        allEmails.push(solicitanteEmail);
+      }
+      
+      // Agregar emails de abogados
+      const lawyers = await User.findAll({
+        where: { role: 'lawyer', status: 'approved' },
+        attributes: ['email']
+      });
+      const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+      allEmails.push(...lawyerEmails);
+      
+      // Determinar el estado anterior y nuevo
+      const oldStatus = otrosi.firmadoPorUsuario ? 'otrosi_awaiting_signature' : 'otrosi_awaiting_lawyer_review';
+      const newStatus = otrosi.firmadoPorUsuario ? 'signed' : 'otrosi_awaiting_signature';
+      
+      // Enviar estado actualizado a todos
+      if (allEmails.length > 0) {
+        await emailService.sendContractStatusChangeNotification(
+          allEmails,
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          },
+          oldStatus,
+          newStatus
+        );
+      }
+
+      // 2. Enviar "Acción Requerida" SOLO a quien debe responder
+      if (otrosi.firmadoPorUsuario) {
+        // Lawyer signed after user -> fully signed, no action required
+      } else if (!otrosi.firmadoPorUsuario && solicitanteEmail) {
+        // Now awaiting user's signature
+        await emailService.sendContractActionRequiredNotification(
+          solicitanteEmail,
+          {
+            id: contract.id,
+            descripcion: contract.descripcion,
+            proveedor: contract.proveedor,
+            valorTotal: contract.valorTotal,
+            moneda: contract.moneda
+          },
+          'sign',
+          'regular'
+        );
+      }
+
+    } catch (emailErr) {
+      console.error('❌ Error enviando emails:', emailErr);
+      // No fallar la operación por error de email
+    }
+
     res.json({
       message: 'Otrosi signed successfully by lawyer',
       otrosi: updatedOtrosi,
@@ -503,15 +645,11 @@ router.post('/:id/action',
       const { action, comment } = req.body;
       const { otrosi } = req;
       
-      console.log('Estado actual del otrosí:', otrosi.estado);
-      console.log('Rol usuario:', req.user.role);
-      console.log('Acción solicitada:', action);
       
       const oldStatus = otrosi.estado;
       
       // Determinar el siguiente estado automáticamente
       const nextStatus = getNextOtrosiStatus(oldStatus, req.user.role, action);
-      console.log('Siguiente estado calculado:', nextStatus);
       
       if (!nextStatus) {
         return res.status(400).json({ 
@@ -631,7 +769,96 @@ router.post('/:id/action',
         });
       } catch (_) {}
 
-      console.log('Acción de otrosí exitosa');
+      // Enviar notificaciones por email - PATRÓN ESTÁNDAR
+      try {
+        // Obtener datos del contrato con solicitante
+        const contract = await Contract.findByPk(otrosi.contractId, {
+          include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
+        });
+
+        const solicitanteEmail = contract?.solicitante?.email;
+
+        // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
+        const allEmails = [];
+        
+        // Agregar email del solicitante
+        if (solicitanteEmail) {
+          allEmails.push(solicitanteEmail);
+        }
+        
+        // Agregar emails de abogados
+        const lawyers = await User.findAll({
+          where: { role: 'lawyer', status: 'approved' },
+          attributes: ['email']
+        });
+        const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+        allEmails.push(...lawyerEmails);
+        
+        // Enviar estado actualizado a todos
+        if (allEmails.length > 0) {
+          await emailService.sendContractStatusChangeNotification(
+            allEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            oldStatus,
+            nextStatus
+          );
+        }
+
+        // 2. Enviar "Acción Requerida" SOLO a quien debe responder
+        if (nextStatus === 'otrosi_awaiting_user_response' && solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'respond',
+            'regular'
+          );
+        } else if (nextStatus === 'otrosi_awaiting_lawyer_review' && lawyerEmails.length > 0) {
+          await emailService.sendContractActionRequiredNotification(
+            lawyerEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'review',
+            'lawyer'
+          );
+        } else if (nextStatus === 'otrosi_awaiting_signature' && solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'sign',
+            'regular'
+          );
+        } else if (nextStatus === 'otrosi_signed') {
+          // Otrosí completamente firmado, no se requiere acción adicional
+        }
+
+      } catch (emailErr) {
+        console.error('❌ Error enviando emails:', emailErr);
+        // No fallar la operación por error de email
+      }
+
              res.json({ 
          success: true, 
          otrosi: updatedOtrosi,
@@ -647,14 +874,22 @@ router.post('/:id/action',
   }
 );
 
+// Test route for debugging
+router.get('/:id/test-debug', auth, async (req, res) => {
+  console.log('🧪 Params:', req.params);
+  console.log('🧪 User:', req.user.role, req.user.id);
+  res.json({ message: 'Debug test successful', id: req.params.id });
+});
+
 // POST /api/otrosi/:id/return - Devolver un otrosí (solo abogados)
 router.post('/:id/return', 
   auth, 
-  validateOtrosiActionMiddleware(['lawyer'], ['pendiente', 'otrosi_awaiting_lawyer_review']),
+  validateOtrosiActionMiddleware(['lawyer'], ['pendiente', 'otrosi_awaiting_lawyer_review', 'otrosi_awaiting_signature']),
   async (req, res) => {
     try {
       const { comentariosAbogado } = req.body;
       const { otrosi } = req;
+      
       
       // Obtener el siguiente estado
       const nextStatus = getNextOtrosiStatus(otrosi.estado, req.user.role, 'return');
@@ -662,7 +897,7 @@ router.post('/:id/return',
       // Actualizar otrosí al siguiente estado
       const updatedOtrosi = await otrosi.update({
         estado: nextStatus,
-        comentariosAbogado: comentariosAbogado || comment || null,
+        comentariosAbogado: comentariosAbogado || null,
         fechaDevolucion: new Date()
       });
 
@@ -672,7 +907,90 @@ router.post('/:id/return',
         await contract.update({ estado: 'otrosi_awaiting_user_response' });
       }
 
-      // Historial deshabilitado temporalmente
+      // Enviar notificaciones por email
+      
+      try {
+        const contractWithUser = await Contract.findByPk(otrosi.contractId, {
+          include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
+        });
+        const solicitanteEmail = contractWithUser?.solicitante?.email;
+        
+        
+        if (nextStatus === 'otrosi_awaiting_user_response' && solicitanteEmail) {
+          await emailService.sendContractActionRequiredNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            'respond',
+            'regular'
+          );
+          
+          // También enviar email de actualización de estado
+          await emailService.sendContractStatusChangeNotification(
+            solicitanteEmail,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            },
+            otrosi.estado,
+            nextStatus
+          );
+          
+          // También notificar a los abogados sobre la actualización de estado
+          try {
+            const lawyers = await User.findAll({
+              where: { role: 'lawyer', status: 'approved' },
+              attributes: ['email']
+            });
+            
+            if (lawyers.length > 0) {
+              const lawyerEmails = lawyers.map(lawyer => lawyer.email);
+              await emailService.sendContractStatusChangeNotification(
+                lawyerEmails,
+                {
+                  id: contract.id,
+                  descripcion: contract.descripcion,
+                  proveedor: contract.proveedor,
+                  valorTotal: contract.valorTotal,
+                  moneda: contract.moneda
+                },
+                otrosi.estado,
+                nextStatus
+              );
+            }
+          } catch (lawyerEmailErr) {
+            console.error('❌ Error enviando email de actualización a abogados:', lawyerEmailErr);
+          }
+        } else {
+          
+          // Fallback: notify status change to solicitante if available
+          if (solicitanteEmail) {
+            await emailService.sendContractStatusChangeNotification(
+              solicitanteEmail,
+              {
+                id: contract.id,
+                descripcion: contract.descripcion,
+                proveedor: contract.proveedor,
+                valorTotal: contract.valorTotal,
+                moneda: contract.moneda
+              },
+              otrosi.estado,
+              nextStatus
+            );
+          }
+        }
+      } catch (emailErr) {
+        console.error('❌ Error enviando email al devolver otrosí:', emailErr);
+        console.error('❌ Error stack:', emailErr.stack);
+      }
 
       res.json({
         message: 'Otrosí devuelto exitosamente',

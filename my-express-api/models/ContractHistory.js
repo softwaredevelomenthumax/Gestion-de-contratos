@@ -15,17 +15,15 @@ const ContractHistory = sequelize.define('ContractHistory', {
       model: 'contracts',
       key: 'id',
     },
-    onDelete: 'CASCADE',
   },
   userId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true, // Changed to allow null since users can be deleted
     field: 'user_id', // Mapear a la columna existente
     references: {
       model: 'users',
       key: 'id',
     },
-    onDelete: 'SET NULL',
   },
   role: {
     type: DataTypes.STRING,
