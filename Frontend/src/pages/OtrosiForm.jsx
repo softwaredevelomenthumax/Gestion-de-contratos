@@ -77,7 +77,7 @@ const OtrosiForm = () => {
       }));
     } else {
       setFormData((prev) => ({
-      ...prev,
+        ...prev,
         valorIVA: "",
       }));
     }
@@ -88,27 +88,31 @@ const OtrosiForm = () => {
     if (formData.fechaInicio && formData.fechaFinal) {
       const fechaInicio = new Date(formData.fechaInicio);
       const fechaFinal = new Date(formData.fechaFinal);
-      
+
       if (fechaInicio < fechaFinal) {
         const diferenciaTiempo = fechaFinal.getTime() - fechaInicio.getTime();
         const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 3600 * 24));
-        
+
         // Calcular años, meses y días
         const años = Math.floor(diferenciaDias / 365);
         const mesesRestantes = Math.floor((diferenciaDias % 365) / 30);
         const diasRestantes = diferenciaDias % 30;
-        
+
         let duracionTexto = "";
-        if (años > 0) duracionTexto += `${años} año${años > 1 ? 's' : ''}`;
+        if (años > 0) duracionTexto += `${años} año${años > 1 ? "s" : ""}`;
         if (mesesRestantes > 0) {
           if (duracionTexto) duracionTexto += ", ";
-          duracionTexto += `${mesesRestantes} mes${mesesRestantes > 1 ? 'es' : ''}`;
+          duracionTexto += `${mesesRestantes} mes${
+            mesesRestantes > 1 ? "es" : ""
+          }`;
         }
         if (diasRestantes > 0) {
           if (duracionTexto) duracionTexto += " y ";
-          duracionTexto += `${diasRestantes} día${diasRestantes > 1 ? 's' : ''}`;
+          duracionTexto += `${diasRestantes} día${
+            diasRestantes > 1 ? "s" : ""
+          }`;
         }
-        
+
         return duracionTexto || "Menos de 1 día";
       }
     }
@@ -169,7 +173,7 @@ const OtrosiForm = () => {
       if (file.type === "application/pdf") {
         setFormData((prev) => ({ ...prev, firmarOtrosi: file }));
         setErrors((prev) => ({ ...prev, firmarOtrosi: "" }));
-    } else {
+      } else {
         setErrors((prev) => ({
           ...prev,
           firmarOtrosi: "Solo se permiten archivos PDF",
@@ -205,7 +209,7 @@ const OtrosiForm = () => {
   // Enviar formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       addNotification(
         "Por favor, corrige los errores en el formulario",
@@ -234,15 +238,16 @@ const OtrosiForm = () => {
         formDataToSend.append("firmarOtrosi", formData.firmarOtrosi);
       }
 
-      const response = await api.post(
-        '/otrosi',
-        formDataToSend,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+      const response = await api.post("/otrosi", formDataToSend, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       if (response && response.data) {
         const result = response.data;
-        addNotification(`Otrosí creado exitosamente: ${result.message}`, "success");
+        addNotification(
+          `Otrosí creado exitosamente: ${result.message}`,
+          "success"
+        );
         // Navigate based on user role
         if (user?.role === "lawyer") {
           navigate(`/lawyer/contracts/${id}`);
@@ -272,633 +277,342 @@ const OtrosiForm = () => {
   }
 
   return (
-    <div className="min-h-screen bg-inherit py-12">
-      <div className="max-w-5xl mx-auto px-6">
-        {/* Creative Header with Black Theme */}
-        <div className="relative mb-12">
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-800/20 via-gray-700/20 to-gray-800/20 rounded-3xl blur-3xl"></div>
-          <div className="relative bg-gradient-to-r from-gray-900/90 to-black/90 backdrop-blur-xl rounded-3xl p-8 border border-gray-800/50">
-            <Button
-              onClick={() => {
-                // Navigate based on user role
-                if (user?.role === "lawyer") {
-                  navigate(`/lawyer/contracts/${id}`);
-                } else {
-                  navigate(`/user/contracts/${id}`);
-                }
-              }}
-              variant="ghost"
-              className="absolute top-6 right-6 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-full p-2"
-            >
-              <IconArrowLeft size={20} />
-            </Button>
+    <div className="max-w-2xl mx-auto py-12 px-4">
+      <div className="contract-form-header mb-8 text-center">
+        <Button
+          onClick={() => {
+            // Navigate based on user role
+            if (user?.role === "lawyer") {
+              navigate(`/lawyer/contracts/${id}`);
+            } else {
+              navigate(`/user/contracts/${id}`);
+            }
+          }}
+          variant="ghost"
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+        >
+          <IconArrowLeft size={20} />
+        </Button>
 
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-gray-700 to-black rounded-2xl mb-6 shadow-2xl border border-gray-700">
-                <IconEdit size={32} className="text-white" />
-              </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-200 via-white to-gray-300 bg-clip-text text-transparent mb-3">
-                Solicitud de Otrosí
-              </h1>
-              <div className="flex items-center justify-center gap-4 text-gray-300">
-                <Badge
-                  variant="outline"
-                  className="bg-gray-800/50 border-gray-600 text-gray-300"
-                >
-                  Contrato #{contract.id}
-                </Badge>
-                <span className="text-gray-500">•</span>
-                <span className="text-gray-300">{contract.proveedor}</span>
+        <h1 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
+          Solicitud de Otrosí
+        </h1>
+        <p className="text-muted-foreground text-lg mb-4">
+          Modifica los términos del contrato existente.
+        </p>
+        <div className="flex items-center justify-center gap-4 text-muted-foreground">
+          <Badge variant="outline">Contrato #{contract.id}</Badge>
+          <span>•</span>
+          <span>{contract.proveedor}</span>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-card p-8 shadow-2xl backdrop-blur-lg">
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Descripción de cambios */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
+              Descripción de los Cambios
+            </h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="descripcionCambios" className="text-foreground">
+                  Describir los cambios que requiere el contrato
+                </Label>
+                <Textarea
+                  id="descripcionCambios"
+                  value={formData.descripcionCambios}
+                  onChange={(e) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      descripcionCambios: e.target.value,
+                    }));
+                    if (errors.descripcionCambios) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        descripcionCambios: "",
+                      }));
+                    }
+                  }}
+                  rows={6}
+                  className={`bg-background text-foreground border-input ${
+                    errors.descripcionCambios
+                      ? "border-red-500 focus:ring-red-500"
+                      : ""
+                  }`}
+                  placeholder="Describe detalladamente todos los cambios que requiere el contrato..."
+                />
+                {errors.descripcionCambios && (
+                  <p className="text-red-500 text-xs mt-1">
+                    ⚠️ {errors.descripcionCambios}
+                  </p>
+                )}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Descripción de cambios - Creative Card */}
-          <div className="group">
-            <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:shadow-gray-600/20 hover:border-gray-600/50">
-              <CardHeader className="relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-700/5 to-gray-800/5"></div>
-                <CardTitle className="flex items-center gap-3 text-white relative z-10">
-                  <div className="p-2 bg-gradient-to-r from-gray-700 to-black rounded-xl shadow-lg border border-gray-700">
-                    <IconFileText size={24} className="text-white" />
-                  </div>
-                  <span className="bg-gradient-to-r from-gray-200 to-white bg-clip-text text-transparent">
-                    Descripción de los Cambios
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="bg-gray-800/50 border-gray-600 text-gray-300 text-xs"
-                  >
-                    Obligatorio
-                  </Badge>
-          </CardTitle>
-        </CardHeader>
-              <CardContent className="space-y-4 relative z-10">
-                <div>
-                  <Label
-                    htmlFor="descripcionCambios"
-                    className="text-gray-100 font-semibold flex items-center gap-2"
-                  >
-                    <IconEdit size={16} className="text-gray-400" />
-                    Describir los cambios que requiere el contrato
-                    <span className="text-red-400 ml-1">*</span>
-              </Label>
-              <Textarea
-                id="descripcionCambios"
-                value={formData.descripcionCambios}
-                    onChange={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        descripcionCambios: e.target.value,
-                      }));
-                      if (errors.descripcionCambios) {
-                        setErrors((prev) => ({
-                          ...prev,
-                          descripcionCambios: "",
-                        }));
-                      }
-                    }}
-                    rows={6}
-                    className={`mt-3 bg-gray-800/30 text-white border-2 focus:ring-2 focus:ring-gray-500/50 focus:border-gray-500/50 transition-all duration-200 ${
-                      errors.descripcionCambios
-                        ? "border-red-500/50"
-                        : "border-gray-700/50"
-                    }`}
-                    placeholder="Describe detalladamente todos los cambios que requiere el contrato..."
-                  />
-                  {errors.descripcionCambios && (
-                    <Alert
-                      variant="destructive"
-                      className="mt-3 border-red-500/30 bg-red-500/10"
-                    >
-                      <IconAlertTriangle className="h-4 w-4" />
-                      <AlertDescription>
-                        {errors.descripcionCambios}
-                      </AlertDescription>
-                    </Alert>
-                  )}
+          {/* Cambios en información financiera */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
+              Información Financiera
+            </h3>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="valorTotal" className="text-foreground">
+                  Valor Total Del Contrato
+                </Label>
+                <Input
+                  id="valorTotal"
+                  type="text"
+                  value={formData.valorTotal}
+                  onChange={handleValorTotalChange}
+                  className="bg-background text-foreground border-input"
+                  placeholder="Ingrese el valor total del contrato"
+                />
+                <div className="text-xs text-muted-foreground">
+                  Solo números permitidos
                 </div>
-              </CardContent>
-            </Card>
-            </div>
-
-          {/* Cambios en información financiera - Creative Grid */}
-          <div className="group">
-            <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:shadow-gray-600/20 hover:border-gray-600/50">
-              <CardHeader className="relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-700/5 to-gray-800/5"></div>
-                <CardTitle className="flex items-center gap-3 text-white relative z-10">
-                  <div className="p-2 bg-gradient-to-r from-gray-700 to-black rounded-xl shadow-lg border border-gray-700">
-                    <IconCurrencyDollar size={24} className="text-white" />
-                  </div>
-                  <span className="bg-gradient-to-r from-gray-200 to-white bg-clip-text text-transparent">
-                    Cambios en la Información Financiera
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="bg-gray-800/50 border-gray-600 text-gray-300 text-xs"
-                  >
-                    Opcional
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                    <Label
-                      htmlFor="valorTotal"
-                      className="text-gray-100 font-semibold flex items-center gap-2"
-                    >
-                      <IconPlus size={16} className="text-gray-400" />
-                      Valor total del contrato
-                    </Label>
-                  <Input
-                    id="valorTotal"
-                      type="text"
-                    value={formData.valorTotal}
-                      onChange={handleValorTotalChange}
-                      className="mt-2 bg-gray-800/30 text-white border-2 border-gray-700/50 focus:ring-2 focus:ring-gray-500/50 focus:border-gray-500/50 transition-all duration-200"
-                    placeholder="0.00"
-                  />
-                    <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
-                      <IconInfoCircle size={12} />
-                      Solo números permitidos
-                    </p>
-                </div>
-
-                <div className="space-y-2">
-                    <Label
-                      htmlFor="moneda"
-                      className="text-gray-100 font-semibold flex items-center gap-2"
-                    >
-                      <IconPlus size={16} className="text-gray-400" />
-                      Moneda
-                    </Label>
-                    <Select
-                    value={formData.moneda}
-                      onValueChange={(value) =>
-                        setFormData((prev) => ({ ...prev, moneda: value }))
-                      }
-                    >
-                      <SelectTrigger className="mt-2 bg-gray-800/30 text-white border-2 border-gray-700/50 focus:ring-2 focus:ring-gray-500/50 focus:border-gray-500/50 transition-all duration-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-700 border-gray-600">
-                        {monedas.map((moneda) => (
-                          <SelectItem
-                            key={moneda}
-                            value={moneda}
-                            className="text-white hover:bg-gray-600"
-                          >
-                            {moneda}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="space-y-2">
-                    <Label
-                      htmlFor="porcentajeIVA"
-                      className="text-gray-100 font-semibold flex items-center gap-2"
-                    >
-                      <IconPlus size={16} className="text-gray-400" />
-                      Porcentaje de IVA
-                    </Label>
-                    <Select
-                      value={formData.porcentajeIVA.toString()}
-                      onValueChange={(value) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          porcentajeIVA: parseInt(value),
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="mt-2 bg-gray-800/30 text-white border-2 border-gray-700/50 focus:ring-2 focus:ring-gray-500/50 focus:border-gray-500/50 transition-all duration-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-700 border-gray-600">
-                        {porcentajesIVA.map((porcentaje) => (
-                          <SelectItem
-                            key={porcentaje}
-                            value={porcentaje.toString()}
-                            className="text-white hover:bg-gray-600"
-                          >
-                            {porcentaje}%
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="space-y-2">
-                    <Label
-                      htmlFor="valorIVA"
-                      className="text-gray-100 font-semibold flex items-center gap-2"
-                    >
-                      <IconInfoCircle size={16} className="text-gray-400" />
-                      Valor del IVA (calculado)
-                    </Label>
-                  <Input
-                    id="valorIVA"
-                      type="text"
-                    value={formData.valorIVA}
-                      readOnly
-                      className="mt-2 bg-gray-700/30 text-gray-300 border-2 border-gray-700/50 cursor-not-allowed"
-                      placeholder="Se calcula automáticamente"
-                  />
               </div>
 
-                  <div className="md:col-span-2 space-y-2">
-                    <Label
-                      htmlFor="formaPago"
-                      className="text-gray-100 font-semibold flex items-center gap-2"
-                    >
-                      <IconPlus size={16} className="text-gray-400" />
-                      Forma de pago
-                    </Label>
+              <div className="space-y-2">
+                <Label htmlFor="moneda" className="text-foreground">
+                  Moneda
+                </Label>
+                <Select
+                  value={formData.moneda}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, moneda: value }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monedas.map((moneda) => (
+                      <SelectItem key={moneda} value={moneda}>
+                        {moneda}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="porcentajeIVA" className="text-foreground">
+                  Porcentaje de IVA
+                </Label>
+                <Select
+                  value={formData.porcentajeIVA.toString()}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      porcentajeIVA: parseInt(value),
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {porcentajesIVA.map((porcentaje) => (
+                      <SelectItem
+                        key={porcentaje}
+                        value={porcentaje.toString()}
+                      >
+                        {porcentaje}%
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="valorIVA" className="text-foreground">
+                  Valor del IVA (Calculado)
+                </Label>
                 <Input
-                  id="formaPago"
-                      type="text"
-                  value={formData.formaPago}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          formaPago: e.target.value,
-                        }))
-                      }
-                      className="mt-2 bg-gray-800/30 text-white border-2 border-gray-700/50 focus:ring-2 focus:ring-gray-500/50 focus:border-gray-500/50 transition-all duration-200"
-                      placeholder="EJ: en un solo pago o en pagos periodicos (especificar)"
+                  id="valorIVA"
+                  type="text"
+                  value={formData.valorIVA}
+                  readOnly
+                  className="bg-muted text-foreground border-input"
+                  placeholder="Se calcula automáticamente"
                 />
               </div>
-                </div>
-              </CardContent>
-            </Card>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="formaPago" className="text-foreground">
+                  Forma de Pago
+                </Label>
+                <Input
+                  id="formaPago"
+                  type="text"
+                  value={formData.formaPago}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      formaPago: e.target.value,
+                    }))
+                  }
+                  className="bg-background text-foreground border-input"
+                  placeholder="EJ: en un solo pago o en pagos periódicos (especificar)"
+                />
+              </div>
             </div>
+          </div>
 
-          {/* Cambios en vigencia - Creative Date Section */}
-          <div className="group">
-            <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:shadow-gray-600/20 hover:border-gray-600/50">
-              <CardHeader className="relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-700/5 to-gray-800/5"></div>
-                <CardTitle className="flex items-center gap-3 text-white relative z-10">
-                  <div className="p-2 bg-gradient-to-r from-gray-700 to-black rounded-xl shadow-lg border border-gray-700">
-                    <IconCalendar size={24} className="text-white" />
-                  </div>
-                  <span className="bg-gradient-to-r from-gray-200 to-white bg-clip-text text-transparent">
-                    Cambios en la Vigencia del Contrato
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="bg-gray-800/50 border-gray-600 text-gray-300 text-xs"
-                  >
-                    Opcional
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="space-y-2">
-                    <Label
-                      htmlFor="fechaInicio"
-                      className="text-gray-100 font-semibold flex items-center gap-2"
-                    >
-                      <IconCalendar size={16} className="text-gray-400" />
-                      Fecha de inicio del contrato
-                    </Label>
-                  <Input
-                    id="fechaInicio"
-                    type="date"
-                    value={formData.fechaInicio}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          fechaInicio: e.target.value,
-                        }))
-                      }
-                      className="mt-2 bg-gray-800/30 text-white border-2 border-gray-700/50 focus:ring-2 focus:ring-gray-500/50 focus:border-gray-500/50 transition-all duration-200"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                    <Label
-                      htmlFor="fechaFinal"
-                      className="text-gray-100 font-semibold flex items-center gap-2"
-                    >
-                      <IconCalendar size={16} className="text-gray-400" />
-                      Fecha final del contrato
-                    </Label>
-                  <Input
-                    id="fechaFinal"
-                    type="date"
-                    value={formData.fechaFinal}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          fechaFinal: e.target.value,
-                        }))
-                      }
-                      className="mt-2 bg-gray-800/30 text-white border-2 border-gray-700/50 focus:ring-2 focus:ring-gray-500/50 focus:border-gray-500/50 transition-all duration-200"
-                  />
-                </div>
+          {/* Cambios en vigencia del contrato */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
+              Vigencia del Contrato
+            </h3>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="fechaInicio" className="text-foreground">
+                  Fecha de Inicio del Contrato
+                </Label>
+                <Input
+                  id="fechaInicio"
+                  type="date"
+                  value={formData.fechaInicio}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      fechaInicio: e.target.value,
+                    }))
+                  }
+                  className="bg-background text-foreground border-input"
+                />
               </div>
 
-                {/* Mostrar duración calculada */}
-                {calcularDuracion() && (
-                  <div className="mb-4 p-4 bg-gradient-to-r from-green-900/20 to-emerald-900/20 border border-green-700/30 rounded-xl backdrop-blur-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-gradient-to-r from-green-700 to-emerald-700 rounded-lg">
-                        <IconCalendar size={16} className="text-white" />
-                      </div>
-                      <h4 className="text-green-200 font-semibold">Nueva Duración del Contrato</h4>
-                    </div>
-                    <p className="text-green-100 text-lg font-medium">
-                      {calcularDuracion()}
-                    </p>
-                    <p className="text-green-300 text-sm mt-1">
-                      Calculado automáticamente entre las fechas seleccionadas
-                    </p>
-                  </div>
-                )}
-
-                <Alert className="border-gray-600/30 bg-gray-800/20 backdrop-blur-sm">
-                  <IconInfoCircle className="h-4 w-4 text-gray-400" />
-                  <AlertDescription className="text-gray-200">
-                    <span className="text-gray-300 font-semibold">
-                      Importante:
-                    </span>{" "}
-                    Introduzca solo la fecha que necesita modificar. Si solo
-                    necesita modificar una de ellas, no es necesario ingresar
-                    ambas. Si necesita modificar ambas, introduzca las dos
-                    fechas (inicio y final).
-                  </AlertDescription>
-                </Alert>
-
-                {errors.fechas && (
-                  <Alert
-                    variant="destructive"
-                    className="mt-4 border-red-500/30 bg-red-500/10"
-                  >
-                    <IconAlertTriangle className="h-4 w-4" />
-                    <AlertDescription>{errors.fechas}</AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
+              <div className="space-y-2">
+                <Label htmlFor="fechaFinal" className="text-foreground">
+                  Fecha Final del Contrato
+                </Label>
+                <Input
+                  id="fechaFinal"
+                  type="date"
+                  value={formData.fechaFinal}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      fechaFinal: e.target.value,
+                    }))
+                  }
+                  className="bg-background text-foreground border-input"
+                />
+              </div>
             </div>
 
-          <div className="group">
-            <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:shadow-gray-600/20 hover:border-gray-600/50">
-              <CardHeader className="relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-700/5 to-gray-800/5"></div>
-                <CardTitle className="flex items-center gap-3 text-white relative z-10">
-                  <div className="p-2 bg-gradient-to-r from-gray-700 to-black rounded-xl shadow-lg border border-gray-700">
-                    <IconUpload size={24} className="text-white" />
-                  </div>
-                  <span className="bg-gradient-to-r from-gray-200 to-white bg-clip-text text-transparent">
-                    Carta de Solicitud de Modificación
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="bg-gray-800/50 border-gray-600 text-gray-300 text-xs"
-                  >
-                    Opcional
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div>
-                  <Label
-                    htmlFor="cartaSolicitud"
-                    className="text-gray-100 font-semibold flex items-center gap-2"
-                  >
-                    <IconFileText size={16} className="text-gray-400" />
-                    Carta de solicitud de modificación
-                  </Label>
-                  
-                  {/* Nota informativa sobre OtrosiFile */}
-                  <div className="mt-2 p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
-                    <p className="text-blue-300 text-xs flex items-center gap-2">
-                      <IconInfoCircle size={14} />
-                      <strong>💾 Almacenamiento:</strong> Este archivo se guardará en la tabla OtrosiFile específica para este otrosí.
-                    </p>
-                  </div>
-                  
-                  <Input
-                id="cartaSolicitud"
-                type="file"
-                    accept="application/pdf"
-                onChange={handleFileChange}
-                    className={`mt-3 text-gray-300 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-gray-700 file:to-black file:text-white hover:file:from-gray-600 hover:file:to-gray-800 transition-all duration-200 ${
-                      errors.cartaSolicitud ? "border-red-500/50" : ""
-                    }`}
-                  />
-                  {formData.cartaSolicitud && (
-                    <div className="mt-4 p-4 bg-gradient-to-r from-gray-800/20 to-gray-700/20 border border-gray-700/30 rounded-xl backdrop-blur-sm">
-                      <p className="text-gray-300 text-sm font-semibold mb-3 flex items-center gap-2">
-                        <IconCheck size={16} className="text-green-400" />
-                        Archivo seleccionado para OtrosiFile
-                      </p>
-                      <div className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700/30">
-                        <IconFileText size={16} className="text-gray-400" />
-                        <span className="text-gray-200 text-sm font-medium">
-                          {formData.cartaSolicitud.name}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className="text-xs bg-gray-800/50 text-gray-300 border-gray-600"
-                        >
-                          (
-                          {(formData.cartaSolicitud.size / 1024 / 1024).toFixed(
-                            2
-                          )}{" "}
-                          MB)
-                        </Badge>
-                      </div>
-                      
-                      {/* Información adicional sobre el almacenamiento */}
-                      <div className="mt-3 p-2 bg-blue-900/20 border border-blue-700/30 rounded-lg">
-                        <p className="text-blue-300 text-xs">
-                          ✅ Este archivo se guardará en OtrosiFile con categoría "Carta de Solicitud"
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {errors.cartaSolicitud && (
-                    <Alert
-                      variant="destructive"
-                      className="mt-3 border-red-500/30 bg-red-500/10"
-                    >
-                      <IconAlertTriangle className="h-4 w-4" />
-                      <AlertDescription>
-                        {errors.cartaSolicitud}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-                     </div>
+            {/* Mostrar duración calculada */}
+            {calcularDuracion() && (
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                <h4 className="text-green-800 dark:text-green-200 font-semibold mb-2">
+                  Nueva Duración del Contrato
+                </h4>
+                <p className="text-green-700 dark:text-green-100 text-lg font-medium">
+                  {calcularDuracion()}
+                </p>
+                <p className="text-green-600 dark:text-green-300 text-sm mt-1">
+                  Calculado automáticamente entre las fechas seleccionadas
+                </p>
+              </div>
+            )}
 
-           {/* Campo para firmar otrosí */}
-           <div className="group">
-             <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:shadow-gray-600/20 hover:border-gray-600/50">
-               <CardHeader className="relative overflow-hidden">
-                 <div className="absolute inset-0 bg-gradient-to-r from-gray-700/5 to-gray-800/5"></div>
-                 <CardTitle className="flex items-center gap-3 text-white relative z-10">
-                   <div className="p-2 bg-gradient-to-r from-gray-700 to-black rounded-xl shadow-lg border border-gray-700">
-                     <IconCheck size={24} className="text-white" />
-                   </div>
-                   <span className="bg-gradient-to-r from-gray-200 to-white bg-clip-text text-transparent">
-                     Firmar Otrosí
-                   </span>
-                   <Badge
-                     variant="outline"
-                     className="bg-gray-800/50 border-gray-600 text-gray-300 text-xs"
-                   >
-                     Opcional
-                   </Badge>
-                 </CardTitle>
-               </CardHeader>
-               <CardContent className="relative z-10">
-                 <div>
-                   <Label
-                     htmlFor="firmarOtrosi"
-                     className="text-gray-100 font-semibold flex items-center gap-2"
-                   >
-                     <IconCheck size={16} className="text-gray-400" />
-                     Archivo firmado del otrosí
-                   </Label>
-                   <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
-                     <IconInfoCircle size={12} />
-                     Si sube un archivo firmado, el contrato pasará directamente al estado de revisión del abogado
-                   </p>
-                   
-                   {/* Nota informativa sobre OtrosiFile */}
-                   <div className="mt-2 p-3 bg-green-900/20 border border-green-700/30 rounded-lg">
-                     <p className="text-green-300 text-xs flex items-center gap-2">
-                       <IconInfoCircle size={14} />
-                       <strong>💾 Almacenamiento:</strong> Este archivo se guardará en la tabla OtrosiFile con categoría "Firma Usuario".
-                     </p>
-                   </div>
-                   <Input
-                     id="firmarOtrosi"
-                     type="file"
-                     accept="application/pdf"
-                     onChange={handleFirmarOtrosiChange}
-                     className={`mt-3 text-gray-300 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-gray-700 file:to-black file:text-white hover:file:from-gray-600 hover:file:to-gray-800 transition-all duration-200 ${
-                       errors.firmarOtrosi ? "border-red-500/50" : ""
-                     }`}
-                   />
-                   {formData.firmarOtrosi && (
-                     <div className="mt-4 p-4 bg-gradient-to-r from-gray-800/20 to-gray-700/20 border border-gray-700/30 rounded-xl backdrop-blur-sm">
-                       <p className="text-gray-300 text-sm font-semibold mb-3 flex items-center gap-2">
-                         <IconCheck size={16} className="text-green-400" />
-                         Archivo de firma seleccionado para OtrosiFile
-                       </p>
-                       <div className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700/30">
-                         <IconFileText size={16} className="text-gray-400" />
-                         <span className="text-gray-200 text-sm font-medium">
-                           {formData.firmarOtrosi.name}
-                         </span>
-                         <Badge
-                           variant="secondary"
-                           className="text-xs bg-gray-800/50 text-gray-300 border-gray-600"
-                         >
-                           (
-                           {(formData.firmarOtrosi.size / 1024 / 1024).toFixed(
-                             2
-                           )}{" "}
-                           MB)
-                         </Badge>
-                       </div>
-                       
-                       {/* Información adicional sobre el almacenamiento */}
-                       <div className="mt-3 p-2 bg-green-900/20 border border-green-700/30 rounded-lg">
-                         <p className="text-green-300 text-xs">
-                           ✅ Este archivo se guardará en OtrosiFile con categoría "Firma Usuario"
-                         </p>
-                       </div>
-                     </div>
-                   )}
-                   {errors.firmarOtrosi && (
-                     <Alert
-                       variant="destructive"
-                       className="mt-3 border-red-500/30 bg-red-500/10"
-                     >
-                       <IconAlertTriangle className="h-4 w-4" />
-                       <AlertDescription>
-                         {errors.firmarOtrosi}
-                       </AlertDescription>
-                     </Alert>
-                   )}
-                 </div>
-               </CardContent>
-             </Card>
+            {errors.fechas && (
+              <p className="text-red-500 text-xs mt-1">⚠️ {errors.fechas}</p>
+            )}
+          </div>
+
+          {/* Archivos del Otrosí */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
+              Archivos del Otrosí
+            </h3>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="cartaSolicitud"
+                  className="text-foreground flex items-center gap-2"
+                >
+                  <IconUpload size={18} className="text-blue-500" />
+                  Carta de Solicitud de Modificación (PDF)
+                </Label>
+                <div className="text-xs text-muted-foreground">(opcional)</div>
+                <Input
+                  id="cartaSolicitud"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileChange}
+                  className={`bg-background text-foreground border-input ${
+                    errors.cartaSolicitud
+                      ? "border-red-500 focus:ring-red-500"
+                      : ""
+                  }`}
+                />
+                {formData.cartaSolicitud && (
+                  <div className="text-sm text-muted-foreground">
+                    Archivo seleccionado: {formData.cartaSolicitud.name} (
+                    {(formData.cartaSolicitud.size / 1024 / 1024).toFixed(2)}{" "}
+                    MB)
+                  </div>
+                )}
+                {errors.cartaSolicitud && (
+                  <p className="text-red-500 text-xs mt-1">
+                    ⚠️ {errors.cartaSolicitud}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="firmarOtrosi"
+                  className="text-foreground flex items-center gap-2"
+                >
+                  <IconUpload size={18} className="text-blue-500" />
+                  Firmar Otrosí (PDF)
+                </Label>
+                <div className="text-xs text-muted-foreground">(opcional)</div>
+                <Input
+                  id="firmarOtrosi"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFirmarOtrosiChange}
+                  className={`bg-background text-foreground border-input ${
+                    errors.firmarOtrosi
+                      ? "border-red-500 focus:ring-red-500"
+                      : ""
+                  }`}
+                />
+                {formData.firmarOtrosi && (
+                  <div className="text-sm text-muted-foreground">
+                    Archivo seleccionado: {formData.firmarOtrosi.name} (
+                    {(formData.firmarOtrosi.size / 1024 / 1024).toFixed(2)} MB)
+                  </div>
+                )}
+                {errors.firmarOtrosi && (
+                  <p className="text-red-500 text-xs mt-1">
+                    ⚠️ {errors.firmarOtrosi}
+                  </p>
+                )}
+              </div>
             </div>
+          </div>
 
-
-
-           <div className="flex flex-col sm:flex-row gap-4 pt-8">
-              <Button
-                type="button"
-               onClick={() => {
-                 // Navigate based on user role
-                 if (user?.role === "lawyer") {
-                   navigate(`/lawyer/contracts/${id}`);
-                 } else {
-                   navigate(`/user/contracts/${id}`);
-                 }
-               }}
-                variant="outline"
-               className="flex-1 group relative overflow-hidden bg-gray-800/30 border-gray-700/50 hover:bg-gray-700/30 hover:border-gray-600/50 transition-all duration-300"
-              >
-              <span className="relative z-10 flex items-center gap-2">
-                <IconArrowLeft size={20} />
-                Cancelar
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-700/20 to-gray-800/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </Button>
-
-              <Button
-                type="submit"
-              className="flex-1 group relative overflow-hidden bg-gradient-to-r from-gray-700 to-black hover:from-gray-600 hover:to-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl border border-gray-600"
-                disabled={isSubmitting}
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-3 rounded-lg font-semibold shadow-lg transition disabled:opacity-50 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-600/20 to-gray-700/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <span className="relative z-10 flex items-center gap-2">
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                    <span>Enviando...</span>
-                  </>
-                ) : (
-                  <>
-                    <IconUpload size={20} />
-                    <span>Aplicar Otrosí</span>
-                  </>
-                )}
-              </span>
-              </Button>
-            </div>
-          </form>
+              {isSubmitting ? "Enviando..." : "Aplicar Otrosí"}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );
 };
 
 export default OtrosiForm;
-
-//otrosi abajo
-//nombre del proveedor
-//numero de radicado filtrar
-//enumerar el otrosi del ese contrato y se acomulan, no se remplazan por el nuevo
-//morado todo sobre el otrosi
-//firmado por ambas partes
-
-//en el formulario agregar un campo opcional el cual diga "firmar otrosi" y si es firmado debe ser pasado a un estado llamado signature_otrosi_already_signedByUser y si no es firmado pasa al estado llamado awaiting_lawyer_review".
-
-//en devuelto si el contrato tiene el estado llamado signature_otrosi_already_signedByUser y es firmado por el abogado pasa directamente a signed pero si tiene el estado awaiting_lawyer_review sigue con ciclo de vida

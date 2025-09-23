@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useCallback, useMemo } from 'react';
 import axios from '../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
@@ -14,7 +14,7 @@ const validateName = (name) => {
   return name.trim().length > 0 && nameRegex.test(name.trim());
 };
 
-const Register = () => {
+const Register = memo(() => {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -30,27 +30,72 @@ const Register = () => {
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = useCallback((e) => {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setError('');
     setSuccess('');
-  };
+  }, []);
 
-  const handleBlur = (e) => {
-    setTouched({ ...touched, [e.target.name]: true });
-  };
+  const handleBlur = useCallback((e) => {
+    setTouched(prev => ({ ...prev, [e.target.name]: true }));
+  }, []);
 
-  const isEmailValid = validateEmail(form.email);
-  const isPasswordValid = validatePassword(form.password);
-  const isFirstNameValid = validateName(form.firstName);
-  const isLastNameValid = validateName(form.lastName);
-  const doEmailsMatch = form.email === form.confirmEmail && form.email.length > 0; // Add this validation
-  const doPasswordsMatch = form.password === form.confirmPassword && form.password.length > 0; // Add password validation
+  // Memoize validation functions to prevent recreation
+  const validateEmailMatch = useMemo(() => (email, confirmEmail) => {
+    return email === confirmEmail && email.length > 0;
+  }, []);
 
-  // Update canSubmit to include email and password confirmation
-  const canSubmit = isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid && doEmailsMatch && doPasswordsMatch && form.role;
+  const validatePasswordMatch = useMemo(() => (password, confirmPassword) => {
+    return password === confirmPassword && password.length > 0;
+  }, []);
 
-  const handleSubmit = async (e) => {
+  // Memoize validations to prevent unnecessary recalculations
+  const validations = React.useMemo(() => {
+    const isEmailValid = validateEmail(form.email);
+    const isPasswordValid = validatePassword(form.password);
+    const isFirstNameValid = validateName(form.firstName);
+    const isLastNameValid = validateName(form.lastName);
+    const doEmailsMatch = validateEmailMatch(form.email, form.confirmEmail);
+    const doPasswordsMatch = validatePasswordMatch(form.password, form.confirmPassword);
+    
+    return {
+      isEmailValid,
+      isPasswordValid,
+      isFirstNameValid,
+      isLastNameValid,
+      doEmailsMatch,
+      doPasswordsMatch,
+      canSubmit: isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid && doEmailsMatch && doPasswordsMatch && form.role
+    };
+  }, [form, validateEmailMatch, validatePasswordMatch]);
+
+  const { isEmailValid, isPasswordValid, isFirstNameValid, isLastNameValid, doEmailsMatch, doPasswordsMatch, canSubmit } = validations;
+
+  // Memoize static classes
+  const inputBaseClass = useMemo(() => 
+    "mt-1 block w-full px-4 py-2 border border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-700 text-white",
+    []
+  );
+
+  const errorInputClass = useMemo(() => 
+    "border-2 border-red-500 focus:border-red-500 focus:ring-red-500",
+    []
+  );
+
+  const buttonClass = useMemo(() =>
+    "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition ease-in-out duration-300 transform hover:scale-105",
+    []
+  );
+
+  // Memoize loading spinner
+  const loadingSpinner = useMemo(() => (
+    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  ), []);
+
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     setTouched({ firstName: true, lastName: true, email: true, confirmEmail: true, password: true, confirmPassword: true }); // Add confirmPassword
     if (!canSubmit) return;
@@ -89,7 +134,7 @@ const Register = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [canSubmit, doEmailsMatch, doPasswordsMatch, form, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
@@ -111,8 +156,8 @@ const Register = () => {
               aria-invalid={!isFirstNameValid && touched.firstName}
               aria-describedby="firstName-error"
               className={cn(
-                "mt-1 block w-full px-4 py-2 border border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-700 text-white",
-                touched.firstName && !isFirstNameValid && "border-2 border-red-500 focus:border-red-500 focus:ring-red-500"
+                inputBaseClass,
+                touched.firstName && !isFirstNameValid && errorInputClass
               )}
               placeholder="Tu nombre"
               autoComplete="given-name"
@@ -273,12 +318,13 @@ const Register = () => {
           <Button
             type="submit"
             className={cn(
-              "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition ease-in-out duration-300 transform hover:scale-105",
+              buttonClass,
               loading && "opacity-50 cursor-not-allowed"
             )}
             disabled={loading || !canSubmit}
             aria-busy={loading}
           >
+            {loading ? loadingSpinner : null}
             {loading ? (
               <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -295,6 +341,8 @@ const Register = () => {
       </div>
     </div>
   );
-};
+});
+
+Register.displayName = 'Register';
 
 export default Register;

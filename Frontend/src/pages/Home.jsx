@@ -62,7 +62,7 @@ const Home = () => {
     },
     {
       name: "Contratos a la espera de firma del usuario",
-      description: "Contratos que ha firmado el RL Humax y esperan la firma del usuario",
+      description: "Contratos que ha firmado el representante legal Humax y esperan la firma del usuario",
       href: "/LawyerAwaitingSignature",
       icon: ThumbsUp,
       color: "from-teal-500 to-teal-600",
@@ -70,7 +70,7 @@ const Home = () => {
     },
     {
       name: "Contratos a la espera de tu firma",
-      description: "Contratos que han sido firmados por el RL Humax y esperan la firma del usuario",
+      description: "Contratos que han sido firmados por el representante legal Humax y esperan la firma del usuario",
       href: "/AwaitingSignature",
       icon: ThumbsUp,
       color: "from-teal-500 to-teal-600",

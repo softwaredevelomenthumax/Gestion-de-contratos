@@ -95,7 +95,7 @@ Accesos:
 ## Actualizar después de un `git push` (deploy manual)
 ```powershell
 # 1) Obtener última versión
-cd C:\Apps\Gestion-de-contratos
+cd C:\software\Gestion-de-contratos
 git fetch --all --prune
 git checkout main
 git reset --hard origin/main
@@ -104,7 +104,7 @@ git clean -fd      # elimina archivos y carpetas no rastreados
 # git clean -fdx   # incluye ignorados (.gitignore). Más agresivo.
 
 # 2) Backend: instalar y reiniciar
-cd C:\Apps\Gestion-de-contratos\my-express-api
+cd C:\software\Gestion-de-contratos\my-express-api
 
 pm2 delete contract-api
 
@@ -117,7 +117,7 @@ pm2 logs contract-api --lines 50
 pm2 save
 
 # 3) Frontend: build y recarga
-cd C:\Apps\Gestion-de-contratos\Frontend
+cd C:\software\Gestion-de-contratos\Frontend
 
 pm2 delete contract-frontend
 

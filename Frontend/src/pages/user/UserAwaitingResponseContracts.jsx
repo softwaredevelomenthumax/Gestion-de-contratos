@@ -80,8 +80,7 @@ const UserAwaitingResponseContracts = () => {
                     {filteredAndSortedContracts.map((contract) => (
                         <Card
                             key={contract.id}
-                            descripcion={contract.descripcion}
-                            solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
+                            solicitante={contract.solicitante}
                             contract={contract}
                             onClick={() => handleCardClick(contract.id)}
                         />

@@ -596,9 +596,15 @@ const ContractFullDetail = ({ contract }) => {
       navigate("/");
     } catch (err) {
       console.error("Error en handleContractAction:", err);
+      console.error("Error response:", err.response?.data);
+      console.error("Error status:", err.response?.status);
+      
       if (err.message.includes("sesión") || err.message.includes("401")) {
         setError("Tu sesión ha expirado. Por favor, inicia sesión nuevamente.");
         setTimeout(() => navigate("/login"), 2000);
+      } else if (err.response?.status === 400) {
+        const errorMessage = err.response?.data?.error || err.response?.data?.message || "Error en la petición. Verifica que el contrato esté en un estado válido para esta acción.";
+        setError(errorMessage);
       } else {
         setError(err.message || "Error desconocido");
       }
@@ -921,9 +927,10 @@ const ContractFullDetail = ({ contract }) => {
           </div>
         )}
 
-      {/* Botón Responder para abogados en estado new */}
+      {/* Botones para abogados en estado new - Responder o Firmar directamente */}
       {user?.role === "lawyer" && contract.estado === "new" && (
         <div className="mb-8">
+          <div className="flex gap-4 flex-wrap mb-4">
           <Button
             onClick={() => setShowLawyerResponder(!showLawyerResponder)}
             variant="primary"
@@ -932,6 +939,21 @@ const ContractFullDetail = ({ contract }) => {
             <IconUpload size={20} />
             Responder
           </Button>
+            <Button
+              onClick={() =>
+                setShowSignModal(prev => {
+                  const next = !prev;
+                  if (next) setShowLawyerResponder(false);
+                  return next;
+                })
+              }
+              variant="signature"
+              className="flex items-center gap-3"
+            >
+              <IconSignature size={20} />
+              Firmar Directamente
+            </Button>
+          </div>
 
           {/* Formulario inline de respuesta para abogados */}
           {showLawyerResponder && (
@@ -1068,7 +1090,7 @@ const ContractFullDetail = ({ contract }) => {
               </Button>
             </div>
 
-            {/* Formulario inline de firma */}
+            {/* Formulario inline de firma - REMOVIDO - ahora está disponible para todos los estados 
             {showSignModal && (
               <Card className="mt-4 border-2 border-green-200 dark:border-green-700">
                 <CardHeader>
@@ -1162,7 +1184,7 @@ const ContractFullDetail = ({ contract }) => {
                   </div>
                 </CardContent>
               </Card>
-            )}
+            )} */}
 
             {/* Formulario inline de devolución */}
             {showReturnModal && (
@@ -1238,6 +1260,109 @@ const ContractFullDetail = ({ contract }) => {
                 </CardContent>
               </Card>
             )}
+          </div>
+        )}
+
+      {/* Modal de firma para abogados - solo para estados 'new' y 'awaiting_lawyer_review' */}
+      {user?.role === "lawyer" && 
+       (contract.estado === "new" || 
+        contract.estado === "awaiting_lawyer_review" ||
+        contract.estado === "signature_otrosi_already_signedByUser" ||
+        contract.estado === "otrosi_awaiting_lawyer_review") && 
+       showSignModal && (
+        <div className="mb-8">
+          <Card className="mt-4 border-2 border-green-200 dark:border-green-700">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconSignature size={20} className="text-green-600" />
+                Firmar Contrato
+              </CardTitle>
+              <CardDescription>
+                Sube archivos PDF firmados para finalizar
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <IconCheck className="h-4 w-4" />
+                <AlertDescription>
+                  Al firmar se completará el proceso. <span className="font-semibold">Asegúrate de firmar correctamente.</span>
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label className="text-sm flex items-center gap-2">
+                  <IconUpload size={16} />
+                  Subir archivos PDF firmados:
+                </Label>
+                <Input
+                  type="file"
+                  accept="application/pdf"
+                  multiple
+                  onChange={(e) => setSignFiles(Array.from(e.target.files).slice(0, 10))}
+                  disabled={signUploading}
+                  className="text-sm"
+                />
+                {signFiles.length > 0 && (
+                  <div className="space-y-1">
+                    {signFiles.map((file, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
+                        <IconFileText size={14} />
+                        <span className="truncate">{file.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Comentario (opcional):</Label>
+                <Textarea
+                  value={signComment}
+                  onChange={(e) => setSignComment(e.target.value)}
+                  placeholder="Agrega un comentario sobre la firma..."
+                  rows={3}
+                  disabled={signUploading}
+                  className="text-sm"
+                />
+              </div>
+
+              {signError && (
+                <Alert variant="destructive">
+                  <IconAlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{signError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSignModal(false)}
+                  disabled={signUploading}
+                  size="sm"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSign}
+                  disabled={signUploading}
+                  size="sm"
+                  className="gap-2 bg-green-600 hover:bg-green-700"
+                >
+                  {signUploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      <span>Enviando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconSignature size={16} />
+                      <span>Firmar</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           </div>
         )}
 
@@ -1823,9 +1948,9 @@ const ContractFullDetail = ({ contract }) => {
                 <Card key={file.id} className="hover:shadow-lg transition-shadow duration-200">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <IconFileText className="w-5 h-5 text-blue-600" />
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <IconFileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate" title={file.filename}>
                           {file.filename}
                         </span>
                       </div>
@@ -1995,9 +2120,9 @@ const ContractFullDetail = ({ contract }) => {
                         <Card key={file.id} className="hover:shadow-lg transition-shadow duration-200 border-purple-200 dark:border-purple-600">
                           <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <IconFileText className="w-5 h-5 text-purple-600" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <IconFileText className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                                <span className="text-sm font-medium text-gray-900 dark:text-white truncate" title={file.filename}>
                                   {file.filename}
                                 </span>
                               </div>
@@ -2125,10 +2250,10 @@ const ContractFullDetail = ({ contract }) => {
                         otrosiFiles[otro.id].map((file) => (
                           <div key={file.id} className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <IconFileText size={20} className="text-blue-600 dark:text-blue-400" />
-                                <div>
-                                  <p className="font-medium text-blue-900 dark:text-blue-100">{file.filename}</p>
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <IconFileText size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-blue-900 dark:text-blue-100 truncate" title={file.filename}>{file.filename}</p>
                                   <div className="flex items-center gap-2 mt-1">
                                     <Badge variant="secondary" className="text-xs">
                                       {file.fileType || file.category || 'Archivo'}
@@ -2312,9 +2437,9 @@ const ContractFullDetail = ({ contract }) => {
                         <p className="text-xs text-gray-600 dark:text-muted-foreground mb-2">Archivos adjuntos:</p>
                         <div className="space-y-1">
                           {history.files.map((file, index) => (
-                            <div key={index} className="flex items-center gap-2 text-xs text-gray-700 dark:text-foreground">
-                              <IconFileText size={12} className="text-blue-400" />
-                              <span>{file.filename}</span>
+                            <div key={index} className="flex items-center gap-2 text-xs text-gray-700 dark:text-foreground min-w-0">
+                              <IconFileText size={12} className="text-blue-400 flex-shrink-0" />
+                              <span className="truncate" title={file.filename}>{file.filename}</span>
                             </div>
                           ))}
                         </div>

@@ -1,9 +1,29 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion as Motion } from 'framer-motion';
 
 const ActionCard = ({ action, index }) => {
   const Icon = action.icon;
+
+  // Preload page on hover (only for lazy-loaded pages)
+  const preloadPage = useCallback(() => {
+    const pageMap = {
+      // Only SendContract and Trazabilidad are loaded immediately, preload all others
+      '/my_contracts': () => import('../pages/user/UserSentContracts'),
+      '/user_awaiting_response_contracts': () => import('../pages/user/UserAwaitingResponseContracts'),
+      '/AwaitingSignature': () => import('../pages/user/UserAwaitingSignature'),
+      '/lawyer_new_contracts': () => import('../pages/lawyer/LawyerNewContracts'),
+      '/lawyer_managed_contracts': () => import('../pages/lawyer/LawyerManagedContracts'),
+      '/lawyer_awaiting_review_contracts': () => import('../pages/lawyer/LawyerAwaitingReviewContracts'),
+      '/LawyerAwaitingSignature': () => import('../pages/lawyer/LawyerAwaitingSignature'),
+      '/lawyer_ended': () => import('../pages/lawyer/LawyerFinalizado'),
+      '/user_ended': () => import('../pages/user/UserFinalizado'),
+    };
+
+    if (pageMap[action.href]) {
+      pageMap[action.href]();
+    }
+  }, [action.href]);
 
   const cardVariants = {
     hidden: { opacity: 0, y: 50 },
@@ -28,6 +48,7 @@ const ActionCard = ({ action, index }) => {
     >
       <Link
         to={action.href}
+        onMouseEnter={preloadPage}
         className={`group relative block overflow-hidden rounded-2xl shadow-lg text-white h-full`}
       >
         <div className={`absolute inset-0 bg-gradient-to-br ${action.color} transition-all duration-300 group-hover:opacity-90`}></div>

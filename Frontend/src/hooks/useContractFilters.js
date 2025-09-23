@@ -1,9 +1,44 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import api from '../api/axiosInstance';
 
-export const useContractFilters = (contracts) => {
+export const useContractFilters = (contracts, checkOtrosi = false) => {
   const [filter, setFilter] = useState('');
   const [ticketFilter, setTicketFilter] = useState('');
   const [sortType, setSortType] = useState('newest');
+  const [contractsWithOtrosi, setContractsWithOtrosi] = useState(new Set());
+
+  // Check which contracts have otrosí (only if checkOtrosi is true)
+  useEffect(() => {
+    if (!checkOtrosi || !contracts || contracts.length === 0) return;
+
+    const checkOtrosiForContracts = async () => {
+      const otrosiChecks = contracts.map(async (contract) => {
+        try {
+          const response = await api.get(`/otrosi/contract/${contract.id}`);
+          return {
+            contractId: contract.id,
+            hasOtrosi: response.data && response.data.length > 0
+          };
+        } catch {
+          return {
+            contractId: contract.id,
+            hasOtrosi: false
+          };
+        }
+      });
+
+      const results = await Promise.all(otrosiChecks);
+      const contractsWithOtrosiSet = new Set(
+        results
+          .filter(result => result.hasOtrosi)
+          .map(result => result.contractId)
+      );
+      
+      setContractsWithOtrosi(contractsWithOtrosiSet);
+    };
+
+    checkOtrosiForContracts();
+  }, [contracts, checkOtrosi]);
 
   // Filtering and sorting logic
   const filteredAndSortedContracts = useMemo(() => {
@@ -28,10 +63,17 @@ export const useContractFilters = (contracts) => {
 
     // Apply sort/filter type
     if (sortType === 'with-otrosi') {
-      // Filter contracts that have otrosí (assuming otrosi array exists and has length > 0)
-      currentContracts = currentContracts.filter(contract => 
-        contract.otrosi && contract.otrosi.length > 0
-      );
+      if (checkOtrosi) {
+        // Use API-based check for otrosí
+        currentContracts = currentContracts.filter(contract => 
+          contractsWithOtrosi.has(contract.id)
+        );
+      } else {
+        // Use contract property for otrosí (for pages that already have this data)
+        currentContracts = currentContracts.filter(contract => 
+          contract.otrosi && contract.otrosi.length > 0
+        );
+      }
       // Sort by newest within this filtered set
       currentContracts.sort((a, b) => {
         if (a.createdAt && b.createdAt) {
@@ -40,10 +82,17 @@ export const useContractFilters = (contracts) => {
         return b.id - a.id;
       });
     } else if (sortType === 'without-otrosi') {
-      // Filter contracts that don't have otrosí
-      currentContracts = currentContracts.filter(contract => 
-        !contract.otrosi || contract.otrosi.length === 0
-      );
+      if (checkOtrosi) {
+        // Use API-based check for otrosí
+        currentContracts = currentContracts.filter(contract => 
+          !contractsWithOtrosi.has(contract.id)
+        );
+      } else {
+        // Use contract property for otrosí (for pages that already have this data)
+        currentContracts = currentContracts.filter(contract => 
+          !contract.otrosi || contract.otrosi.length === 0
+        );
+      }
       // Sort by newest within this filtered set
       currentContracts.sort((a, b) => {
         if (a.createdAt && b.createdAt) {
@@ -68,7 +117,7 @@ export const useContractFilters = (contracts) => {
     }
 
     return currentContracts;
-  }, [contracts, filter, ticketFilter, sortType]);
+  }, [contracts, filter, ticketFilter, sortType, contractsWithOtrosi, checkOtrosi]);
 
   return {
     filter,
