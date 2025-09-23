@@ -6,14 +6,10 @@ import { cn } from '../lib/utils';
 import OptimizedInput from './OptimizedInput';
 
 const OptimizedLoginform = memo(() => {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
   const { login } = useAuth();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState(null);
-
-  // Watch form values for validation
-  const email = watch('email', '');
-  const password = watch('password', '');
 
   const onSubmit = useCallback(async (data) => {
     setLoginError(null);
@@ -69,16 +65,6 @@ const OptimizedLoginform = memo(() => {
     </svg>
   ), []);
 
-  // Validate current form state
-  const isEmailValid = useMemo(() => {
-    if (!email) return true; // Don't show error for empty field
-    return emailValidation.pattern.value.test(email);
-  }, [email, emailValidation.pattern.value]);
-
-  const isPasswordValid = useMemo(() => {
-    if (!password) return true; // Don't show error for empty field  
-    return password.length >= passwordValidation.minLength.value;
-  }, [password, passwordValidation.minLength.value]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
