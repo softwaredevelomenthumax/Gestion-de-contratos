@@ -39,6 +39,7 @@ const combineContractsWithOtrosi = (contracts, contractsWithOtrosi) => {
   return Array.from(contractMap.values()).sort((a, b) => b.id - a.id);
 };
 
+// Optimized contract includes - Load otrosi data efficiently to prevent N+1 queries
 const contractIncludeOptions = [
   {
     model: User,
@@ -59,7 +60,25 @@ const contractIncludeOptions = [
   {
     model: require('../models/Otrosi'),
     as: 'otrosi',
-    attributes: ['id', 'contractId', 'numeroOtrosi', 'descripcionCambios', 'valorTotal', 'moneda', 'porcentajeIVA', 'valorIVA', 'formaPago', 'fechaInicio', 'fechaFinal', 'estado', 'cartaSolicitudPath', 'firmarOtrosiPath', 'firmaAbogadoPath', 'comentariosAbogado', 'fechaCreacion', 'fechaAprobacion', 'fechaDevolucion', 'firmadoPorUsuario']
+    // Only load essential fields for performance - detailed data loaded on-demand
+    attributes: ['id', 'contractId', 'numeroOtrosi', 'estado', 'fechaCreacion'],
+    required: false // LEFT JOIN to include contracts without otrosi
+  }
+];
+
+// Lightweight includes for list views (better performance)
+const contractListIncludeOptions = [
+  {
+    model: User,
+    as: 'solicitante',
+    attributes: ['id', 'firstName', 'lastName', 'email', 'role']
+  },
+  {
+    model: require('../models/Otrosi'),
+    as: 'otrosi',
+    // Minimal data for card display
+    attributes: ['id', 'contractId'],
+    required: false
   }
 ];
 
@@ -82,9 +101,10 @@ router.get('/', auth, async (req, res) => {
       };
     }
     
+    // Use lightweight includes for list view - better performance
     const contracts = await Contract.findAll({
       where: whereClause,
-      include: contractIncludeOptions,
+      include: contractListIncludeOptions,
       order: [['id', 'DESC']],
     });
     
