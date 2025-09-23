@@ -136,8 +136,8 @@ const ContractTraceDetail = ({
             <SelectValue placeholder="Ordenar por" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="newest">Más nuevo primero</SelectItem>
-            <SelectItem value="oldest">Más viejo primero</SelectItem>
+            <SelectItem value="newest">Más reciente</SelectItem>
+            <SelectItem value="oldest">Más antiguo</SelectItem>
           </SelectContent>
         </Select>
       </div>

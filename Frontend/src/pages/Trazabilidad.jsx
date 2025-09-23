@@ -12,7 +12,7 @@ const Trazabilidad = () => {
   const [_loading, setLoading] = useState(false);
   const navigate = useNavigate();
   
-  // Hooks para filtros
+  // Hooks para filtros - habilitamos verificación de otrosí para Trazabilidad
   const {
     filter,
     setFilter,
@@ -21,7 +21,7 @@ const Trazabilidad = () => {
     sortType,
     setSortType,
     filteredContracts
-  } = useContractFilters(contracts);
+  } = useContractFilters(contracts, true);
 
   useEffect(() => {
     const fetchContracts = async () => {
@@ -60,8 +60,7 @@ const Trazabilidad = () => {
           {(filteredContracts || []).map((contract) => (
             <Card
               key={contract.id}
-              descripcion={contract.descripcion}
-              solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
+              solicitante={contract.solicitante}
               contract={contract}
               onClick={() => navigate(`/trazabilidad/${contract.id}`)}
             />

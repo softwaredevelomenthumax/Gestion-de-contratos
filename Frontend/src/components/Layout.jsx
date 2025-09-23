@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -20,6 +20,29 @@ const Layout = ({ children }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
+
+  // Preload pages on hover (only for lazy-loaded pages)
+  const preloadPage = useCallback((href) => {
+    const pageMap = {
+      // Only SendContract and Trazabilidad are loaded immediately, preload all others
+      '/': () => import('../pages/Home'),
+      '/my_contracts': () => import('../pages/user/UserSentContracts'),
+      '/user_awaiting_response_contracts': () => import('../pages/user/UserAwaitingResponseContracts'),
+      '/AwaitingSignature': () => import('../pages/user/UserAwaitingSignature'),
+      '/lawyer_new_contracts': () => import('../pages/lawyer/LawyerNewContracts'),
+      '/lawyer_managed_contracts': () => import('../pages/lawyer/LawyerManagedContracts'),
+      '/lawyer_awaiting_review_contracts': () => import('../pages/lawyer/LawyerAwaitingReviewContracts'),
+      '/LawyerAwaitingSignature': () => import('../pages/lawyer/LawyerAwaitingSignature'),
+      '/lawyer_ended': () => import('../pages/lawyer/LawyerFinalizado'),
+      '/user_ended': () => import('../pages/user/UserFinalizado'),
+      '/admin/users': () => import('../pages/AdminUsers'),
+      '/admin/create': () => import('../pages/CreateAdmin'),
+    };
+
+    if (pageMap[href]) {
+      pageMap[href]();
+    }
+  }, []);
 
   const navigation = (
     user?.role === 'admin'
@@ -90,6 +113,7 @@ const Layout = ({ children }) => {
               <Link
                 key={item.name}
                 to={item.href}
+                onMouseEnter={() => preloadPage(item.href)}
                 className={cn(
                   "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
                   isActive
@@ -190,6 +214,7 @@ const Layout = ({ children }) => {
                   <Link
                     key={item.name}
                     to={item.href}
+                    onMouseEnter={() => preloadPage(item.href)}
                     className={cn(
                       "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
                       isActive

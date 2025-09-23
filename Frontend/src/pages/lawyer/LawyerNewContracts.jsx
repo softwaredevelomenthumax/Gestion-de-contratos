@@ -164,8 +164,7 @@ const LawyerNewContracts = () => {
           {filteredAndSortedContracts.map((contract) => (
             <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
               <Card
-                descripcion={contract.descripcion}
-                solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
+                solicitante={contract.solicitante}
                 contract={contract}
               />
             </div>

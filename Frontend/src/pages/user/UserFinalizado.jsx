@@ -75,8 +75,7 @@ const UserFinalizado = () => {
                     {filteredAndSortedContracts.map((contract) => (
                         <Card
                             key={contract.id}
-                            descripcion={contract.descripcion}
-                            solicitante={contract.gerenteArea || contract.solicitante?.firstName || ''}
+                            solicitante={contract.solicitante}
                             contract={contract}
                             onClick={() => navigate(`/user/contracts/${contract.id}`)}
                         />

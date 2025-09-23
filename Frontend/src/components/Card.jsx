@@ -46,7 +46,7 @@ const formatContractType = (contractType) => {
     .join(' ');
 };
 
-export function Card({ descripcion, solicitante, contract, onClick }) {
+export function Card({ solicitante, contract, onClick }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [hasOtrosi, setHasOtrosi] = React.useState(false);
@@ -113,13 +113,13 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
       )}
     >
       {contract?.id != null && (
-        <div className="absolute top-2 right-4 z-10 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1 rounded-full text-xs font-semibold shadow">
+        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1 rounded-full text-xs font-semibold shadow">
           Radicado: {contract.id}
         </div>
       )}
       
-      <div className="flex-1 p-6 flex flex-col gap-3">
-        <div className="flex items-center gap-4">
+      <div className={`flex-1 px-6 pt-6 pb-4 flex flex-col ${hasOtrosi ? 'gap-2' : 'gap-4'}`}>
+        <div className="flex items-center gap-4 mt-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-md">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -139,12 +139,13 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
             <h3 className="text-xl font-bold text-foreground truncate">
               {contract?.proveedor || 'Sin proveedor'}
             </h3>
-            <p className="text-sm text-muted-foreground truncate">
-              {descripcion}
+            <p className={`text-muted-foreground break-words leading-tight ${hasOtrosi ? 'text-xs' : 'text-sm'}`} title={formatContractType(contract?.tipoContrato)}>
+              {formatContractType(contract?.tipoContrato)}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm mt-2 text-blue-600 dark:text-blue-400">
+        
+        <div className={`flex items-center gap-2 text-blue-600 dark:text-blue-400 ${hasOtrosi ? 'text-xs' : 'text-sm'}`}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -153,7 +154,7 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-4 w-4"
+            className={`${hasOtrosi ? 'h-3 w-3' : 'h-4 w-4'}`}
           >
             <path d="M20 21v-2a4 4 0 0 0-4-4H 8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
@@ -163,7 +164,7 @@ export function Card({ descripcion, solicitante, contract, onClick }) {
         
         {/* Indicador de Otrosí - Aparece cuando el contrato tiene otrosí */}
         {hasOtrosi && (
-          <div className="mt-2 flex items-center gap-2">
+          <div className="flex items-center justify-center">
             <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-600 text-purple-50 border border-purple-500/20">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -285,8 +286,8 @@ export function LawyerCard({ contract }) {
         <h3 className="text-lg font-semibold text-foreground mb-1 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
           {contract.proveedor || 'Sin proveedor'}
         </h3>
-        <p className="text-sm text-muted-foreground mb-4 h-10">
-                          {formatContractType(contract.tipoContrato)}
+        <p className="text-sm text-muted-foreground mb-4 break-words leading-tight" title={formatContractType(contract.tipoContrato)}>
+          {formatContractType(contract.tipoContrato)}
         </p>
 
         <div className="space-y-2 text-sm mb-4">

@@ -38,7 +38,8 @@ const getNextStatus = (currentStatus, userRole, action) => {
   const transitions = {
     'new': {
       'lawyer': {
-        'respond': 'awaiting_user_response'
+        'respond': 'awaiting_user_response',
+        'sign': 'awaiting_signature'
       }
     },
     'awaiting_user_response': {
