@@ -21,9 +21,15 @@ const Login = memo(() => {
     </p>
   ), []);
 
+  // Memoize container styles for better performance
+  const containerStyles = useMemo(() => ({
+    container: "min-h-screen flex items-center justify-center bg-gray-950 py-12 px-4 sm:px-6 lg:px-8",
+    card: "max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-[1.01]"
+  }), []);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-[1.01]">
+    <div className={containerStyles.container}>
+      <div className={containerStyles.card}>
         {headerContent}
         <Loginform />
         {footerContent}

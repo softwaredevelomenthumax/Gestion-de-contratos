@@ -71,21 +71,18 @@ const Register = memo(() => {
 
   const { isEmailValid, isPasswordValid, isFirstNameValid, isLastNameValid, doEmailsMatch, doPasswordsMatch, canSubmit } = validations;
 
-  // Memoize static classes
-  const inputBaseClass = useMemo(() => 
-    "mt-1 block w-full px-4 py-2 border border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-700 text-white",
-    []
-  );
-
-  const errorInputClass = useMemo(() => 
-    "border-2 border-red-500 focus:border-red-500 focus:ring-red-500",
-    []
-  );
-
-  const buttonClass = useMemo(() =>
-    "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition ease-in-out duration-300 transform hover:scale-105",
-    []
-  );
+  // Memoize static classes for better performance
+  const styles = useMemo(() => ({
+    inputBase: "mt-1 block w-full px-4 py-2 border border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-700 text-white",
+    errorInput: "border-2 border-red-500 focus:border-red-500 focus:ring-red-500",
+    button: "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition ease-in-out duration-300 transform hover:scale-105",
+    container: "min-h-screen flex items-center justify-center bg-gray-950 py-12 px-4 sm:px-6 lg:px-8",
+    card: "max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-[1.01]",
+    form: "space-y-6 w-full max-w-md mx-auto",
+    label: "block text-sm font-medium text-gray-200 mb-1",
+    successMessage: "mb-2 bg-green-900/20 border border-green-700 text-green-300 px-4 py-3 rounded animate-fade-in",
+    errorMessage: "mb-2 bg-red-900/20 border border-red-700 text-red-300 px-4 py-3 rounded animate-fade-in"
+  }), []);
 
   // Memoize loading spinner
   const loadingSpinner = useMemo(() => (
@@ -137,13 +134,13 @@ const Register = memo(() => {
   }, [canSubmit, doEmailsMatch, doPasswordsMatch, form, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-[1.01]">
+    <div className={styles.container}>
+      <div className={styles.card}>
         <div>
           <h2 className="mt-2 text-center text-3xl font-extrabold text-white">Registro</h2>
           <p className="mt-2 text-center text-sm text-gray-400">Crea tu cuenta para continuar</p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-md mx-auto" aria-label="Formulario de registro" >
+        <form onSubmit={handleSubmit} className={styles.form} aria-label="Formulario de registro" >
           <div className="mb-2">
             <Label htmlFor="firstName" className="block text-sm font-medium text-gray-200 mb-1">Nombre</Label>
             <Input
@@ -156,8 +153,8 @@ const Register = memo(() => {
               aria-invalid={!isFirstNameValid && touched.firstName}
               aria-describedby="firstName-error"
               className={cn(
-                inputBaseClass,
-                touched.firstName && !isFirstNameValid && errorInputClass
+                styles.inputBase,
+                touched.firstName && !isFirstNameValid && styles.errorInput
               )}
               placeholder="Tu nombre"
               autoComplete="given-name"
@@ -313,12 +310,12 @@ const Register = memo(() => {
               </SelectContent>
             </Select>
           </div>
-          {error && <div className="mb-2 bg-red-900/20 border border-red-700 text-red-300 px-4 py-3 rounded animate-fade-in" role="alert">{error}</div>}
-          {success && <div className="mb-2 bg-green-900/20 border border-green-700 text-green-300 px-4 py-3 rounded animate-fade-in" role="status">{success}</div>}
+          {error && <div className={styles.errorMessage} role="alert">{error}</div>}
+          {success && <div className={styles.successMessage} role="status">{success}</div>}
           <Button
             type="submit"
             className={cn(
-              buttonClass,
+              styles.button,
               loading && "opacity-50 cursor-not-allowed"
             )}
             disabled={loading || !canSubmit}

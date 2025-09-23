@@ -46,16 +46,23 @@ const formatContractType = (contractType) => {
     .join(' ');
 };
 
-export function Card({ solicitante, contract, onClick }) {
+export const Card = React.memo(function Card({ solicitante, contract, onClick }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [hasOtrosi, setHasOtrosi] = React.useState(false);
   // const isViewed = contract && contract.viewedBy && user && contract.viewedBy.includes(user.id);
 
-  // Check if contract has otrosi
+  // Check if contract has otrosi - Use included data to prevent N+1 API calls
   React.useEffect(() => {
     if (!contract?.id) return;
-    // Only attempt if we have a user and they likely have access (lawyer or owner)
+    
+    // Use otrosi data already included in contract response (performance optimization)
+    if (contract.otrosi && Array.isArray(contract.otrosi)) {
+      setHasOtrosi(contract.otrosi.length > 0);
+      return;
+    }
+    
+    // Fallback: Only make API call if otrosi data not included and user has access
     const isOwner = user && (contract?.solicitante?.id === user.id || contract?.solicitanteId === user.id);
     const hasAccess = user && (user.role === 'lawyer' || isOwner);
     if (!hasAccess) return;
@@ -74,7 +81,7 @@ export function Card({ solicitante, contract, onClick }) {
     };
     
     checkOtrosi();
-  }, [contract?.id, contract?.solicitante?.id, contract?.solicitanteId, user, user?.id, user?.role]);
+  }, [contract?.id, contract?.otrosi, contract?.solicitante?.id, contract?.solicitanteId, user, user?.id, user?.role]);
 
   // Helper function to safely extract solicitante name
   const getSolicitanteDisplay = (solicitante) => {
@@ -188,7 +195,7 @@ export function Card({ solicitante, contract, onClick }) {
       </div>
     </div>
   );
-}
+});
 
 export function LawyerCardSkeleton() {
     return (
@@ -207,14 +214,21 @@ export function LawyerCardSkeleton() {
     );
 }
 
-export function LawyerCard({ contract }) {
+export const LawyerCard = React.memo(function LawyerCard({ contract }) {
   const navigate = useNavigate();
   const [hasOtrosi, setHasOtrosi] = React.useState(false);
 
-  // Check if contract has otrosi
+  // Check if contract has otrosi - Use included data to prevent N+1 API calls
   React.useEffect(() => {
     if (!contract?.id) return;
     
+    // Use otrosi data already included in contract response (performance optimization)
+    if (contract.otrosi && Array.isArray(contract.otrosi)) {
+      setHasOtrosi(contract.otrosi.length > 0);
+      return;
+    }
+    
+    // Fallback: Make API call only if otrosi data not included
     const checkOtrosi = async () => {
       try {
         const response = await api.get(`/otrosi/contract/${contract.id}`);
@@ -226,7 +240,7 @@ export function LawyerCard({ contract }) {
     };
     
     checkOtrosi();
-  }, [contract?.id]);
+  }, [contract?.id, contract?.otrosi]);
 
   const handleCardClick = async () => {
     if (!contract?.id) return;
@@ -332,6 +346,6 @@ export function LawyerCard({ contract }) {
       </div>
     </div>
   );
-}
+});
 
 export default Card;
