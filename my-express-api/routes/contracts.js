@@ -189,6 +189,23 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
     
+    // Validar archivos requeridos - contrato y oferta son obligatorios
+    if (!req.googleDriveFiles || req.googleDriveFiles.length === 0) {
+      return res.status(400).json({ error: 'Debe subir al menos un archivo' });
+    }
+    
+    // Verificar que hay archivos de contrato y oferta basándose en la categoría asignada por el middleware
+    const hasContratoFile = req.googleDriveFiles.some(file => file.category === 'contrato');
+    const hasOfertaFile = req.googleDriveFiles.some(file => file.category === 'oferta');
+    
+    if (!hasContratoFile) {
+      return res.status(400).json({ error: 'Debe subir al menos un archivo de contrato' });
+    }
+    
+    if (!hasOfertaFile) {
+      return res.status(400).json({ error: 'Debe subir al menos un archivo de oferta' });
+    }
+    
     // Calcular duración en días
     const startDate = new Date(fechaInicio);
     const endDate = new Date(fechaFinal);
@@ -1372,7 +1389,7 @@ router.post('/:id/sign', auth, uploadContractResponseFiles, async (req, res) => 
 });
 
 // POST /api/contracts/:id/return
-router.post('/:id/return', auth, upload.array('files', 10), async (req, res) => {
+router.post('/:id/return', auth, uploadContractResponseFiles, async (req, res) => {
   try {
     const contract = await Contract.findByPk(req.params.id);
     if (!contract) {
@@ -1420,20 +1437,35 @@ router.post('/:id/return', auth, upload.array('files', 10), async (req, res) => 
       await currentOtrosi.update({ estado: finalOtrosiStatus });
     }
 
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
+    if (req.googleDriveFiles && req.googleDriveFiles.length > 0) {
+      for (const file of req.googleDriveFiles) {
         const category = req.user.role === 'regular' ? 'Respuesta Usuario' : 'Respuesta Abogado';
         const fileType = req.user.role === 'regular' ? 'Respuesta Usuario' : 'Respuesta Abogado';
         const responseType = req.user.role === 'regular' ? 'regular' : 'lawyer';
 
-        await fileStorageModel.create({
-          filename: file.originalname,
-          filepath: file.filename,
-          category,
-          fileType,
-          responseType,
-          contractId: contract.id
-        });
+        if (isOtrosiState && currentOtrosi) {
+          // Para otrosí, usar OtrosiFile con otrosiId
+          await fileStorageModel.create({
+            filename: file.originalName,
+            filepath: file.googleDriveFileId,
+            category: 'Devuelto',
+            fileType: 'Devuelto',
+            responseType,
+            contractId: contract.id,
+            otrosiId: currentOtrosi.id,
+            uploadedBy: req.user.id
+          });
+        } else {
+          // Para contratos normales, usar ContractFile
+          await fileStorageModel.create({
+            filename: file.originalName,
+            filepath: file.googleDriveFileId,
+            category: 'Devuelto',
+            fileType: 'Devuelto',
+            responseType,
+            contractId: contract.id
+          });
+        }
       }
     }
 

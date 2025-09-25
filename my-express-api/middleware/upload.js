@@ -29,7 +29,8 @@ const uploadOtrosi = multer({
 }).fields([
   { name: 'cartaSolicitud', maxCount: 1 },
   { name: 'firmarOtrosi', maxCount: 1 },
-  { name: 'firmaAbogado', maxCount: 1 }
+  { name: 'firmaAbogado', maxCount: 1 },
+  { name: 'enviarOtrosi', maxCount: 1 }
 ]);
 
 // Enhanced otrosi upload middleware that uploads to Google Drive
@@ -123,15 +124,20 @@ const uploadOtrosiWithGoogleDrive = (req, res, next) => {
 
 // Enhanced contract upload middleware that uploads to Google Drive
 const uploadContractWithGoogleDrive = (req, res, next) => {
-  // First, use the regular multer upload to handle file validation and temporary storage
-  upload.array('files', 10)(req, res, async (err) => {
+  // First, use the regular multer upload to handle multiple file fields
+  upload.fields([
+    { name: 'contrato', maxCount: 10 },
+    { name: 'oferta', maxCount: 10 },
+    { name: 'camara', maxCount: 10 },
+    { name: 'otros', maxCount: 10 }
+  ])(req, res, async (err) => {
     if (err) {
       console.error('Multer upload error:', err);
       return res.status(400).json({ error: err.message });
     }
 
     // If no files were uploaded, continue to the next middleware
-    if (!req.files || req.files.length === 0) {
+    if (!req.files || Object.keys(req.files).length === 0) {
       return next();
     }
 
@@ -140,15 +146,28 @@ const uploadContractWithGoogleDrive = (req, res, next) => {
       const uploadedFiles = [];
       const contractId = req.body.contractId || 'temp'; // Will be updated after contract creation
 
-      for (const file of req.files) {
+      // Process files from all field types
+      const allFiles = [];
+      Object.keys(req.files).forEach(fieldName => {
+        req.files[fieldName].forEach(file => {
+          allFiles.push({ ...file, fieldname: fieldName });
+        });
+      });
+
+      for (const file of allFiles) {
         try {
-          // Determine file category based on fieldname or filename
-          let fileCategory = 'contrato';
-          if (file.fieldname === 'oferta' || file.originalname.toLowerCase().includes('oferta')) {
-            fileCategory = 'oferta';
-          } else if (file.fieldname === 'camara' || file.originalname.toLowerCase().includes('camara')) {
-            fileCategory = 'camara';
-          }
+          // Determine file category based on fieldname
+          let fileCategory = file.fieldname || 'contrato';
+          
+          // Map fieldnames to consistent categories
+          const categoryMap = {
+            'contrato': 'contrato',
+            'oferta': 'oferta', 
+            'camara': 'camara',
+            'otros': 'otros'
+          };
+          
+          fileCategory = categoryMap[file.fieldname] || 'contrato';
 
           console.log(`Uploading contract file to Google Drive from memory buffer:`, {
             originalName: file.originalname,

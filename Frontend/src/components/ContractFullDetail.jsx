@@ -20,7 +20,7 @@ import {
   IconRefresh,
 } from "@tabler/icons-react";
 import { getContractHistory } from "../api/contracts";
-import { getOtrosiByContract, getOtrosiFiles, returnOtrosi } from "../api/otrosi";
+import { getOtrosiByContract, getOtrosiFiles } from "../api/otrosi";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
@@ -251,6 +251,22 @@ const formatHistoryTimestamp = (timestamp) => {
   return date.toLocaleString("es-CO", { hour12: false });
 };
 
+// Función para formatear fechas de archivos con fecha y hora
+const formatFileTimestamp = (timestamp) => {
+  if (!timestamp) return "Sin fecha";
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return "Fecha inválida";
+  return date.toLocaleString("es-CO", { 
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false 
+  });
+};
+
 // Función para determinar el tipo específico de archivo usando datos del backend
 const getFileTypeLabel = (file) => {
   // Si el backend ya tiene el fileType específico y no es null, usarlo directamente
@@ -274,6 +290,10 @@ const getFileTypeLabel = (file) => {
         return 'Contable';
       case 'Archivo':
         return 'Archivo';
+      case 'Devuelto':
+        return 'Devuelto';
+      case 'Enviar Otrosí':
+        return 'Otrosí Sin Firma';
       default:
         return file.fileType;
     }
@@ -425,22 +445,7 @@ const ContractFullDetail = ({ contract }) => {
   };
 
   // Función para devolver otrosí
-  const handleReturnOtrosi = async (otrosiId) => {
-    const comentariosAbogado = prompt('Ingrese los comentarios para la devolución del otrosí:');
-    if (!comentariosAbogado?.trim()) {
-      addNotification('Los comentarios son obligatorios para devolver un otrosí', 'error');
-      return;
-    }
-
-    try {
-      await returnOtrosi(otrosiId, comentariosAbogado);
-      addNotification('Otrosí devuelto exitosamente', 'success');
-      // Recargar la página para mostrar los cambios
-      window.location.reload();
-    } catch (error) {
-      addNotification('Error al devolver el otrosí: ' + error.message, 'error');
-    }
-  };
+  // Función handleReturnOtrosi eliminada - ya no se usa
 
   // (Eliminado) Función para manejar acciones de otrosí no utilizada
 
@@ -457,6 +462,7 @@ const ContractFullDetail = ({ contract }) => {
   const [signUploading, setSignUploading] = useState(false);
   const [signError, setSignError] = useState(null);
   const [returnComment, setReturnComment] = useState("");
+  const [returnFiles, setReturnFiles] = useState([]);
   const [returnUploading, setReturnUploading] = useState(false);
   const [returnError, setReturnError] = useState(null);
 
@@ -566,8 +572,9 @@ const ContractFullDetail = ({ contract }) => {
         return;
       }
 
-      if (action === "return" && !comment?.trim()) {
-        setError("El comentario es obligatorio para devolver un contrato.");
+      // Comentario y archivos son opcionales para devolver
+      if (action === "return" && !comment?.trim() && files.length === 0) {
+        setError("Debes proporcionar al menos un comentario o subir archivos para devolver el contrato.");
         setLoading(false);
         return;
       }
@@ -617,7 +624,7 @@ const ContractFullDetail = ({ contract }) => {
   const handleRespond = () => handleContractAction("respond", filesToUpload, comment);
   const handleLawyerRespond = () => handleContractAction("respond", lawyerFilesToUpload, lawyerComment);
   const handleSign = () => handleContractAction("sign", signFiles, signComment);
-  const handleReturn = () => handleContractAction("return", [], returnComment);
+  const handleReturn = () => handleContractAction("return", returnFiles, returnComment);
 
   const handleDownloadFileBlob = async (fileId, filename) => {
     const downloadFunction = async () => {
@@ -1195,30 +1202,54 @@ const ContractFullDetail = ({ contract }) => {
                     Devolver Contrato
                   </CardTitle>
                   <CardDescription>
-                    Explica por qué necesitas devolver el contrato
+                    Proporciona comentarios o archivos para devolver el contrato (ambos opcionales)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Alert>
                     <IconAlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      Al devolver se enviará al usuario para correcciones. <span className="font-semibold">Sé específico sobre los cambios.</span>
+                      Al devolver se enviará al usuario para correcciones. <span className="font-semibold">Proporciona al menos un comentario o archivo.</span>
                     </AlertDescription>
                   </Alert>
 
                   <div className="space-y-2">
-                    <Label className="text-sm">Comentario (obligatorio):</Label>
+                    <Label className="text-sm">Comentario (opcional):</Label>
                     <Textarea
                       value={returnComment}
                       onChange={(e) => setReturnComment(e.target.value)}
                       rows={4}
-                      placeholder="Explica por qué devuelves el contrato..."
+                      placeholder="Explica por qué devuelves el contrato (opcional)..."
                       disabled={returnUploading}
                       className="resize-none text-sm"
                     />
                     <p className="text-muted-foreground text-xs flex items-center gap-1">
                       <IconInfoCircle size={12} />
-                      Mínimo 10 caracteres. Sé específico.
+                      Opcional. Sé específico si proporcionas comentarios.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm flex items-center gap-2">
+                      <IconUpload size={16} />
+                      Archivos de devolución (opcional):
+                    </Label>
+                    <Input
+                      type="file"
+                      accept="application/pdf"
+                      multiple
+                      onChange={(e) => setReturnFiles(Array.from(e.target.files))}
+                      disabled={returnUploading}
+                      className="text-sm"
+                    />
+                    {returnFiles.length > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        {returnFiles.length} archivo(s) seleccionado(s)
+                      </div>
+                    )}
+                    <p className="text-muted-foreground text-xs flex items-center gap-1">
+                      <IconInfoCircle size={12} />
+                      Opcional. Solo archivos PDF. Estos archivos se etiquetarán como "devuelto".
                     </p>
                   </div>
 
@@ -1915,6 +1946,12 @@ const ContractFullDetail = ({ contract }) => {
             <div className="flex items-center gap-2">
               <Badge className="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">Contable</Badge>
             </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Devuelto</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Otrosí Sin Firma</Badge>
+            </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             Los archivos de otrosí se muestran en la sección específica más abajo.
@@ -1974,6 +2011,10 @@ const ContractFullDetail = ({ contract }) => {
                                   ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
                                   getFileTypeLabel(file) === 'Contable'
                                     ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300 border-teal-200 dark:border-teal-600' :
+                                    getFileTypeLabel(file) === 'Devuelto'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
+                                      getFileTypeLabel(file) === 'Otrosí Sin Firma'
+                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-600' :
                                     'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600'
                         }`}>
                         {getFileTypeLabel(file)}
@@ -1992,7 +2033,7 @@ const ContractFullDetail = ({ contract }) => {
                       <div className="flex items-center gap-2">
                         <IconCalendar className="w-4 h-4" />
                         <span>
-                          {file.created_at ? formatDate(file.created_at) : "Sin fecha"}
+                          {file.created_at ? formatFileTimestamp(file.created_at) : "Sin fecha"}
                         </span>
                       </div>
                     </div>
@@ -2065,19 +2106,7 @@ const ContractFullDetail = ({ contract }) => {
                       Otrosí #{otro.numeroOtrosi}
                     </Badge>
                     <div className="flex items-center gap-2">
-                      {/* Botón Devolver Otrosí - visible para múltiples estados */}
-                      {user.role === 'lawyer' && ['pendiente', 'otrosi_awaiting_lawyer_review', 'otrosi_awaiting_signature'].includes(otro.estado) && (
-                        <Button
-                          onClick={() => handleReturnOtrosi(otro.id)}
-                          className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 text-sm"
-                        >
-                          🔄 Devolver Otrosí
-                        </Button>
-                      )}
-
-
-
-
+                      {/* Botón Devolver Otrosí removido - ya existe funcionalidad de respuesta */}
                     </div>
                   </div>
                 </div>
@@ -2107,6 +2136,12 @@ const ContractFullDetail = ({ contract }) => {
                       <div className="flex items-center gap-2">
                         <Badge className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">Otros Archivos</Badge>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Devuelto</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Otrosí Sin Firma</Badge>
+                      </div>
                     </div>
                     <p className="text-xs text-purple-500 dark:text-purple-400 mt-2">
                       Solo se muestran los archivos del otrosí.
@@ -2132,15 +2167,19 @@ const ContractFullDetail = ({ contract }) => {
                           <CardContent className="pt-0">
                             {/* Tipo de archivo principal - Badge con colores específicos por categoría */}
                             <div className="mb-3">
-                              <Badge className={`text-xs px-3 py-1 border ${(file.category === 'Carta de Solicitud' || file.fileType === 'Carta de Solicitud')
+                              <Badge className={`text-xs px-3 py-1 border ${getFileTypeLabel(file) === 'Carta de Solicitud'
                                 ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-600' :
-                                (file.category === 'Firma Usuario' || file.fileType === 'Firma Usuario')
+                                getFileTypeLabel(file) === 'Firma Usuario'
                                   ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-600' :
-                                  (file.category === 'Firma Abogado' || file.fileType === 'Firma Abogado')
+                                  getFileTypeLabel(file) === 'Firma Abogado'
                                     ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-600' :
+                                    getFileTypeLabel(file) === 'Devuelto'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
+                                      getFileTypeLabel(file) === 'Otrosí Sin Firma'
+                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-600' :
                                     'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-600'
                                 }`}>
-                                {file.category || file.fileType || 'Archivo'}
+                                {getFileTypeLabel(file)}
                               </Badge>
                             </div>
 
@@ -2156,7 +2195,7 @@ const ContractFullDetail = ({ contract }) => {
                               <div className="flex items-center gap-2">
                                 <IconCalendar className="w-4 h-4" />
                                 <span>
-                                  {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString('es-CO') : "Sin fecha"}
+                                  {file.uploadedAt ? formatFileTimestamp(file.uploadedAt) : "Sin fecha"}
                                 </span>
                               </div>
                             </div>
@@ -2259,7 +2298,7 @@ const ContractFullDetail = ({ contract }) => {
                                       {file.fileType || file.category || 'Archivo'}
                                     </Badge>
                                     <span className="text-xs text-blue-700 dark:text-blue-300">
-                                      {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString('es-CO') : 'Fecha no disponible'}
+                                      {file.uploadedAt ? formatFileTimestamp(file.uploadedAt) : 'Fecha no disponible'}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2 mt-1">
@@ -2452,7 +2491,7 @@ const ContractFullDetail = ({ contract }) => {
         </CardContent>
       </Card>
 
-      {(signUploading || lawyerUploading) && (
+      {(signUploading || lawyerUploading || returnUploading) && (
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[9999]">
           <div className="w-64 h-64">
             <LottieAnimation

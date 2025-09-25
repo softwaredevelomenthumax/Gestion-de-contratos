@@ -31,6 +31,10 @@ export function DropFile({ onFileSelect, multiple = false }) {
       setError('Solo se aceptan archivos PDF menores a 30MB.');
       setFiles([]);
       onFileSelect([]);
+      // Reset input value when there's an error
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
     }
   };
 
@@ -44,6 +48,10 @@ export function DropFile({ onFileSelect, multiple = false }) {
       setError('Solo se aceptan archivos PDF menores a 30MB.');
       setFiles([]);
       onFileSelect([]);
+      // Reset input value when there's an error
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
     }
   };
 
@@ -51,6 +59,10 @@ export function DropFile({ onFileSelect, multiple = false }) {
     const newFiles = files.filter((_, i) => i !== idx);
     setFiles(newFiles);
     onFileSelect(newFiles);
+    // Reset input value to allow re-selecting the same file
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
   };
 
   return (
