@@ -92,6 +92,12 @@ const Otrosi = sequelize.define('Otrosi', {
     field: 'firma_abogado_path',
     comment: 'Path to lawyer signature file for this otrosi'
   },
+  enviarOtrosiPath: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'enviar_otrosi_path',
+    comment: 'Path to otrosi file without signature (for normal flow)'
+  },
   comentariosAbogado: {
     type: DataTypes.TEXT,
     allowNull: true,

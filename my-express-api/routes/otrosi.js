@@ -167,6 +167,28 @@ router.post('/', auth, uploadOtrosiWithGoogleDrive, async (req, res) => {
       firmadoPorUsuario
     });
 
+    // Handle enviarOtrosi file - create OtrosiFile record instead of storing in otrosi table
+    if (req.googleDriveFiles && req.googleDriveFiles.enviarOtrosi) {
+      const OtrosiFile = require('../models/OtrosiFile');
+      
+      await OtrosiFile.create({
+        otrosiId: otrosi.id,
+        contractId: otrosi.contractId,
+        filename: req.googleDriveFiles.enviarOtrosi.originalName,
+        filepath: req.googleDriveFiles.enviarOtrosi.googleDriveFileId,
+        category: 'Enviar Otrosí',
+        fileType: 'Enviar Otrosí',
+        responseType: 'user',
+        uploadedBy: req.user.id
+      });
+      
+      console.log('✅ Created OtrosiFile record for enviarOtrosi:', {
+        otrosiId: otrosi.id,
+        filename: req.googleDriveFiles.enviarOtrosi.originalName,
+        filepath: req.googleDriveFiles.enviarOtrosi.googleDriveFileId
+      });
+    }
+
          // Update contract state based on signature choice
      const oldStatus = contract.estado;
      let newStatus;
@@ -884,6 +906,7 @@ router.get('/:id/test-debug', auth, async (req, res) => {
 // POST /api/otrosi/:id/return - Devolver un otrosí (solo abogados)
 router.post('/:id/return', 
   auth, 
+  upload.array('files', 10),
   validateOtrosiActionMiddleware(['lawyer'], ['pendiente', 'otrosi_awaiting_lawyer_review', 'otrosi_awaiting_signature']),
   async (req, res) => {
     try {
@@ -905,6 +928,23 @@ router.post('/:id/return',
       const contract = await Contract.findByPk(otrosi.contractId);
       if (nextStatus === 'otrosi_awaiting_user_response') {
         await contract.update({ estado: 'otrosi_awaiting_user_response' });
+      }
+
+      // Manejar archivos de devolución si se subieron
+      if (req.files && req.files.length > 0) {
+        const OtrosiFile = require('../models/OtrosiFile');
+        for (const file of req.files) {
+          await OtrosiFile.create({
+            otrosiId: otrosi.id,
+            contractId: otrosi.contractId,
+            filename: file.originalname,
+            filepath: file.filename,
+            category: 'Devuelto',
+            fileType: 'Devuelto',
+            responseType: 'lawyer',
+            uploadedBy: req.user.id
+          });
+        }
       }
 
       // Enviar notificaciones por email

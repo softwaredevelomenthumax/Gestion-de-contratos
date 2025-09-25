@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "db:clear": "node scripts/clearDatabase.js"
+    "db:clear": "node scripts/clearDatabase.js",
+    "db:migrate:enviar-otrosi": "node scripts/addEnviarOtrosiColumn.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -15,6 +15,8 @@ import {
 } from "@tabler/icons-react";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
+import LottieAnimation from "../components/LottieAnimation";
+import sendAnimation from "../assets/animations/send.json";
 import {
   Card,
   CardContent,
@@ -53,6 +55,7 @@ const OtrosiForm = () => {
     fechaFinal: "",
     cartaSolicitud: null,
     firmarOtrosi: null,
+    enviarOtrosi: null,
   });
 
   const [errors, setErrors] = useState({});
@@ -183,6 +186,23 @@ const OtrosiForm = () => {
     }
   };
 
+  // Manejar cambio de archivo para enviar otrosí sin firma
+  const handleEnviarOtrosiChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type === "application/pdf") {
+        setFormData((prev) => ({ ...prev, enviarOtrosi: file }));
+        setErrors((prev) => ({ ...prev, enviarOtrosi: "" }));
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          enviarOtrosi: "Solo se permiten archivos PDF",
+        }));
+        setFormData((prev) => ({ ...prev, enviarOtrosi: null }));
+      }
+    }
+  };
+
   // Validar formulario
   const validateForm = () => {
     const newErrors = {};
@@ -236,6 +256,9 @@ const OtrosiForm = () => {
       }
       if (formData.firmarOtrosi) {
         formDataToSend.append("firmarOtrosi", formData.firmarOtrosi);
+      }
+      if (formData.enviarOtrosi) {
+        formDataToSend.append("enviarOtrosi", formData.enviarOtrosi);
       }
 
       const response = await api.post("/otrosi", formDataToSend, {
@@ -530,7 +553,7 @@ const OtrosiForm = () => {
             <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
               Archivos del Otrosí
             </h3>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-1">
               <div className="space-y-2">
                 <Label
                   htmlFor="cartaSolicitud"
@@ -571,7 +594,7 @@ const OtrosiForm = () => {
                   className="text-foreground flex items-center gap-2"
                 >
                   <IconUpload size={18} className="text-blue-500" />
-                  Firmar Otrosí (PDF)
+                  Enviar otrosi firmado (Adjuntar aquí solo si el documento ya tiene la firma del proveedor/cliente)
                 </Label>
                 <div className="text-xs text-muted-foreground">(opcional)</div>
                 <Input
@@ -597,10 +620,58 @@ const OtrosiForm = () => {
                   </p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="enviarOtrosi"
+                  className="text-foreground flex items-center gap-2"
+                >
+                  <IconUpload size={18} className="text-green-500" />
+                  Enviar otrosí (Adjuntar aquí solo si el documento NO tiene la firma del proveedor/cliente)
+                </Label>
+                <div className="text-xs text-muted-foreground">(opcional)</div>
+                <Input
+                  id="enviarOtrosi"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleEnviarOtrosiChange}
+                  className={`bg-background text-foreground border-input ${
+                    errors.enviarOtrosi
+                      ? "border-red-500 focus:ring-red-500"
+                      : ""
+                  }`}
+                />
+                {formData.enviarOtrosi && (
+                  <div className="text-sm text-muted-foreground">
+                    Archivo seleccionado: {formData.enviarOtrosi.name} (
+                    {(formData.enviarOtrosi.size / 1024 / 1024).toFixed(2)} MB)
+                  </div>
+                )}
+                {errors.enviarOtrosi && (
+                  <p className="text-red-500 text-xs mt-1">
+                    ⚠️ {errors.enviarOtrosi}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              onClick={() => {
+                // Navigate back based on user role
+                if (user?.role === "lawyer") {
+                  navigate(`/lawyer/contracts/${id}`);
+                } else {
+                  navigate(`/user/contracts/${id}`);
+                }
+              }}
+              variant="outline"
+              className="px-6 py-3 rounded-lg font-semibold shadow-lg transition"
+            >
+              Cancelar
+            </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
@@ -611,6 +682,22 @@ const OtrosiForm = () => {
           </div>
         </form>
       </div>
+      
+      {/* Send Animation - Only appears when submitting */}
+      {isSubmitting && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[9999]">
+          <div className="w-64 h-64">
+            <LottieAnimation
+              animationData={sendAnimation}
+              width="100%"
+              height="100%"
+              loop={true}
+              autoplay={true}
+              speed={1}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

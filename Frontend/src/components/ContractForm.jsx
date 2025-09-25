@@ -5,7 +5,6 @@ import api from "../api/axiosInstance";
 import Button from "./Button";
 import DropFile from "./DropFile";
 import { IconUpload } from "@tabler/icons-react";
-import { createContract } from "../api/contracts";
 import { DatePicker } from "./ui/date-picker";
 import { Textarea } from "./ui/textarea";
 import { Input } from "./ui/input";
@@ -206,6 +205,15 @@ const ContractForm = () => {
       errors.push("Duración (debe ser mayor a 0 días)");
     }
 
+    // File validation - contrato and oferta are required
+    if (contractFiles.length === 0) {
+      errors.push("Archivo de Contrato (obligatorio)");
+    }
+
+    if (ofertaFiles.length === 0) {
+      errors.push("Archivo de Oferta (obligatorio)");
+    }
+
     return errors;
   };
 
@@ -289,21 +297,21 @@ const ContractForm = () => {
       formData.append('duracion', duracion);
       formData.append('fechaIngreso', fechaIngreso ? fechaIngreso.split("T")[0] : "");
 
-      // Add files - all files go to 'files' field, backend will determine category by filename
+      // Add files with specific field names so backend can distinguish categories
       contractFiles.forEach(file => {
-        formData.append('files', file);
+        formData.append('contrato', file);
       });
       
       ofertaFiles.forEach(file => {
-        formData.append('files', file);
+        formData.append('oferta', file);
       });
       
       camaraFiles.forEach(file => {
-        formData.append('files', file);
+        formData.append('camara', file);
       });
       
       otrosFiles.forEach(file => {
-        formData.append('files', file);
+        formData.append('otros', file);
       });
 
       console.log('📤 Sending contract with files to backend...');
@@ -313,7 +321,7 @@ const ContractForm = () => {
       console.log('📋 Otros files:', otrosFiles.length);
 
       // Send contract creation request with files
-      const response = await api.post('/contracts', formData, {
+      await api.post('/contracts', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -1018,7 +1026,15 @@ const ContractForm = () => {
           )}
 
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              onClick={() => navigate('/user/contracts')}
+              variant="outline"
+              className="px-6 py-3 rounded-lg font-semibold shadow-lg transition"
+            >
+              Cancelar
+            </Button>
             <Button
               type="submit"
               disabled={loading}

@@ -67,9 +67,18 @@ export const getOtrosiHistory = async (otrosiId) => {
 };
 
 // Return an otrosí (lawyers only)
-export const returnOtrosi = async (otrosiId, comentariosAbogado) => {
+export const returnOtrosi = async (otrosiId, comentariosAbogado, files = []) => {
   try {
-    const response = await axios.post(`/otrosi/${otrosiId}/return`, { comentariosAbogado });
+    const formData = new FormData();
+    formData.append('comentariosAbogado', comentariosAbogado);
+    
+    if (files && files.length > 0) {
+      files.forEach(file => formData.append('files', file));
+    }
+    
+    const response = await axios.post(`/otrosi/${otrosiId}/return`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return response.data;
   } catch (error) {
     console.error('❌ Error returning otrosí:', error);
