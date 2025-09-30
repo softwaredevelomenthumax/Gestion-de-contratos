@@ -21,7 +21,7 @@ import {
 } from "@tabler/icons-react";
 import { getContractHistory } from "../api/contracts";
 import { getOtrosiByContract } from "../api/otrosi";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
 import useDownload from "../hooks/useDownload";

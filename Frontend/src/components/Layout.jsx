@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
 import ThemeToggle from './ThemeToggle';
 
@@ -21,30 +21,32 @@ const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
 
+  // Memoize page map to prevent recreation on every render
+  const pageMap = useMemo(() => ({
+    // Only SendContract and Trazabilidad are loaded immediately, preload all others
+    '/': () => import('../pages/Home'),
+    '/my_contracts': () => import('../pages/user/UserSentContracts'),
+    '/user_awaiting_response_contracts': () => import('../pages/user/UserAwaitingResponseContracts'),
+    '/AwaitingSignature': () => import('../pages/user/UserAwaitingSignature'),
+    '/lawyer_new_contracts': () => import('../pages/lawyer/LawyerNewContracts'),
+    '/lawyer_managed_contracts': () => import('../pages/lawyer/LawyerManagedContracts'),
+    '/lawyer_awaiting_review_contracts': () => import('../pages/lawyer/LawyerAwaitingReviewContracts'),
+    '/LawyerAwaitingSignature': () => import('../pages/lawyer/LawyerAwaitingSignature'),
+    '/lawyer_ended': () => import('../pages/lawyer/LawyerFinalizado'),
+    '/user_ended': () => import('../pages/user/UserFinalizado'),
+    '/admin/users': () => import('../pages/AdminUsers'),
+    '/admin/create': () => import('../pages/CreateAdmin'),
+  }), []);
+
   // Preload pages on hover (only for lazy-loaded pages)
   const preloadPage = useCallback((href) => {
-    const pageMap = {
-      // Only SendContract and Trazabilidad are loaded immediately, preload all others
-      '/': () => import('../pages/Home'),
-      '/my_contracts': () => import('../pages/user/UserSentContracts'),
-      '/user_awaiting_response_contracts': () => import('../pages/user/UserAwaitingResponseContracts'),
-      '/AwaitingSignature': () => import('../pages/user/UserAwaitingSignature'),
-      '/lawyer_new_contracts': () => import('../pages/lawyer/LawyerNewContracts'),
-      '/lawyer_managed_contracts': () => import('../pages/lawyer/LawyerManagedContracts'),
-      '/lawyer_awaiting_review_contracts': () => import('../pages/lawyer/LawyerAwaitingReviewContracts'),
-      '/LawyerAwaitingSignature': () => import('../pages/lawyer/LawyerAwaitingSignature'),
-      '/lawyer_ended': () => import('../pages/lawyer/LawyerFinalizado'),
-      '/user_ended': () => import('../pages/user/UserFinalizado'),
-      '/admin/users': () => import('../pages/AdminUsers'),
-      '/admin/create': () => import('../pages/CreateAdmin'),
-    };
-
     if (pageMap[href]) {
       pageMap[href]();
     }
-  }, []);
+  }, [pageMap]);
 
-  const navigation = (
+  // Memoize navigation to prevent recreation on every render
+  const navigation = useMemo(() => (
     user?.role === 'admin'
       ? [
           { name: 'Gestión de cuentas', href: '/admin/users', icon: Shield },
@@ -57,7 +59,7 @@ const Layout = ({ children }) => {
           ] : []),
           { name: 'Consultar Información', href: '/trazabilidad', icon: Search },
         ]
-  );
+  ), [user?.role]);
   
   return (
     <div className="min-h-screen bg-background flex">

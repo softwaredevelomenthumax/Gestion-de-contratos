@@ -10,6 +10,7 @@ import { RefreshProvider } from "./context/RefreshContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import NotificationContainer from "./components/Notification";
 import { ThemeProvider } from "./components/ui/theme-provider";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Import only problematic pages immediately (no lazy loading for these)
 import SendContract from "./pages/SendContract";
@@ -65,42 +66,44 @@ const App = () => {
   }, []);
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RefreshProvider>
-          <NotificationProvider>
-            <Router>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-                  <Route path="/send_contracts" element={<ProtectedRoute><SendContract /></ProtectedRoute>} />
-                  <Route path="/my_contracts" element={<ProtectedRoute><UserSentContracts /></ProtectedRoute>} />
-                  <Route path="/user/contracts/:id" element={<ProtectedRoute><UserContractDetail/></ProtectedRoute>} />
-                  <Route path="/regular/contracts/:id" element={<ProtectedRoute><UserContractDetail/></ProtectedRoute>} />
-                  <Route path="/lawyer/contracts/:id" element={<ProtectedRoute><LawyerContractDetail/></ProtectedRoute>} />
-                  <Route path="/lawyer_new_contracts" element={<ProtectedRoute><LawyerNewContracts /></ProtectedRoute>} />
-                  <Route path="/AwaitingSignature" element={<ProtectedRoute><AwaitingSignature /></ProtectedRoute>} />
-                  <Route path="/LawyerAwaitingSignature" element={<ProtectedRoute><LawyerAwaitingSignature /></ProtectedRoute>} />
-                  <Route path="/lawyer_managed_contracts" element={<ProtectedRoute><LawyerManagedContracts /></ProtectedRoute>} />
-                  <Route path="/user_awaiting_response_contracts" element={<ProtectedRoute><UserAwaitingResponseContracts /></ProtectedRoute>} />
-                  <Route path="/lawyer_awaiting_review_contracts" element={<ProtectedRoute><LawyerAwaitingReviewContracts /></ProtectedRoute>} />
-                  <Route path="/otrosi/:id" element={<ProtectedRoute><OtrosiForm /></ProtectedRoute>} />
-                  <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
-                  <Route path="/trazabilidad/:id" element={<ProtectedRoute><ContractTracePage /></ProtectedRoute>} />
-                  <Route path="/lawyer_ended" element={<ProtectedRoute><LawyerFinalizado /></ProtectedRoute>} />
-                  <Route path="/user_ended" element={<ProtectedRoute><UserFinalizado /></ProtectedRoute>} />
-                  <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
-                  <Route path="/admin/create" element={<ProtectedRoute><CreateAdmin /></ProtectedRoute>} />
-                </Routes>
-              </Suspense>
-            </Router>
-            <NotificationContainer />
-          </NotificationProvider>
-        </RefreshProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <RefreshProvider>
+            <NotificationProvider>
+              <Router>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+                    <Route path="/send_contracts" element={<ProtectedRoute><SendContract /></ProtectedRoute>} />
+                    <Route path="/my_contracts" element={<ProtectedRoute><UserSentContracts /></ProtectedRoute>} />
+                    <Route path="/user/contracts/:id" element={<ProtectedRoute><UserContractDetail/></ProtectedRoute>} />
+                    <Route path="/regular/contracts/:id" element={<ProtectedRoute><UserContractDetail/></ProtectedRoute>} />
+                    <Route path="/lawyer/contracts/:id" element={<ProtectedRoute><LawyerContractDetail/></ProtectedRoute>} />
+                    <Route path="/lawyer_new_contracts" element={<ProtectedRoute><LawyerNewContracts /></ProtectedRoute>} />
+                    <Route path="/AwaitingSignature" element={<ProtectedRoute><AwaitingSignature /></ProtectedRoute>} />
+                    <Route path="/LawyerAwaitingSignature" element={<ProtectedRoute><LawyerAwaitingSignature /></ProtectedRoute>} />
+                    <Route path="/lawyer_managed_contracts" element={<ProtectedRoute><LawyerManagedContracts /></ProtectedRoute>} />
+                    <Route path="/user_awaiting_response_contracts" element={<ProtectedRoute><UserAwaitingResponseContracts /></ProtectedRoute>} />
+                    <Route path="/lawyer_awaiting_review_contracts" element={<ProtectedRoute><LawyerAwaitingReviewContracts /></ProtectedRoute>} />
+                    <Route path="/otrosi/:id" element={<ProtectedRoute><OtrosiForm /></ProtectedRoute>} />
+                    <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
+                    <Route path="/trazabilidad/:id" element={<ProtectedRoute><ContractTracePage /></ProtectedRoute>} />
+                    <Route path="/lawyer_ended" element={<ProtectedRoute><LawyerFinalizado /></ProtectedRoute>} />
+                    <Route path="/user_ended" element={<ProtectedRoute><UserFinalizado /></ProtectedRoute>} />
+                    <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+                    <Route path="/admin/create" element={<ProtectedRoute><CreateAdmin /></ProtectedRoute>} />
+                  </Routes>
+                </Suspense>
+              </Router>
+              <NotificationContainer />
+            </NotificationProvider>
+          </RefreshProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 

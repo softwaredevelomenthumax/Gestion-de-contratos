@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
 import * as authAPI from '../api/auth'; // Use uppercase if your folder is 'API'
 import api from '../api/axiosInstance';
 
@@ -9,85 +9,90 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if token is expired
-  const isTokenExpired = (token) => {
+  // Memoize token validation to avoid recalculating on every render
+  const isTokenExpired = useCallback((token) => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return Date.now() >= payload.exp * 1000;
     } catch {
       return true;
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (token && !isTokenExpired(token)) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
       
-      // Try to use stored user data first, then verify with server
-      if (storedUser) {
-        try {
-          const userData = JSON.parse(storedUser);
-          if (userData && userData.role) {
-            setUser(userData);
-            setLoading(false);
-            
-            // Verify with server in background
-            authAPI.getProfile()
-              .then(data => {
-                // Update user data if different
-                if (JSON.stringify(userData) !== JSON.stringify(data)) {
-                  setUser(data);
-                  localStorage.setItem('user', JSON.stringify(data));
-                }
-              })
-              .catch(error => {
-                // Only clear on actual auth errors
-                if (error.response?.status === 401 || error.response?.status === 403) {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  delete api.defaults.headers.common['Authorization'];
-                  setUser(null);
-                }
-              });
-            return;
+      if (token && !isTokenExpired(token)) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        // Use stored user data immediately for faster initial render
+        if (storedUser) {
+          try {
+            const userData = JSON.parse(storedUser);
+            if (userData && userData.role) {
+              setUser(userData);
+              setLoading(false);
+              
+              // Only verify with server if token is close to expiry (within 5 minutes)
+              const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+              const timeUntilExpiry = (tokenPayload.exp * 1000) - Date.now();
+              
+              if (timeUntilExpiry < 5 * 60 * 1000) { // 5 minutes
+                // Verify with server in background without blocking UI
+                authAPI.getProfile()
+                  .then(data => {
+                    if (JSON.stringify(userData) !== JSON.stringify(data)) {
+                      setUser(data);
+                      localStorage.setItem('user', JSON.stringify(data));
+                    }
+                  })
+                  .catch(error => {
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                      localStorage.removeItem('token');
+                      localStorage.removeItem('user');
+                      delete api.defaults.headers.common['Authorization'];
+                      setUser(null);
+                    }
+                  });
+              }
+              return;
+            }
+          } catch {
+            // Error parsing stored user data, fall through to server verification
           }
-        } catch {
-          // Error parsing stored user data
         }
-      }
-      
-      // Fallback to server verification
-      authAPI.getProfile()
-        .then(data => {
+        
+        // Fallback to server verification only if no valid stored data
+        try {
+          const data = await authAPI.getProfile();
           setUser(data);
           localStorage.setItem('user', JSON.stringify(data));
-        })
-        .catch(error => {
-          // Only clear if it's actually an auth error
+        } catch (error) {
           if (error.response?.status === 401 || error.response?.status === 403) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             delete api.defaults.headers.common['Authorization'];
           }
-        })
-        .finally(() => {
+        } finally {
           setLoading(false);
-        });
-    } else {
-      // Token is expired or doesn't exist
-      if (token) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        delete api.defaults.headers.common['Authorization'];
+        }
+      } else {
+        // Token is expired or doesn't exist
+        if (token) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          delete api.defaults.headers.common['Authorization'];
+        }
+        setLoading(false);
       }
-      setLoading(false);
-    }
-  }, []);
+    };
 
-  const login = async (email, password) => {
+    initializeAuth();
+  }, [isTokenExpired]);
+
+  const login = useCallback(async (email, password) => {
     try {
       setError(null);
       
@@ -126,9 +131,9 @@ export const AuthProvider = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     // Clear all user-related state and storage
     setUser(null);
     setError(null);
@@ -142,32 +147,23 @@ export const AuthProvider = ({ children }) => {
     
     // Force redirect to login page
     window.location.href = '/login';
-  };
+  }, []);
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user: user || null,
+    error: error || null,
+    loading: loading ?? true,
+    login,
+    logout
+  }), [user, error, loading, login, logout]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user: user || null, 
-      error: error || null, 
-      loading: loading ?? true, 
-      login, 
-      logout 
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  // Return safe defaults if called outside of provider (e.g., early during route changes)
-  if (context === undefined) {
-    return {
-      user: null,
-      error: null,
-      loading: true,
-      login: async () => ({ success: false, error: 'Auth not initialized' }),
-      logout: () => {}
-    };
-  }
-  return context;
-};
+// Export AuthContext for useAuth hook
+export { AuthContext };

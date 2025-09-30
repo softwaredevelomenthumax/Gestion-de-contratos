@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getContractsForTraceability } from '../api/contracts';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { Card } from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import ContractFilters from '../components/ContractFilters';

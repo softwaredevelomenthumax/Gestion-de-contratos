@@ -13,7 +13,7 @@ import {
   IconEdit,
   IconPlus,
 } from "@tabler/icons-react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { useNotification } from "../context/NotificationContext";
 import LottieAnimation from "../components/LottieAnimation";
 import sendAnimation from "../assets/animations/send.json";

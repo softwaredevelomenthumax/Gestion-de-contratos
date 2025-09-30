@@ -1,5 +1,5 @@
 import { cn } from '../lib/utils';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import api from '../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import * as React from "react"
