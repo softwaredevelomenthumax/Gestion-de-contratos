@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
 import api from "../api/axiosInstance";
@@ -20,7 +20,8 @@ import {
   SelectGroup,
   SelectLabel,
 } from "./ui/select";
-
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge"
 const tipoContratoOptions = [
   { value: "prestacion_de_servicios", label: "Prestación de servicios" },
   { value: "Compra de equipos", label: "Compra de equipos" },
@@ -58,6 +59,18 @@ const ivaOptions = [
   { value: 25, label: "25%" },
 ];
 
+// Helper function for consistent badge styling
+const getBadgeClasses = (type) => {
+  switch (type) {
+    case 'optional':
+      return 'text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    case 'required':
+      return 'text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+    default:
+      return 'text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+  }
+};
+
 const ContractForm = () => {
   const tipoSolicitud = "contrato";
   const [tipoContrato, setTipoContrato] = useState("");
@@ -87,6 +100,8 @@ const ContractForm = () => {
   const [otrosFiles, setOtrosFiles] = useState([]);
   const [dateError, setDateError] = useState("");
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [showDescriptionAlert, setShowDescriptionAlert] = useState(false);
+  const descriptionRef = useRef(null);
 
   const areDatesValid = () => {
     if (!fechaInicio || !fechaFinal) return true;
@@ -110,6 +125,26 @@ const ContractForm = () => {
 
     setValorIVA(ivaCalculado);
   }, [valorSinIVA, porcentajeIVA]);
+
+  // Manejar click fuera del área de descripción para cerrar la alerta
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        descriptionRef.current &&
+        !descriptionRef.current.contains(event.target)
+      ) {
+        setShowDescriptionAlert(false);
+      }
+    };
+
+    if (showDescriptionAlert) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDescriptionAlert]);
 
   useEffect(() => {
     if (fechaInicio && fechaFinal) {
@@ -205,13 +240,9 @@ const ContractForm = () => {
       errors.push("Duración (debe ser mayor a 0 días)");
     }
 
-    // File validation - contrato and oferta are required
-    if (contractFiles.length === 0) {
-      errors.push("Archivo de Contrato (obligatorio)");
-    }
-
+    // File validation - only oferta is required
     if (ofertaFiles.length === 0) {
-      errors.push("Archivo de Oferta (obligatorio)");
+      errors.push("Archivo de Oferta");
     }
 
     return errors;
@@ -260,79 +291,88 @@ const ContractForm = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('🚀 Starting contract creation...');
-      console.log('📋 Form data:', {
+      console.log("🚀 Starting contract creation...");
+      console.log("📋 Form data:", {
         tipoSolicitud,
         tipoContrato,
         descripcion,
         nombreSolicitante,
         area,
         gerenteArea,
-        proveedor
+        proveedor,
       });
 
-      const token = localStorage.getItem('token');
-      console.log('🔑 Token exists:', !!token);
-      console.log('🔑 Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
+      const token = localStorage.getItem("token");
+      console.log("🔑 Token exists:", !!token);
+      console.log(
+        "🔑 Token preview:",
+        token ? token.substring(0, 50) + "..." : "No token"
+      );
 
       // Create FormData to send contract data and files together
       const formData = new FormData();
-      
+
       // Add contract data
-      formData.append('tipoSolicitud', tipoSolicitud);
-      formData.append('tipoContrato', tipoContrato);
-      formData.append('descripcion', descripcion);
-      formData.append('nombreSolicitante', nombreSolicitante);
-      formData.append('area', area);
-      formData.append('gerenteArea', gerenteArea);
-      formData.append('proveedor', proveedor);
-      formData.append('nitProveedor', nitProveedor);
-      formData.append('formaPago', formaPago);
-      formData.append('valorSinIVA', valorSinIVA);
-      formData.append('porcentajeIVA', porcentajeIVA);
-      formData.append('valorIVA', valorIVA);
-      formData.append('moneda', moneda);
-      formData.append('fechaInicio', fechaInicio ? fechaInicio.split("T")[0] : "");
-      formData.append('fechaFinal', fechaFinal ? fechaFinal.split("T")[0] : "");
-      formData.append('duracion', duracion);
-      formData.append('fechaIngreso', fechaIngreso ? fechaIngreso.split("T")[0] : "");
+      formData.append("tipoSolicitud", tipoSolicitud);
+      formData.append("tipoContrato", tipoContrato);
+      formData.append("descripcion", descripcion);
+      formData.append("nombreSolicitante", nombreSolicitante);
+      formData.append("area", area);
+      formData.append("gerenteArea", gerenteArea);
+      formData.append("proveedor", proveedor);
+      formData.append("nitProveedor", nitProveedor);
+      formData.append("formaPago", formaPago);
+      formData.append("valorSinIVA", valorSinIVA);
+      formData.append("porcentajeIVA", porcentajeIVA);
+      formData.append("valorIVA", valorIVA);
+      formData.append("moneda", moneda);
+      formData.append(
+        "fechaInicio",
+        fechaInicio ? fechaInicio.split("T")[0] : ""
+      );
+      formData.append("fechaFinal", fechaFinal ? fechaFinal.split("T")[0] : "");
+      formData.append("duracion", duracion);
+      formData.append(
+        "fechaIngreso",
+        fechaIngreso ? fechaIngreso.split("T")[0] : ""
+      );
 
       // Add files with specific field names so backend can distinguish categories
-      contractFiles.forEach(file => {
-        formData.append('contrato', file);
-      });
-      
-      ofertaFiles.forEach(file => {
-        formData.append('oferta', file);
-      });
-      
-      camaraFiles.forEach(file => {
-        formData.append('camara', file);
-      });
-      
-      otrosFiles.forEach(file => {
-        formData.append('otros', file);
+      contractFiles.forEach((file) => {
+        formData.append("contrato", file);
       });
 
-      console.log('📤 Sending contract with files to backend...');
-      console.log('📋 Contract files:', contractFiles.length);
-      console.log('📋 Oferta files:', ofertaFiles.length);
-      console.log('📋 Camara files:', camaraFiles.length);
-      console.log('📋 Otros files:', otrosFiles.length);
+      ofertaFiles.forEach((file) => {
+        formData.append("oferta", file);
+      });
+
+      camaraFiles.forEach((file) => {
+        formData.append("camara", file);
+      });
+
+      otrosFiles.forEach((file) => {
+        formData.append("otros", file);
+      });
+
+      console.log("📤 Sending contract with files to backend...");
+      console.log("📋 Contract files:", contractFiles.length);
+      console.log("📋 Oferta files:", ofertaFiles.length);
+      console.log("📋 Camara files:", camaraFiles.length);
+      console.log("📋 Otros files:", otrosFiles.length);
 
       // Send contract creation request with files
-      await api.post('/contracts', formData, {
+      await api.post("/contracts", formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
       });
       setShowSuccess(true);
       addNotification("Contrato enviado correctamente", "success");
     } catch (error) {
-      console.error('❌ Contract creation failed:', error);
-      console.error('❌ Error response:', error.response);
-      console.error('❌ Error status:', error.response?.status);
-      console.error('❌ Error data:', error.response?.data);
+      console.error("❌ Contract creation failed:", error);
+      console.error("❌ Error response:", error.response);
+      console.error("❌ Error status:", error.response?.status);
+      console.error("❌ Error data:", error.response?.data);
 
       setError(
         error.response?.data?.error || "Ocurrió un error al crear el contrato"
@@ -384,13 +424,10 @@ const ContractForm = () => {
           aria-label="Formulario de contrato"
         >
           {error && (
-            <div
-              className="rounded-lg bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive animate-fade-in"
-              role="alert"
-            >
-              <div className="font-semibold mb-2">❌ Error de validación:</div>
-              <div className="whitespace-pre-line">{error}</div>
-            </div>
+            <Alert className="animate-fade-in" variant="destructive">
+              <AlertTitle className="font-semibold mb-2">❌ Error de validación:</AlertTitle>
+              <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
+            </Alert>
           )}
           {!hasAttemptedSubmit && (
             <div
@@ -455,29 +492,76 @@ const ContractForm = () => {
                 </p>
               )}
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 md:col-span-2" ref={descriptionRef}>
               <Label htmlFor="descripcion" className="text-foreground">
                 Descripción
               </Label>
-              <Textarea
-                className={`bg-background text-foreground border-input ${
-                  hasFieldError("Descripción")
-                    ? "border-red-500 focus:ring-red-500"
-                    : ""
-                }`}
-                id="descripcion"
-                value={descripcion}
-                onChange={(e) => {
-                  setDescripcion(e.target.value);
-                  clearErrorsOnInput();
-                }}
-                placeholder="Descripción del contrato"
-                rows={4}
-              />
+              <div
+                className="relative cursor-pointer"
+                onClick={() => setShowDescriptionAlert(!showDescriptionAlert)}
+              >
+                <Textarea
+                  className={`bg-background text-foreground border-input ${
+                    hasFieldError("Descripción")
+                      ? "border-red-500 focus:ring-red-500"
+                      : ""
+                  }`}
+                  id="descripcion"
+                  value={descripcion}
+                  onChange={(e) => {
+                    setDescripcion(e.target.value);
+                    clearErrorsOnInput();
+                  }}
+                  placeholder="Descripción del contrato"
+                  rows={4}
+                />
+                <div className="absolute inset-0 pointer-events-none" />
+              </div>
               {hasFieldError("Descripción") && (
                 <p className="text-red-500 text-xs mt-1">
                   ⚠️ Este campo es obligatorio
                 </p>
+              )}
+              {showDescriptionAlert && (
+                <Alert className="mt-4">
+                  <AlertTitle className="font-bold text-lg mb-3">
+                    Descripción del objeto del contrato
+                  </AlertTitle>
+                  <AlertDescription className="space-y-3">
+                    <p>
+                      En este campo debe indicar, de manera clara y detallada,
+                      cuál es la finalidad del contrato. Procure incluir:
+                    </p>
+                    <div className="space-y-2">
+                      <p>
+                        <span className="font-bold">
+                          Objeto o propósito principal:
+                        </span>{" "}
+                        explique qué servicio, bien o actividad se va a realizar
+                        o entregar.
+                      </p>
+                      <p>
+                        <span className="font-bold">Alcance:</span> especifique
+                        qué incluye y qué no incluye el contrato, para evitar
+                        dudas o interpretaciones posteriores.
+                      </p>
+                      <p>
+                        <span className="font-bold">Entregables y plazos:</span>{" "}
+                        describa los productos, servicios o resultados
+                        esperados, señalando fechas de entrega o hitos
+                        relevantes.
+                      </p>
+                      <p>
+                        <span className="font-bold">
+                          Otros aspectos relevantes:
+                        </span>{" "}
+                        toda información adicional que ayude a precisar cómo
+                        debe ejecutarse la obligación (condiciones,
+                        limitaciones, requisitos, etc.).
+                      </p>
+                    </div>
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
             <div className="space-y-2 md:col-span-2">
@@ -933,7 +1017,7 @@ const ContractForm = () => {
                     className="text-foreground flex items-center gap-2"
                   >
                     <IconUpload size={18} className="text-blue-500" /> Adjunta
-                    el Contrato (PDF)
+                    el Contrato (PDF) <Badge className={getBadgeClasses('optional')}>Opcional</Badge>
                   </Label>
                   <DropFile onFileSelect={setContractFiles} multiple />
                   {contractFiles.length > 0 && (
@@ -951,7 +1035,7 @@ const ContractForm = () => {
                     className="text-foreground flex items-center gap-2"
                   >
                     <IconUpload size={18} className="text-blue-500" /> Adjunta
-                    la Oferta (PDF)
+                    la Oferta (PDF) <Badge className={getBadgeClasses('required')}>Obligatorio</Badge>
                   </Label>
                   <DropFile onFileSelect={setOfertaFiles} multiple />
                   {ofertaFiles.length > 0 && (
@@ -968,7 +1052,7 @@ const ContractForm = () => {
                     className="text-foreground flex items-center gap-2"
                   >
                     <IconUpload size={18} className="text-blue-500" /> Adjunta
-                    Cámara de Comercio / CAF (PDF)
+                    Cámara de Comercio / CAF (PDF) <Badge className={getBadgeClasses('optional')}>Opcional</Badge>
                   </Label>
                   <DropFile onFileSelect={setCamaraFiles} multiple />
                   {camaraFiles.length > 0 && (
@@ -983,7 +1067,7 @@ const ContractForm = () => {
                     className="text-foreground flex items-center gap-2"
                   >
                     <IconUpload size={18} className="text-blue-500" /> Otros
-                    documentos (PDF, puedes adjuntar varios)
+                    documentos (PDF, puedes adjuntar varios) <Badge className={getBadgeClasses('optional')}>Opcional</Badge>
                   </Label>
                   <input
                     type="file"
@@ -1025,11 +1109,10 @@ const ContractForm = () => {
             </div>
           )}
 
-
           <div className="flex justify-end gap-3">
             <Button
               type="button"
-              onClick={() => navigate('/user/contracts')}
+              onClick={() => navigate("/my_contracts")}
               variant="outline"
               className="px-6 py-3 rounded-lg font-semibold shadow-lg transition"
             >
@@ -1047,7 +1130,6 @@ const ContractForm = () => {
               {loading ? "Enviando..." : "Crear Contrato"}
             </Button>
           </div>
-
         </form>
         {hasAttemptedSubmit && !isFormValid() && (
           <p className="text-red-500 text-xs mt-2 text-right">
@@ -1055,7 +1137,7 @@ const ContractForm = () => {
           </p>
         )}
       </div>
-      
+
       {/* Send Animation - Only appears when submitting */}
       {loading && (
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[9999]">
@@ -1077,4 +1159,4 @@ const ContractForm = () => {
 
 export default ContractForm;
 //mover logica al backend
-//borar solicitante 
+//borar solicitante

@@ -277,21 +277,21 @@ router.post('/', auth, uploadOtrosiWithGoogleDrive, async (req, res) => {
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
       allEmails.push(...lawyerEmails);
       
-      // Enviar estado actualizado a todos
-      if (allEmails.length > 0) {
-        await emailService.sendContractStatusChangeNotification(
-          allEmails,
-          {
-            id: contract.id,
-            descripcion: contract.descripcion,
-            proveedor: contract.proveedor,
-            valorTotal: contract.valorTotal,
-            moneda: contract.moneda
-          },
-          oldStatus,
-          newStatus
-        );
-      }
+      // DISABLED: Solo se envían notificaciones cuando se requiere acción
+      // if (allEmails.length > 0) {
+      //   await emailService.sendContractStatusChangeNotification(
+      //     allEmails,
+      //     {
+      //       id: contract.id,
+      //       descripcion: contract.descripcion,
+      //       proveedor: contract.proveedor,
+      //       valorTotal: contract.valorTotal,
+      //       moneda: contract.moneda
+      //     },
+      //     oldStatus,
+      //     newStatus
+      //   );
+      // }
 
       // 2. Enviar "Acción Requerida" SOLO a quien debe responder
       if (newStatus === 'otrosi_awaiting_lawyer_review') {
@@ -515,21 +515,21 @@ router.post('/:id/sign', auth, upload.single('firmaAbogado'), async (req, res) =
       const oldStatus = otrosi.firmadoPorUsuario ? 'otrosi_awaiting_signature' : 'otrosi_awaiting_lawyer_review';
       const newStatus = otrosi.firmadoPorUsuario ? 'signed' : 'otrosi_awaiting_signature';
       
-      // Enviar estado actualizado a todos
-      if (allEmails.length > 0) {
-        await emailService.sendContractStatusChangeNotification(
-          allEmails,
-          {
-            id: contract.id,
-            descripcion: contract.descripcion,
-            proveedor: contract.proveedor,
-            valorTotal: contract.valorTotal,
-            moneda: contract.moneda
-          },
-          oldStatus,
-          newStatus
-        );
-      }
+      // DISABLED: Solo se envían notificaciones cuando se requiere acción
+      // if (allEmails.length > 0) {
+      //   await emailService.sendContractStatusChangeNotification(
+      //     allEmails,
+      //     {
+      //       id: contract.id,
+      //       descripcion: contract.descripcion,
+      //       proveedor: contract.proveedor,
+      //       valorTotal: contract.valorTotal,
+      //       moneda: contract.moneda
+      //     },
+      //     oldStatus,
+      //     newStatus
+      //   );
+      // }
 
       // 2. Enviar "Acción Requerida" SOLO a quien debe responder
       if (otrosi.firmadoPorUsuario) {

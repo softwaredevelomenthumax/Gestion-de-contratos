@@ -189,18 +189,13 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
     
-    // Validar archivos requeridos - contrato y oferta son obligatorios
+    // Validar archivos requeridos - solo oferta es obligatorio
     if (!req.googleDriveFiles || req.googleDriveFiles.length === 0) {
       return res.status(400).json({ error: 'Debe subir al menos un archivo' });
     }
     
-    // Verificar que hay archivos de contrato y oferta basándose en la categoría asignada por el middleware
-    const hasContratoFile = req.googleDriveFiles.some(file => file.category === 'contrato');
+    // Verificar que hay archivo de oferta (obligatorio)
     const hasOfertaFile = req.googleDriveFiles.some(file => file.category === 'oferta');
-    
-    if (!hasContratoFile) {
-      return res.status(400).json({ error: 'Debe subir al menos un archivo de contrato' });
-    }
     
     if (!hasOfertaFile) {
       return res.status(400).json({ error: 'Debe subir al menos un archivo de oferta' });
@@ -327,19 +322,19 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
 
       const solicitanteEmail = contractWithSolicitante.solicitante?.email;
 
-      // 1. Enviar "Contrato Creado" al solicitante
-      if (solicitanteEmail) {
-        await emailService.sendContractCreatedNotification(
-          solicitanteEmail,
-          {
-            id: contract.id,
-            descripcion: contract.descripcion,
-            proveedor: contract.proveedor,
-            valorTotal: contract.valorTotal,
-            moneda: contract.moneda
-          }
-        );
-      }
+      // 1. DISABLED: Solo se envían notificaciones cuando se requiere acción
+      // if (solicitanteEmail) {
+      //   await emailService.sendContractCreatedNotification(
+      //     solicitanteEmail,
+      //     {
+      //       id: contract.id,
+      //       descripcion: contract.descripcion,
+      //       proveedor: contract.proveedor,
+      //       valorTotal: contract.valorTotal,
+      //       moneda: contract.moneda
+      //     }
+      //   );
+      // }
       
       // 2. Enviar "Nuevo Contrato Enviado para Revisión" a los abogados
       const lawyers = await User.findAll({
@@ -1105,21 +1100,21 @@ router.post('/:id/respond', auth, uploadContractResponseFiles, async (req, res) 
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
       allEmails.push(...lawyerEmails);
       
-      // Enviar estado actualizado a todos
-      if (allEmails.length > 0) {
-      await emailService.sendContractStatusChangeNotification(
-          allEmails,
-        {
-          id: contract.id,
-          descripcion: contract.descripcion,
-          proveedor: contract.proveedor,
-          valorTotal: contract.valorTotal,
-          moneda: contract.moneda
-        },
-        oldStatusRespond,
-        finalContractStatus
-      );
-    }
+      // DISABLED: Solo se envían notificaciones cuando se requiere acción
+      // if (allEmails.length > 0) {
+      //   await emailService.sendContractStatusChangeNotification(
+      //     allEmails,
+      //     {
+      //       id: contract.id,
+      //       descripcion: contract.descripcion,
+      //       proveedor: contract.proveedor,
+      //       valorTotal: contract.valorTotal,
+      //       moneda: contract.moneda
+      //     },
+      //     oldStatusRespond,
+      //     finalContractStatus
+      //   );
+      // }
 
       // 2. Enviar "Acción Requerida" SOLO a quien debe responder
       if (finalContractStatus === 'awaiting_user_response' || finalContractStatus === 'otrosi_awaiting_user_response') {
@@ -1310,21 +1305,21 @@ router.post('/:id/sign', auth, uploadContractResponseFiles, async (req, res) => 
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
       allEmails.push(...lawyerEmails);
       
-      // Enviar estado actualizado a todos
-      if (allEmails.length > 0) {
-      await emailService.sendContractStatusChangeNotification(
-          allEmails,
-        {
-          id: contract.id,
-          descripcion: contract.descripcion,
-          proveedor: contract.proveedor,
-          valorTotal: contract.valorTotal,
-          moneda: contract.moneda
-        },
-        oldStatusSign,
-        finalContractStatus
-      );
-      }
+      // DISABLED: Solo se envían notificaciones cuando se requiere acción
+      // if (allEmails.length > 0) {
+      //   await emailService.sendContractStatusChangeNotification(
+      //     allEmails,
+      //     {
+      //       id: contract.id,
+      //       descripcion: contract.descripcion,
+      //       proveedor: contract.proveedor,
+      //       valorTotal: contract.valorTotal,
+      //       moneda: contract.moneda
+      //     },
+      //     oldStatusSign,
+      //     finalContractStatus
+      //   );
+      // }
 
       // 2. Enviar "Acción Requerida" SOLO a quien debe responder (si aplica)
       if (finalContractStatus === 'awaiting_user_response' || finalContractStatus === 'otrosi_awaiting_user_response') {
@@ -1504,21 +1499,21 @@ router.post('/:id/return', auth, uploadContractResponseFiles, async (req, res) =
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
       allEmails.push(...lawyerEmails);
       
-      // Enviar estado actualizado a todos
-      if (allEmails.length > 0) {
-        await emailService.sendContractStatusChangeNotification(
-          allEmails,
-          {
-            id: contract.id,
-            descripcion: contract.descripcion,
-            proveedor: contract.proveedor,
-            valorTotal: contract.valorTotal,
-            moneda: contract.moneda
-          },
-          oldStatusReturn,
-          finalContractStatus
-        );
-      }
+      // DISABLED: Solo se envían notificaciones cuando se requiere acción
+      // if (allEmails.length > 0) {
+      //   await emailService.sendContractStatusChangeNotification(
+      //     allEmails,
+      //     {
+      //       id: contract.id,
+      //       descripcion: contract.descripcion,
+      //       proveedor: contract.proveedor,
+      //       valorTotal: contract.valorTotal,
+      //       moneda: contract.moneda
+      //     },
+      //     oldStatusReturn,
+      //     finalContractStatus
+      //   );
+      // }
 
       // 2. Enviar "Acción Requerida" SOLO a quien debe responder
       if (finalContractStatus === 'awaiting_user_response' || finalContractStatus === 'otrosi_awaiting_user_response') {
