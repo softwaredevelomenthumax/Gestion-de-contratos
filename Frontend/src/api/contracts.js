@@ -1,14 +1,49 @@
 import api from './axiosInstance';
 
-// Get all contracts sent by the logged-in user
-export const getContracts = async () => {
-  const response = await api.get('/contracts');
-  return response.data;
+// Get all contracts sent by the logged-in user with optional filtering
+export const getContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  
+  // Add filters to query params
+  if (filters.estado && filters.estado !== 'Todos') {
+    params.append('estado', filters.estado);
+  }
+  if (filters.ticket) {
+    params.append('ticket', filters.ticket);
+  }
+  if (filters.search) {
+    params.append('search', filters.search);
+  }
+  if (filters.sort) {
+    params.append('sort', filters.sort);
+  }
+  if (filters.page) {
+    params.append('page', filters.page);
+  }
+  if (filters.limit) {
+    params.append('limit', filters.limit);
+  }
+  
+  const queryString = params.toString();
+  const url = queryString ? `/contracts?${queryString}` : '/contracts';
+  const response = await api.get(url);
+  
+  // Handle both old format (array) and new format (object with contracts array)
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  return response.data.contracts || response.data;
 };
 
 // Get all contracts for traceability (all statuses)
-export const getContractsForTraceability = async () => {
-  const response = await api.get('/contracts/traceability');
+export const getContractsForTraceability = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.ticket) params.append('ticket', filters.ticket);
+  if (filters.sort) params.append('sort', filters.sort);
+  const qs = params.toString();
+  const url = qs ? `/contracts/traceability?${qs}` : '/contracts/traceability';
+  const response = await api.get(url);
   return response.data;
 };
 
@@ -29,18 +64,6 @@ export const getContract = async (id) => {
   return response.data;
 };
 
-// Get all contracts (for lawyer/global view)
-export const getAllContracts = async () => {
-  const response = await api.get('/contracts/all');
-  return response.data;
-};
-
-export const getReturnedContracts = async () => {
-  const response = await api.get('/contracts/returned');
-  return response.data;
-};
-
-
 export const userRespondToContract = async (contractId, formData) => {
   // Si formData tiene nextStatus, lo envía como parte del formData
   const response = await api.patch(`/contracts/${contractId}/user-respond`, formData, {
@@ -51,56 +74,100 @@ export const userRespondToContract = async (contractId, formData) => {
   return response.data;
 };
 
-export const getAwaitingUserResponseContracts = async () => {
-  const response = await api.get('/contracts/awaiting-user-response');
-  return response.data;
-};
-
-export const getFirmadoContracts = async () => {
-  const response = await api.get('/contracts/firmado');
+export const getAwaitingUserResponseContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.ticket) params.append('ticket', filters.ticket);
+  if (filters.sort) params.append('sort', filters.sort);
+  const qs = params.toString();
+  const url = qs ? `/contracts/awaiting-user-response?${qs}` : '/contracts/awaiting-user-response';
+  const response = await api.get(url);
   return response.data;
 };
 
 // Unified: backend is role-aware, so both roles call the same endpoint
-export const getAwaitingSignatureContracts = async () => {
-  const response = await api.get('/contracts/awaiting-signature');
+export const getAwaitingSignatureContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.ticket) params.append('ticket', filters.ticket);
+  if (filters.sort) params.append('sort', filters.sort);
+  const qs = params.toString();
+  const url = qs ? `/contracts/awaiting-signature?${qs}` : '/contracts/awaiting-signature';
+  const response = await api.get(url);
   return response.data;
 };
 
-export const getUserFinalizedContracts = async () => {
-  const response = await api.get('/contracts/user-finalized');
+export const getUserFinalizedContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.ticket) params.append('ticket', filters.ticket);
+  if (filters.sort) params.append('sort', filters.sort);
+  const qs = params.toString();
+  const url = qs ? `/contracts/user-finalized?${qs}` : '/contracts/user-finalized';
+  const response = await api.get(url);
   return response.data;
 };
 
-export const getLawyerFinalizedContracts = async () => {
-  const response = await api.get('/contracts/lawyer-finalized');
+export const getLawyerFinalizedContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.ticket) params.append('ticket', filters.ticket);
+  if (filters.sort) params.append('sort', filters.sort);
+  const qs = params.toString();
+  const url = qs ? `/contracts/lawyer-finalized?${qs}` : '/contracts/lawyer-finalized';
+  const response = await api.get(url);
   return response.data;
 };
 
 
-export const getManagedContracts = async () => {
-  const response = await api.get('/contracts/managed');
+export const getLawyerAwaitingReviewContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.ticket) params.append('ticket', filters.ticket);
+  if (filters.sort) params.append('sort', filters.sort);
+  const qs = params.toString();
+  const url = qs ? `/contracts/lawyer-awaiting-response?${qs}` : '/contracts/lawyer-awaiting-response';
+  const response = await api.get(url);
   return response.data;
 };
 
-export const getLawyerAwaitingResponseContracts = async () => {
-  const response = await api.get('/contracts/lawyer-awaiting-response');
+// Get new contracts (for lawyer view) with optional filtering
+export const getNewContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  
+  if (filters.estado && filters.estado !== 'Todos') {
+    params.append('estado', filters.estado);
+  }
+  if (filters.ticket) {
+    params.append('ticket', filters.ticket);
+  }
+  if (filters.search) {
+    params.append('search', filters.search);
+  }
+  if (filters.sort) {
+    params.append('sort', filters.sort);
+  }
+  
+  const queryString = params.toString();
+  const url = queryString ? `/contracts/new?${queryString}` : '/contracts/new';
+  const response = await api.get(url);
   return response.data;
 };
 
-export const getLawyerAwaitingReviewContracts = async () => {
-  const response = await api.get('/contracts/lawyer-awaiting-response');
+// Get full contract details (contract + history + files in one request)
+export const getContractFull = async (id) => {
+  const response = await api.get(`/contracts/${id}/full`);
   return response.data;
 };
 
-// Get new contracts (for lawyer view)
-export const getNewContracts = async () => {
-  const response = await api.get('/contracts/new');
-  return response.data;
-};
-
-export const getFinalizadoContracts = async () => {
-  const response = await api.get('/contracts/finalizado');
+export const getFinalizadoContracts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.ticket) params.append('ticket', filters.ticket);
+  if (filters.sort) params.append('sort', filters.sort);
+  const qs = params.toString();
+  const url = qs ? `/contracts/finalizado?${qs}` : '/contracts/finalizado';
+  const response = await api.get(url);
   return response.data;
 };
 

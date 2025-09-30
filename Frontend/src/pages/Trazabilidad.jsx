@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getContractsForTraceability } from '../api/contracts';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import ContractFilters from '../components/ContractFilters';
-import { useContractFilters } from '../hooks/useContractFilters';
+// ✅ REMOVED: useContractFilters - backend now handles filtering
 
 const Trazabilidad = () => {
   const { user } = useAuth();
@@ -12,29 +12,32 @@ const Trazabilidad = () => {
   const [_loading, setLoading] = useState(false);
   const navigate = useNavigate();
   
-  // Hooks para filtros - habilitamos verificación de otrosí para Trazabilidad
-  const {
-    filter,
-    setFilter,
-    ticketFilter,
-    setTicketFilter,
-    sortType,
-    setSortType,
-    filteredContracts
-  } = useContractFilters(contracts, true);
+  // ✅ Server-side filtering - simple state for filter inputs
+  const [filter, setFilter] = useState('');
+  const [ticketFilter, setTicketFilter] = useState('');
+  const [sortType, setSortType] = useState('fecha-desc');
+
+  const fetchContracts = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Build filter object for backend API
+      const filters = {};
+      if (filter && filter.trim()) filters.search = filter.trim();
+      if (ticketFilter && ticketFilter.trim()) filters.ticket = ticketFilter.trim();
+      if (sortType && sortType !== 'fecha-desc') filters.sort = sortType;
+      
+      const data = await getContractsForTraceability(filters);
+      setContracts(data);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, ticketFilter, sortType]);
 
   useEffect(() => {
-    const fetchContracts = async () => {
-      setLoading(true);
-      try {
-        const data = await getContractsForTraceability();
-        setContracts(data);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchContracts();
-  }, [user]);
+    if (user) {
+      fetchContracts();
+    }
+  }, [user, fetchContracts]);
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4">
@@ -54,10 +57,10 @@ const Trazabilidad = () => {
 
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-foreground mb-4">
-          Contratos ({(filteredContracts || []).length})
+          Contratos ({(contracts || []).length})
         </h2>
         <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {(filteredContracts || []).map((contract) => (
+          {(contracts || []).map((contract) => (
             <Card
               key={contract.id}
               solicitante={contract.solicitante}

@@ -256,9 +256,3 @@ const Layout = ({ children }) => {
 };
 
 export default Layout;
-
-//sin digito de verficacion
-
-//Nit en (alfanumerico)
-
-//polizas en finalizado

@@ -61,6 +61,12 @@ const OtrosiForm = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [contract, setContract] = useState(null);
+  
+  // Upload progress states
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
+  const uploadProgressRef = React.useRef(0);
+  const lastUpdateTimeRef = React.useRef(0);
 
   // Monedas disponibles
   const monedas = ["COP", "MXN", "USD", "EUR"];
@@ -261,9 +267,63 @@ const OtrosiForm = () => {
         formDataToSend.append("enviarOtrosi", formData.enviarOtrosi);
       }
 
+      // Count files for progress tracking
+      const fileCount = [
+        formData.cartaSolicitud,
+        formData.firmarOtrosi,
+        formData.enviarOtrosi
+      ].filter(Boolean).length;
+
+      // Reset progress tracking
+      uploadProgressRef.current = 0;
+      lastUpdateTimeRef.current = Date.now();
+      setUploadProgress(0);
+      setUploadStage(`Subiendo ${fileCount} archivo${fileCount !== 1 ? 's' : ''}...`);
+
       const response = await api.post("/otrosi", formDataToSend, {
         headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          // Cap progress at 90% during upload phase
+          const targetPercent = Math.round(
+            (progressEvent.loaded * 90) / progressEvent.total
+          );
+          
+          // Throttle updates (minimum 100ms between updates)
+          const now = Date.now();
+          const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+          
+          if (timeSinceLastUpdate >= 100 || targetPercent === 90) {
+            // Smooth increment: don't jump more than 15% at once
+            const currentPercent = uploadProgressRef.current;
+            const increment = Math.min(targetPercent - currentPercent, 15);
+            const newPercent = Math.min(currentPercent + increment, targetPercent);
+            
+            uploadProgressRef.current = newPercent;
+            lastUpdateTimeRef.current = now;
+            
+            setUploadProgress(newPercent);
+            setUploadStage(`Subiendo archivos... ${newPercent}%`);
+          }
+        },
       });
+
+      // Ensure we smoothly reach 90% if we haven't already
+      if (uploadProgressRef.current < 90) {
+        for (let i = uploadProgressRef.current; i <= 90; i += 5) {
+          setUploadProgress(i);
+          setUploadStage(`Subiendo archivos... ${i}%`);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      // Processing on server
+      await new Promise(resolve => setTimeout(resolve, 200));
+      setUploadProgress(95);
+      setUploadStage("Procesando otrosí en el servidor...");
+      
+      await new Promise(resolve => setTimeout(resolve, 400));
+      setUploadProgress(100);
+      setUploadStage("¡Otrosí creado exitosamente!");
 
       if (response && response.data) {
         const result = response.data;
@@ -283,8 +343,20 @@ const OtrosiForm = () => {
     } catch (error) {
       console.error("Error submitting otrosi:", error);
       addNotification("Error al enviar el otrosí", "error");
+      
+      // Reset progress on error
+      setUploadProgress(0);
+      setUploadStage("");
+      uploadProgressRef.current = 0;
+      lastUpdateTimeRef.current = 0;
     } finally {
       setIsSubmitting(false);
+      
+      // Reset progress after success
+      setTimeout(() => {
+        setUploadProgress(0);
+        setUploadStage("");
+      }, 1000);
     }
   };
 
@@ -695,6 +767,54 @@ const OtrosiForm = () => {
               autoplay={true}
               speed={1}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Upload Progress Indicator */}
+      {isSubmitting && uploadProgress > 0 && (
+        <div className="fixed bottom-6 right-6 bg-card p-5 rounded-xl shadow-2xl border border-border z-[9998] min-w-[320px] animate-fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-foreground">
+              {uploadStage}
+            </p>
+            {uploadProgress === 100 && (
+              <svg
+                className="h-5 w-5 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            )}
+          </div>
+          
+          {/* Progress bar */}
+          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          
+          {/* Progress percentage */}
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">
+              {uploadProgress < 90 
+                ? 'Subiendo archivos...' 
+                : uploadProgress < 100 
+                  ? 'Procesando...' 
+                  : '¡Completado!'}
+            </p>
+            <p className="text-xs font-medium text-foreground">
+              {uploadProgress}%
+            </p>
           </div>
         </div>
       )}

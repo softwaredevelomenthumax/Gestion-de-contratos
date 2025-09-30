@@ -5,6 +5,7 @@
  * 
  * This script provides comprehensive database cleaning functionality with safety features.
  * It can clean all data or specific tables based on command line arguments.
+ * After cleaning, it automatically resets identity counters (auto-increment) to start from 1.
  * 
  * Usage:
  *   node scripts/clearDatabase.js                    # Interactive mode with confirmation
@@ -13,6 +14,13 @@
  *   node scripts/clearDatabase.js --tables users contracts  # Clean specific tables
  *   node scripts/clearDatabase.js --dry-run          # Show what would be deleted without doing it
  *   node scripts/clearDatabase.js --help             # Show help
+ * 
+ * Features:
+ * - Cleans data in correct order (respecting foreign key constraints)
+ * - Resets identity counters (auto-increment) to start from 1 after cleaning
+ * - Supports dry-run mode to preview changes
+ * - Interactive and command-line modes
+ * - Comprehensive error handling and logging
  */
 
 const readline = require('readline');
@@ -167,6 +175,42 @@ class DatabaseCleaner {
     }
   }
 
+  async resetIdentityCounters() {
+    this.logInfo('Resetting identity counters (auto-increment)...');
+    
+    // Define tables that have identity columns (auto-increment)
+    const identityTables = [
+      { name: 'contracts', description: 'Contracts' },
+      { name: 'users', description: 'Users' },
+      { name: 'otrosi', description: 'Otrosi' },
+      { name: 'contract_files', description: 'Contract Files' },
+      { name: 'otrosi_files', description: 'Otrosi Files' },
+      { name: 'contract_history', description: 'Contract History' },
+      { name: 'rejected_users', description: 'Rejected Users' }
+    ];
+
+    for (const table of identityTables) {
+      try {
+        if (this.dryRun) {
+          this.log(`[DRY RUN] Would reset identity counter for ${table.description}`, 'yellow');
+          continue;
+        }
+
+        // Reset identity counter to start from 1
+        await sequelize.query(`DBCC CHECKIDENT('${table.name}', RESEED, 0)`);
+        this.logSuccess(`  Reset identity counter for ${table.description}`);
+      } catch (error) {
+        // Some tables might not have identity columns, which is fine
+        if (error.message.includes('does not have an identity column')) {
+          this.log(`  ${table.description} does not have an identity column (skipping)`, 'cyan');
+        } else {
+          this.logError(`  Failed to reset identity for ${table.description}: ${error.message}`);
+          this.stats.errors++;
+        }
+      }
+    }
+  }
+
   async cleanAllTables() {
     this.logInfo('Starting database cleanup...');
     this.stats.startTime = new Date();
@@ -177,6 +221,9 @@ class DatabaseCleaner {
         this.stats.deletedRecords += result.deleted;
       }
     }
+
+    // Reset identity counters after cleaning
+    await this.resetIdentityCounters();
 
     this.stats.endTime = new Date();
     this.logSummary();
@@ -204,6 +251,9 @@ class DatabaseCleaner {
       }
     }
 
+    // Reset identity counters for cleaned tables
+    await this.resetIdentityCounters();
+
     this.stats.endTime = new Date();
     this.logSummary();
   }
@@ -218,6 +268,7 @@ class DatabaseCleaner {
       this.log('Mode: DRY RUN (no actual changes made)', 'yellow');
     } else {
       this.log(`Total records deleted: ${this.stats.deletedRecords}`, 'green');
+      this.log('Identity counters reset to start from 1', 'green');
     }
     
     this.log(`Total records found: ${this.stats.totalRecords}`, 'cyan');
@@ -228,6 +279,7 @@ class DatabaseCleaner {
       this.logWarning('Some errors occurred during cleanup. Check the logs above.');
     } else if (!this.dryRun) {
       this.logSuccess('Database cleanup completed successfully!');
+      this.logSuccess('New records will now start with ID = 1');
     }
     
     this.log('='.repeat(50), 'bold');

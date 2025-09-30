@@ -52,36 +52,24 @@ export const Card = React.memo(function Card({ solicitante, contract, onClick })
   const [hasOtrosi, setHasOtrosi] = React.useState(false);
   // const isViewed = contract && contract.viewedBy && user && contract.viewedBy.includes(user.id);
 
-  // Check if contract has otrosi - Use included data to prevent N+1 API calls
+  // Check if contract has otrosi - Use backend flag for optimal performance
   React.useEffect(() => {
     if (!contract?.id) return;
     
-    // Use otrosi data already included in contract response (performance optimization)
-    if (contract.otrosi && Array.isArray(contract.otrosi)) {
+    // ✅ BEST: Use hasOtrosi flag from backend (prevents N+1 queries!)
+    if (contract?.hasOtrosi !== undefined) {
+      setHasOtrosi(contract.hasOtrosi);
+      return;
+    }
+    
+    // ✅ GOOD: Use otrosi array if included in response
+    if (contract?.otrosi !== undefined && Array.isArray(contract.otrosi)) {
       setHasOtrosi(contract.otrosi.length > 0);
       return;
     }
     
-    // Fallback: Only make API call if otrosi data not included and user has access
-    const isOwner = user && (contract?.solicitante?.id === user.id || contract?.solicitanteId === user.id);
-    const hasAccess = user && (user.role === 'lawyer' || isOwner);
-    if (!hasAccess) return;
-    
-    const checkOtrosi = async () => {
-      try {
-        const response = await api.get(`/otrosi/contract/${contract.id}`);
-        setHasOtrosi(response.data && response.data.length > 0);
-      } catch (error) {
-        if (error.response?.status !== 403) {
-          console.log(error);
-        }
-        // Silently fail - just don't show otrosi indicator
-        setHasOtrosi(false);
-      }
-    };
-    
-    checkOtrosi();
-  }, [contract?.id, contract?.otrosi, contract?.solicitante?.id, contract?.solicitanteId, user, user?.id, user?.role]);
+    // No legacy fallback: backend must provide hasOtrosi or embed otrosi array
+  }, [contract?.id, contract?.hasOtrosi, contract?.otrosi]);
 
   // Helper function to safely extract solicitante name
   const getSolicitanteDisplay = (solicitante) => {
@@ -222,25 +210,19 @@ export const LawyerCard = React.memo(function LawyerCard({ contract }) {
   React.useEffect(() => {
     if (!contract?.id) return;
     
-    // Use otrosi data already included in contract response (performance optimization)
+    // OPTIMIZATION 1: Use hasOtrosi flag from backend if available (best performance!)
+    if (contract.hasOtrosi !== undefined) {
+      setHasOtrosi(contract.hasOtrosi);
+      return;
+    }
+    
+    // OPTIMIZATION 2: Use otrosi data already included in contract response
     if (contract.otrosi && Array.isArray(contract.otrosi)) {
       setHasOtrosi(contract.otrosi.length > 0);
       return;
     }
-    
-    // Fallback: Make API call only if otrosi data not included
-    const checkOtrosi = async () => {
-      try {
-        const response = await api.get(`/otrosi/contract/${contract.id}`);
-        setHasOtrosi(response.data && response.data.length > 0);
-      } catch (error) {console.log(error)
-        // Silently fail - just don't show otrosi indicator
-        setHasOtrosi(false);
-      }
-    };
-    
-    checkOtrosi();
-  }, [contract?.id, contract?.otrosi]);
+    // No legacy fallback: backend must provide hasOtrosi or embed otrosi array
+  }, [contract?.id, contract?.hasOtrosi, contract?.otrosi]);
 
   const handleCardClick = async () => {
     if (!contract?.id) return;

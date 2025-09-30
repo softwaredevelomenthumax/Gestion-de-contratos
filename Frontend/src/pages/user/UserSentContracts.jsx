@@ -5,7 +5,7 @@ import { getContracts } from '../../api/contracts';
 import Card from '../../components/Card';
 import { useRefresh } from '../../context/RefreshContext';
 import ContractFilters from '../../components/ContractFilters';
-import { useContractFilters } from '../../hooks/useContractFilters';
+// ✅ REMOVED: useContractFilters - backend now handles filtering
 import LoadingAnimation from '../../components/LoadingAnimation';
 
 const UserSentContracts = () => {
@@ -16,23 +16,23 @@ const UserSentContracts = () => {
   const { refreshTrigger } = useRefresh();
   const navigate = useNavigate();
   
-  // Use custom hook for filtering
-  const {
-    filter,
-    setFilter,
-    ticketFilter,
-    setTicketFilter,
-    sortType,
-    setSortType,
-    filteredAndSortedContracts
-  } = useContractFilters(contracts);
+  // ✅ Server-side filtering - simple state for filter inputs
+  const [filter, setFilter] = useState('');
+  const [ticketFilter, setTicketFilter] = useState('');
+  const [sortType, setSortType] = useState('fecha-desc');
 
   useEffect(() => {
     const fetchContracts = async () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await getContracts();
+        // Build filter object for backend API
+        const filters = {};
+        if (filter && filter.trim()) filters.search = filter.trim();
+        if (ticketFilter && ticketFilter.trim()) filters.ticket = ticketFilter.trim();
+        if (sortType && sortType !== 'fecha-desc') filters.sort = sortType;
+        
+        const data = await getContracts(filters);
         setContracts(data);
       } catch (error) {
         setError(error.response?.data?.error || 'An error occurred while fetching contracts');
@@ -44,7 +44,7 @@ const UserSentContracts = () => {
     if (user) {
       fetchContracts();
     }
-  }, [user, refreshTrigger]);
+  }, [user, refreshTrigger, filter, ticketFilter, sortType]);
 
   const isEmptyContractsError = error && contracts.length === 0 && (
     error === 'Invalid contract or file id' ||
@@ -75,15 +75,15 @@ const UserSentContracts = () => {
         <div className="flex items-center justify-center min-h-[40vh]">
           <div className="bg-red-900/20 border border-red-700 text-red-300 px-4 py-3 rounded animate-fade-in" role="alert">{error}</div>
         </div>
-      ) : filteredAndSortedContracts.length === 0 ? (
+      ) : contracts.length === 0 ? (
         <div className="text-center py-10">
           <span className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
-            {contracts.length > 0 ? 'No hay contratos que coincidan con los filtros aplicados.' : 'No hay contratos disponibles.'}
+            {filter || ticketFilter ? 'No hay contratos que coincidan con los filtros aplicados.' : 'No hay contratos disponibles.'}
           </span>
         </div>
       ) : (
         <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredAndSortedContracts.map((contract) => (
+          {contracts.map((contract) => (
             <Card
               key={contract.id}
               solicitante={contract.solicitante}

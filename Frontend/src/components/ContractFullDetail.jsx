@@ -20,7 +20,7 @@ import {
   IconRefresh,
 } from "@tabler/icons-react";
 import { getContractHistory } from "../api/contracts";
-import { getOtrosiByContract, getOtrosiFiles } from "../api/otrosi";
+import { getOtrosiByContract } from "../api/otrosi";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
@@ -290,6 +290,10 @@ const getFileTypeBadgeClasses = (fileType) => {
       return 'text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
     case 'Otrosí Sin Firma':
       return 'text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+    case 'Poliza':
+      return 'text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+    case 'CAF':
+      return 'text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
     default:
       return 'text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
   }
@@ -322,6 +326,10 @@ const getFileTypeLabel = (file) => {
         return 'Devuelto';
       case 'Enviar Otrosí':
         return 'Otrosí Sin Firma';
+      case 'Poliza':
+        return 'Poliza';
+      case 'CAF':
+        return 'CAF';
       default:
         return file.fileType;
     }
@@ -346,6 +354,10 @@ const getFileTypeLabel = (file) => {
         return "Firma Abogado";
       case "firma usuario":
         return "Firma Usuario";
+      case "poliza":
+        return "Poliza";
+      case "caf":
+        return "CAF";
       default:
         // Si la categoría no es específica, intentar inferir del nombre del archivo
         if (file.filename) {
@@ -364,6 +376,12 @@ const getFileTypeLabel = (file) => {
           }
           if (lowerFilename.includes('oferta')) {
             return "Oferta";
+          }
+          if (lowerFilename.includes('poliza')) {
+            return "Poliza";
+          }
+          if (lowerFilename.includes('caf') || lowerFilename.includes('cámara de comercio')) {
+            return "CAF";
           }
         }
         return "Archivo";
@@ -472,11 +490,6 @@ const ContractFullDetail = ({ contract }) => {
     }
   };
 
-  // Función para devolver otrosí
-  // Función handleReturnOtrosi eliminada - ya no se usa
-
-  // (Eliminado) Función para manejar acciones de otrosí no utilizada
-
   const [filesToUpload, setFilesToUpload] = useState([]);
   const [comment, setComment] = useState("");
   const [uploading, _setUploading] = useState(false);
@@ -493,12 +506,23 @@ const ContractFullDetail = ({ contract }) => {
   const [returnFiles, setReturnFiles] = useState([]);
   const [returnUploading, setReturnUploading] = useState(false);
   const [returnError, setReturnError] = useState(null);
+  const [polizaFiles, setPolizaFiles] = useState([]);
+  const [polizaComment, setPolizaComment] = useState("");
+  const [polizaUploading, setPolizaUploading] = useState(false);
+  const [polizaError, setPolizaError] = useState(null);
+  
+  // Upload progress states
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
+  const uploadProgressRef = React.useRef(0);
+  const lastUpdateTimeRef = React.useRef(0);
 
   // Estados para los popups
   const [showResponder, setShowResponder] = useState(false);
   const [showLawyerResponder, setShowLawyerResponder] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showPolizaModal, setShowPolizaModal] = useState(false);
   const navigate = useNavigate();
   const { addNotification } = useNotification();
 
@@ -524,20 +548,15 @@ const ContractFullDetail = ({ contract }) => {
         const data = await getOtrosiByContract(contract.id);
         setOtrosi(data);
 
-        // Cargar archivos de cada otrosí
+        // ✅ OPTIMIZATION: Files are now included in otrosi data from backend
+        // Convert to the format expected by the component
         const filesData = {};
         console.log('Otrosí encontrados:', data);
-        for (const otrosiItem of data) {
-          try {
-            console.log(`Cargando archivos para otrosí ${otrosiItem.id}...`);
-            const files = await getOtrosiFiles(otrosiItem.id);
-            console.log(`Archivos encontrados para otrosí ${otrosiItem.id}:`, files);
-            filesData[otrosiItem.id] = files;
-          } catch (err) {
-            console.error(`Error cargando archivos del otrosí ${otrosiItem.id}:`, err);
-            filesData[otrosiItem.id] = [];
-          }
-        }
+        data.forEach(otrosiItem => {
+          // Backend now includes files array for each otrosi
+          filesData[otrosiItem.id] = otrosiItem.files || [];
+          console.log(`Archivos para otrosí ${otrosiItem.id}:`, filesData[otrosiItem.id]);
+        });
         console.log('Todos los archivos de otrosí cargados:', filesData);
         setOtrosiFiles(filesData);
       } catch (err) {
@@ -549,7 +568,7 @@ const ContractFullDetail = ({ contract }) => {
     };
 
     loadOtrosi();
-  }, [contract.id]);
+  }, [contract.id, contract.files]);
 
 
 
@@ -570,6 +589,11 @@ const ContractFullDetail = ({ contract }) => {
     setLawyerFilesToUpload(files);
   };
 
+  const handlePolizaFileChange = (e) => {
+    const files = Array.from(e.target.files).slice(0, 10);
+    setPolizaFiles(files);
+  };
+
   // Función principal para manejar acciones del contrato
   const handleContractAction = async (action, files = [], comment = "") => {
     const setLoading =
@@ -577,24 +601,28 @@ const ContractFullDetail = ({ contract }) => {
         ? setSignUploading
         : action === "return"
           ? setReturnUploading
-          : user.role === "lawyer"
-            ? setLawyerUploading
-            : setSignUploading;
+          : action === "poliza"
+            ? setPolizaUploading
+            : user.role === "lawyer"
+              ? setLawyerUploading
+              : setSignUploading;
     const setError =
       action === "sign"
         ? setSignError
         : action === "return"
           ? setReturnError
-          : user.role === "lawyer"
-            ? setLawyerUploadError
-            : setUploadError;
+          : action === "poliza"
+            ? setPolizaError
+            : user.role === "lawyer"
+              ? setLawyerUploadError
+              : setUploadError;
 
     setLoading(true);
     setError(null);
 
     try {
       // Validaciones básicas
-      if ((action === "sign" || action === "respond") && files.length === 0) {
+      if ((action === "sign" || action === "respond" || action === "poliza") && files.length === 0) {
         setError("Debes subir al menos un archivo PDF.");
         setLoading(false);
         return;
@@ -612,22 +640,72 @@ const ContractFullDetail = ({ contract }) => {
       formData.append("comment", comment || "");
       formData.append("action", action);
 
+      // Reset progress tracking
+      uploadProgressRef.current = 0;
+      lastUpdateTimeRef.current = Date.now();
+      setUploadProgress(0);
+      setUploadStage(`Subiendo ${files.length} archivo${files.length !== 1 ? 's' : ''}...`);
+
       // Call proper endpoint via shared axios client
       const endpoint = action === "sign"
         ? `/contracts/${contract.id}/sign`
         : action === "return"
           ? `/contracts/${contract.id}/return`
-          : `/contracts/${contract.id}/respond`;
+          : action === "poliza"
+            ? `/contracts/${contract.id}/poliza`
+            : `/contracts/${contract.id}/respond`;
 
       const { data: result } = await api.post(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          // Cap progress at 90% during upload phase
+          const targetPercent = Math.round(
+            (progressEvent.loaded * 90) / progressEvent.total
+          );
+          
+          // Throttle updates (minimum 100ms between updates)
+          const now = Date.now();
+          const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+          
+          if (timeSinceLastUpdate >= 100 || targetPercent === 90) {
+            // Smooth increment: don't jump more than 15% at once
+            const currentPercent = uploadProgressRef.current;
+            const increment = Math.min(targetPercent - currentPercent, 15);
+            const newPercent = Math.min(currentPercent + increment, targetPercent);
+            
+            uploadProgressRef.current = newPercent;
+            lastUpdateTimeRef.current = now;
+            
+            setUploadProgress(newPercent);
+            setUploadStage(`Subiendo archivos... ${newPercent}%`);
+          }
+        },
       });
+
+      // Ensure we smoothly reach 90% if we haven't already
+      if (uploadProgressRef.current < 90) {
+        for (let i = uploadProgressRef.current; i <= 90; i += 5) {
+          setUploadProgress(i);
+          setUploadStage(`Subiendo archivos... ${i}%`);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      // Processing on server
+      await new Promise(resolve => setTimeout(resolve, 200));
+      setUploadProgress(95);
+      setUploadStage("Procesando archivos en el servidor...");
+      
+      await new Promise(resolve => setTimeout(resolve, 400));
+      setUploadProgress(100);
+      setUploadStage("¡Operación completada exitosamente!");
       addNotification(result.message || "Operación exitosa", "success");
       // Cerrar el formulario correspondiente
       setShowResponder(false);
       setShowLawyerResponder(false);
       setShowSignModal(false);
       setShowReturnModal(false);
+      setShowPolizaModal(false);
       navigate("/");
     } catch (err) {
       console.error("Error en handleContractAction:", err);
@@ -643,8 +721,20 @@ const ContractFullDetail = ({ contract }) => {
       } else {
         setError(err.message || "Error desconocido");
       }
+      
+      // Reset progress on error
+      setUploadProgress(0);
+      setUploadStage("");
+      uploadProgressRef.current = 0;
+      lastUpdateTimeRef.current = 0;
     } finally {
       setLoading(false);
+      
+      // Reset progress after success
+      setTimeout(() => {
+        setUploadProgress(0);
+        setUploadStage("");
+      }, 1000);
     }
   };
 
@@ -653,6 +743,7 @@ const ContractFullDetail = ({ contract }) => {
   const handleLawyerRespond = () => handleContractAction("respond", lawyerFilesToUpload, lawyerComment);
   const handleSign = () => handleContractAction("sign", signFiles, signComment);
   const handleReturn = () => handleContractAction("return", returnFiles, returnComment);
+  const handlePolizaUpload = () => handleContractAction("poliza", polizaFiles, polizaComment);
 
   const handleDownloadFileBlob = async (fileId, filename) => {
     const downloadFunction = async () => {
@@ -845,6 +936,107 @@ const ContractFullDetail = ({ contract }) => {
             <IconPlus size={20} />
             Crear Otrosí
           </Button>
+        </div>
+      )}
+
+      {/* Botón Poliza - Solo abogado y contrato firmado */}
+      {user?.role === 'lawyer' && contract.estado === "signed" && (
+        <div className="mb-8">
+          <Button
+            onClick={() => setShowPolizaModal(!showPolizaModal)}
+            variant="primary"
+            className="flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <IconUpload size={20} />
+            Subir Póliza
+          </Button>
+
+          {/* Modal de Póliza - aparece directamente debajo del botón */}
+          {showPolizaModal && (
+            <Card className="mt-4 border-2 border-emerald-200 dark:border-emerald-700">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <IconUpload size={20} className="text-emerald-600" />
+                  Subir Póliza
+                </CardTitle>
+                <CardDescription>
+                  Sube archivos PDF de la póliza del contrato
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm">Archivos PDF (máximo 10):</Label>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    multiple
+                    onChange={handlePolizaFileChange}
+                    disabled={polizaUploading}
+                    className="text-sm"
+                  />
+                  {polizaFiles.length > 0 && (
+                    <div className="space-y-1">
+                      {polizaFiles.map((file, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
+                          <IconFileText size={14} />
+                          <span className="truncate">{file.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Comentario (opcional):</Label>
+                  <Textarea
+                    value={polizaComment}
+                    onChange={(e) => setPolizaComment(e.target.value)}
+                    rows={3}
+                    placeholder="Escribe tu comentario sobre la póliza..."
+                    disabled={polizaUploading}
+                    className="resize-none text-sm"
+                  />
+                </div>
+
+                {polizaError && (
+                  <Alert variant="destructive">
+                    <IconAlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">{polizaError}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPolizaModal(false)}
+                    disabled={polizaUploading}
+                    size="sm"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handlePolizaUpload}
+                    disabled={polizaUploading}
+                    size="sm"
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {polizaUploading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Subiendo...
+                      </>
+                    ) : (
+                      <>
+                        <IconUpload size={16} />
+                        Subir Póliza
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -1124,102 +1316,6 @@ const ContractFullDetail = ({ contract }) => {
                 Devolver
               </Button>
             </div>
-
-            {/* Formulario inline de firma - REMOVIDO - ahora está disponible para todos los estados 
-            {showSignModal && (
-              <Card className="mt-4 border-2 border-green-200 dark:border-green-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <IconSignature size={20} className="text-green-600" />
-                    Firmar Contrato
-                  </CardTitle>
-                  <CardDescription>
-                    Sube archivos PDF firmados para finalizar
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Alert>
-                    <IconCheck className="h-4 w-4" />
-                    <AlertDescription>
-                      Al firmar se completará el proceso. <span className="font-semibold">Asegúrate de firmar correctamente.</span>
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm flex items-center gap-2">
-                      <IconUpload size={16} />
-                      Subir archivos PDF firmados:
-                    </Label>
-                    <Input
-                      type="file"
-                      accept="application/pdf"
-                      multiple
-                      onChange={(e) => setSignFiles(Array.from(e.target.files).slice(0, 10))}
-                      disabled={signUploading}
-                      className="text-sm"
-                    />
-                    {signFiles.length > 0 && (
-                      <div className="space-y-1">
-                        {signFiles.map((file, index) => (
-                          <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
-                            <IconFileText size={14} />
-                            <span className="truncate">{file.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm">Comentario (opcional):</Label>
-                    <Textarea
-                      value={signComment}
-                      onChange={(e) => setSignComment(e.target.value)}
-                      rows={3}
-                      placeholder="Escribe tu comentario..."
-                      disabled={signUploading}
-                      className="resize-none text-sm"
-                    />
-                  </div>
-
-                  {signError && (
-                    <Alert variant="destructive">
-                      <IconAlertTriangle className="h-4 w-4" />
-                      <AlertDescription className="text-sm">{signError}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowSignModal(false)}
-                      disabled={signUploading}
-                      size="sm"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      onClick={handleSign}
-                      disabled={signUploading}
-                      size="sm"
-                      className="gap-2 bg-green-600 hover:bg-green-700"
-                    >
-                      {signUploading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                          <span>Enviando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <IconSignature size={16} />
-                          <span>Firmar</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )} */}
 
             {/* Formulario inline de devolución */}
             {showReturnModal && (
@@ -1977,6 +2073,12 @@ const ContractFullDetail = ({ contract }) => {
             <div className="flex items-center gap-2">
               <Badge className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Otrosí Sin Firma</Badge>
             </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">Poliza</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">CAF</Badge>
+            </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             Los archivos de otrosí se muestran en la sección específica más abajo.
@@ -2111,9 +2213,6 @@ const ContractFullDetail = ({ contract }) => {
                     <Badge variant="outline" className="text-lg border-purple-400 text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30">
                       Otrosí #{otro.numeroOtrosi}
                     </Badge>
-                    <div className="flex items-center gap-2">
-                      {/* Botón Devolver Otrosí removido - ya existe funcionalidad de respuesta */}
-                    </div>
                   </div>
                 </div>
 
@@ -2494,7 +2593,7 @@ const ContractFullDetail = ({ contract }) => {
             />
           </div>
         </div>
-      )}
+        )}
 
       {/* Animación de descarga */}
       <DownloadingAnimation
@@ -2502,6 +2601,54 @@ const ContractFullDetail = ({ contract }) => {
         message={downloadMessage}
         size="medium"
       />
+
+      {/* Upload Progress Indicator */}
+      {uploadProgress > 0 && (
+        <div className="fixed bottom-6 right-6 bg-card p-5 rounded-xl shadow-2xl border border-border z-[9998] min-w-[320px] animate-fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-foreground">
+              {uploadStage}
+            </p>
+            {uploadProgress === 100 && (
+              <svg
+                className="h-5 w-5 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            )}
+          </div>
+          
+          {/* Progress bar */}
+          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          
+          {/* Progress percentage */}
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">
+              {uploadProgress < 90 
+                ? 'Subiendo archivos...' 
+                : uploadProgress < 100 
+                  ? 'Procesando...' 
+                  : '¡Completado!'}
+            </p>
+            <p className="text-xs font-medium text-foreground">
+              {uploadProgress}%
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

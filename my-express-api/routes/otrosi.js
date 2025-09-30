@@ -63,9 +63,20 @@ router.get('/contract/:contractId', auth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // ✅ OPTIMIZATION: Include otrosi files to avoid N+1 queries
+    const OtrosiFile = require('../models/OtrosiFile');
     const otrosi = await Otrosi.findAll({
       where: { contractId },
-      order: [['numeroOtrosi', 'ASC']],
+      include: [{
+        model: OtrosiFile,
+        as: 'files',
+        required: false,
+        attributes: ['id', 'filename', 'fileType', 'filepath', 'uploadedAt']
+      }],
+      order: [
+        ['numeroOtrosi', 'ASC'],
+        [{ model: OtrosiFile, as: 'files' }, 'uploadedAt', 'ASC']
+      ],
       attributes: { 
         exclude: ['cartaSolicitudPath', 'firmarOtrosiPath', 'firmaAbogadoPath'] 
       }

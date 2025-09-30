@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Card from '../../components/Card';
 import { getAwaitingUserResponseContracts } from '../../api/contracts';
 import { useRefresh } from '../../context/RefreshContext'; 
 import { useNavigate } from 'react-router-dom';
 import ContractFilters from '../../components/ContractFilters';
-import { useContractFilters } from '../../hooks/useContractFilters';
+// ✅ REMOVED: useContractFilters - backend now handles filtering
 import LoadingAnimation from '../../components/LoadingAnimation';
 
 const LawyerManagedContracts = () => {
@@ -14,27 +14,23 @@ const LawyerManagedContracts = () => {
     const { refreshTrigger } = useRefresh();
     const navigate = useNavigate();
     
-    // Use custom hook for filtering
-    const {
-        filter,
-        setFilter,
-        ticketFilter,
-        setTicketFilter,
-        sortType,
-        setSortType,
-        filteredAndSortedContracts
-    } = useContractFilters(contracts);
+    // ✅ Server-side filtering - simple state for filter inputs
+    const [filter, setFilter] = useState('');
+    const [ticketFilter, setTicketFilter] = useState('');
+    const [sortType, setSortType] = useState('fecha-desc');
 
-    useEffect(() => {
-        fetchContracts();
-    }, [refreshTrigger]);
-
-    const fetchContracts = async () => {
+    const fetchContracts = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
+            // Build filter object for backend API
+            const filters = {};
+            if (filter && filter.trim()) filters.search = filter.trim();
+            if (ticketFilter && ticketFilter.trim()) filters.ticket = ticketFilter.trim();
+            if (sortType && sortType !== 'fecha-desc') filters.sort = sortType;
+            
             // Usar la ruta unificada: devuelve awaiting_user_response y otrosi_awaiting_user_response
-            const contracts = await getAwaitingUserResponseContracts();
+            const contracts = await getAwaitingUserResponseContracts(filters);
             setContracts(contracts);
         } catch (err) {
             console.error('Error fetching contracts:', err);
@@ -42,7 +38,11 @@ const LawyerManagedContracts = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filter, ticketFilter, sortType]);
+
+    useEffect(() => {
+        fetchContracts();
+    }, [refreshTrigger, fetchContracts]);
 
     const handleCardClick = async (contractId) => {
         navigate(`/lawyer/contracts/${contractId}`);
@@ -71,15 +71,15 @@ const LawyerManagedContracts = () => {
                         {error}
                     </div>
                 </div>
-            ) : filteredAndSortedContracts.length === 0 ? (
+            ) : contracts.length === 0 ? (
                 <div className="text-center py-10">
                     <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
-                        No hay contratos gestionados disponibles.
+                        {filter || ticketFilter ? 'No hay contratos que coincidan con los filtros aplicados.' : 'No hay contratos gestionados disponibles.'}
                     </div>
                 </div>
             ) : (
                 <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredAndSortedContracts.map((contract) => (
+                    {contracts.map((contract) => (
                         <div key={contract.id} onClick={() => handleCardClick(contract.id)}>
                             <Card
                                 solicitante={contract.solicitante}

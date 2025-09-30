@@ -102,6 +102,10 @@ const ContractForm = () => {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [showDescriptionAlert, setShowDescriptionAlert] = useState(false);
   const descriptionRef = useRef(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
+  const uploadProgressRef = useRef(0);
+  const lastUpdateTimeRef = useRef(0);
 
   const areDatesValid = () => {
     if (!fechaInicio || !fechaFinal) return true;
@@ -360,13 +364,73 @@ const ContractForm = () => {
       console.log("📋 Camara files:", camaraFiles.length);
       console.log("📋 Otros files:", otrosFiles.length);
 
+      // Calculate total files for progress tracking
+      const totalFiles = contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length;
+      setUploadStage(`Subiendo ${totalFiles} archivo${totalFiles !== 1 ? 's' : ''}...`);
+
+      // Reset progress tracking refs
+      uploadProgressRef.current = 0;
+      lastUpdateTimeRef.current = Date.now();
+
       // Send contract creation request with files
       await api.post("/contracts", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
+        onUploadProgress: (progressEvent) => {
+          // Cap progress at 90% during upload phase
+          // The remaining 10% is for server processing
+          const targetPercent = Math.round(
+            (progressEvent.loaded * 90) / progressEvent.total
+          );
+          
+          // Throttle updates to create smooth animation (minimum 100ms between updates)
+          const now = Date.now();
+          const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+          
+          if (timeSinceLastUpdate >= 100 || targetPercent === 90) {
+            // Smooth increment: don't jump more than 15% at once
+            const currentPercent = uploadProgressRef.current;
+            const increment = Math.min(targetPercent - currentPercent, 15);
+            const newPercent = Math.min(currentPercent + increment, targetPercent);
+            
+            uploadProgressRef.current = newPercent;
+            lastUpdateTimeRef.current = now;
+            
+            setUploadProgress(newPercent);
+            setUploadStage(`Subiendo archivos... ${newPercent}%`);
+          }
+        },
       });
-      setShowSuccess(true);
+
+      // Ensure we smoothly reach 90% if we haven't already
+      if (uploadProgressRef.current < 90) {
+        for (let i = uploadProgressRef.current; i <= 90; i += 5) {
+          setUploadProgress(i);
+          setUploadStage(`Subiendo archivos... ${i}%`);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      // Upload completed, now processing on server
+      await new Promise(resolve => setTimeout(resolve, 200));
+      setUploadProgress(95);
+      setUploadStage("Procesando contrato en el servidor...");
+      
+      // Small delay to show processing state
+      await new Promise(resolve => setTimeout(resolve, 400));
+      
+      // All done!
+      setUploadStage("¡Contrato creado exitosamente!");
+      setUploadProgress(100);
+      
+      // Small delay to show completion before hiding
+      setTimeout(() => {
+        setShowSuccess(true);
+        setUploadProgress(0);
+        setUploadStage("");
+      }, 800);
+      
       addNotification("Contrato enviado correctamente", "success");
     } catch (error) {
       console.error("❌ Contract creation failed:", error);
@@ -377,6 +441,12 @@ const ContractForm = () => {
       setError(
         error.response?.data?.error || "Ocurrió un error al crear el contrato"
       );
+      
+      // Reset progress on error
+      setUploadProgress(0);
+      setUploadStage("");
+      uploadProgressRef.current = 0;
+      lastUpdateTimeRef.current = 0;
     } finally {
       setLoading(false);
     }
@@ -1151,6 +1221,63 @@ const ContractForm = () => {
               speed={1}
             />
           </div>
+        </div>
+      )}
+
+      {/* Upload Progress Indicator */}
+      {loading && uploadProgress > 0 && (
+        <div className="fixed bottom-6 right-6 bg-card p-5 rounded-xl shadow-2xl border border-border z-[9998] min-w-[320px] animate-fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-foreground">
+              {uploadStage}
+            </p>
+            {uploadProgress === 100 && (
+              <svg
+                className="h-5 w-5 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            )}
+          </div>
+          
+          {/* Progress bar */}
+          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          
+          {/* Progress percentage */}
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">
+              {uploadProgress < 90 
+                ? 'Subiendo archivos...' 
+                : uploadProgress < 100 
+                  ? 'Procesando...' 
+                  : '¡Completado!'}
+            </p>
+            <p className="text-xs font-medium text-foreground">
+              {uploadProgress}%
+            </p>
+          </div>
+          
+          {/* File count info */}
+          {(contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length) > 0 && (
+            <div className="mt-3 pt-3 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                {contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length} archivo(s) total
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

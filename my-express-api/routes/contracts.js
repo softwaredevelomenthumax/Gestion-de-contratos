@@ -82,34 +82,121 @@ const contractListIncludeOptions = [
   }
 ];
 
-// GET /api/contracts - Contratos del usuario logueado
+// Helper function to build WHERE clause from query parameters
+const buildWhereClause = (baseWhere, queryParams) => {
+  const where = { ...baseWhere };
+  
+  // Filter by estado
+  if (queryParams.estado && queryParams.estado !== 'Todos') {
+    where.estado = queryParams.estado;
+  }
+  
+  // Filter by numeroTicket
+  if (queryParams.ticket) {
+    where.id = parseInt(queryParams.ticket);
+  }
+  
+  // Search across multiple fields
+  if (queryParams.search) {
+    const searchTerm = queryParams.search.toLowerCase();
+    where[Op.or] = [
+      { descripcion: { [Op.like]: `%${searchTerm}%` } },
+      { proveedor: { [Op.like]: `%${searchTerm}%` } },
+      { nombreSolicitante: { [Op.like]: `%${searchTerm}%` } },
+      { area: { [Op.like]: `%${searchTerm}%` } },
+      { tipoContrato: { [Op.like]: `%${searchTerm}%` } }
+    ];
+  }
+  
+  return where;
+};
+
+// Helper function to get sort order from query parameters
+const getSortOrder = (sortType) => {
+  const sortMap = {
+    'fecha-desc': [['fechaIngreso', 'DESC']],
+    'fecha-asc': [['fechaIngreso', 'ASC']],
+    'proveedor-asc': [['proveedor', 'ASC']],
+    'proveedor-desc': [['proveedor', 'DESC']]
+  };
+  
+  return sortMap[sortType] || [['id', 'DESC']];
+};
+
+// Helper function to add hasOtrosi virtual field to contract results
+const addHasOtrosiFlag = (contracts) => {
+  return contracts.map(contract => {
+    const contractData = contract.toJSON ? contract.toJSON() : contract;
+    contractData.hasOtrosi = !!(contractData.otrosi && contractData.otrosi.length > 0);
+    contractData.otrosiCount = contractData.otrosi ? contractData.otrosi.length : 0;
+    return contractData;
+  });
+};
+
+// Helper function to filter contracts by otrosi presence
+const filterByOtrosiPresence = (contracts, filterType) => {
+  if (filterType === 'with-otrosi') {
+    return contracts.filter(c => c.hasOtrosi === true);
+  } else if (filterType === 'without-otrosi') {
+    return contracts.filter(c => c.hasOtrosi === false);
+  }
+  return contracts;
+};
+
+// GET /api/contracts - Contratos del usuario logueado with filtering, sorting, search
 router.get('/', auth, async (req, res) => {
   try {
-    let whereClause;
-    
-    // Estados permitidos para contratos enviados
+    // Base where clause for role-based access
+    let baseWhere;
     const allowedStates = ['new', 'awaiting_lawyer_review', 'signature_otrosi_already_signedByUser', 'otrosi_awaiting_lawyer_review'];
     
     if (req.user.role === 'lawyer') {
-      // Los abogados pueden ver todos los contratos con los estados especificados
-      whereClause = { estado: allowedStates };
+      baseWhere = { estado: allowedStates };
     } else {
-      // Los usuarios regulares solo pueden ver sus propios contratos con los estados especificados
-      whereClause = { 
+      baseWhere = { 
         solicitanteId: req.user.id,
         estado: allowedStates
       };
     }
     
+    // Apply filters from query parameters (estado, ticket, search)
+    const whereClause = buildWhereClause(baseWhere, req.query);
+    
+    // Get sort order from query parameters
+    const order = getSortOrder(req.query.sort);
+    
+    // Pagination (optional)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 1000; // Default to large number for backwards compatibility
+    const offset = (page - 1) * limit;
+    
     // Use lightweight includes for list view - better performance
-    const contracts = await Contract.findAll({
+    const { rows: contracts, count } = await Contract.findAndCountAll({
       where: whereClause,
       include: contractListIncludeOptions,
-      order: [['id', 'DESC']],
+      order,
+      limit,
+      offset,
+      distinct: true // Important for proper count with associations
     });
     
-    res.json(contracts);
+    // Add hasOtrosi flag to each contract
+    let contractsWithFlags = addHasOtrosiFlag(contracts);
+    
+    // Apply otrosi presence filter if specified
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json({
+      contracts: contractsWithFlags,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
   } catch (error) {
+    console.error('❌ Error in GET /api/contracts:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -118,22 +205,21 @@ router.get('/', auth, async (req, res) => {
 router.get('/traceability', auth, async (req, res) => {
   try {
     // Abogado: todos los contratos; Usuario regular: solo los propios
-    const whereClause = req.user.role === 'lawyer' ? {} : { solicitanteId: req.user.id };
+    let baseWhere = req.user.role === 'lawyer' ? {} : { solicitanteId: req.user.id };
+    const whereClause = buildWhereClause(baseWhere, req.query);
+    const order = getSortOrder(req.query.sort);
     
     const contracts = await Contract.findAll({
       where: whereClause,
-      attributes: ['id', 'descripcion', 'estado', 'solicitanteId', 'proveedor', 'tipoContrato', 'fechaIngreso'],
-      include: [
-        {
-          model: User,
-          as: 'solicitante',
-          attributes: ['id', 'firstName', 'lastName', 'email']
-        }
-      ],
-      order: [['id', 'DESC']]
+      include: contractListIncludeOptions,
+      order
     });
 
-    res.json(contracts);
+    // Add hasOtrosi flags and apply filters
+    let contractsWithFlags = addHasOtrosiFlag(contracts);
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+
+    res.json(contractsWithFlags);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -406,24 +492,31 @@ router.get('/all', auth, async (req, res) => {
   }
 });
 
-// GET /api/contracts/new
+// GET /api/contracts/new - with filtering and hasOtrosi flag
 router.get('/new', auth, async (req, res) => {
   try {
-    
     if (req.user.role !== 'lawyer') {
-      console.log('❌ Usuario no es abogado, acceso denegado');
       return res.status(403).json({ error: 'Solo los abogados pueden acceder a esta información' });
     }
     
+    // Apply filters
+    const baseWhere = { estado: 'new' };
+    const whereClause = buildWhereClause(baseWhere, req.query);
+    const order = getSortOrder(req.query.sort);
     
     const contracts = await Contract.findAll({
-      where: { estado: 'new' },
-      include: contractIncludeOptions,
-      order: [['id', 'DESC']],
+      where: whereClause,
+      include: contractListIncludeOptions,
+      order,
     });
     
+    // Add hasOtrosi flags
+    let contractsWithFlags = addHasOtrosiFlag(contracts);
     
-    res.json(contracts);
+    // Apply otrosi presence filter if specified
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json(contractsWithFlags);
   } catch (error) {
     console.error('❌ Error en endpoint /new:', error);
     res.status(500).json({ error: error.message });
@@ -519,7 +612,12 @@ router.get('/awaiting-user-response', auth, async (req, res) => {
     }
 
     const allContracts = combineContractsWithOtrosi(contracts, contractsWithOtrosiAwaitingUserResponse);
-    res.json(allContracts);
+    
+    // Add hasOtrosi flags and apply filters
+    let contractsWithFlags = addHasOtrosiFlag(allContracts);
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json(contractsWithFlags);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -555,7 +653,7 @@ router.get('/managed', auth, async (req, res) => {
   }
 });
 
-// GET /api/contracts/lawyer-awaiting-response
+// GET /api/contracts/lawyer-awaiting-response - with hasOtrosi flag
 router.get('/lawyer-awaiting-response', auth, async (req, res) => {
   try {
     if (req.user.role !== 'lawyer') {
@@ -564,13 +662,13 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
     
     const contracts = await Contract.findAll({
       where: { estado: 'awaiting_lawyer_review' },
-      include: contractIncludeOptions,
+      include: contractListIncludeOptions,
       order: [['id', 'DESC']],
     });
 
     const contractsOtrosiSignedByUser = await Contract.findAll({
       where: { estado: 'signature_otrosi_already_signedByUser' },
-      include: contractIncludeOptions,
+      include: contractListIncludeOptions,
       order: [['id', 'DESC']],
     });
 
@@ -590,20 +688,6 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
     let contractsWithOtrosiAwaitingLawyerReview = [];
     try {
       const Otrosi = require('../models/Otrosi');
-      
-      // First, let's see what otrosi records actually exist
-      const allOtrosi = await Otrosi.findAll({
-        attributes: ['id', 'contractId', 'estado', 'numeroOtrosi'],
-        order: [['id', 'DESC']],
-        limit: 10
-      });
-      
-      // Now check specifically for contracts in otrosi_awaiting_lawyer_review state
-      const contractsInOtrosiState = await Contract.findAll({
-        where: { estado: 'otrosi_awaiting_lawyer_review' },
-        attributes: ['id', 'estado', 'nombreSolicitante']
-      });
-      
       const otrosiCount = await Otrosi.count({ where: { estado: 'otrosi_awaiting_lawyer_review' } });
       
       if (otrosiCount > 0) {
@@ -615,7 +699,7 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
         
         contractsWithOtrosiAwaitingLawyerReview = await Contract.findAll({
           where: { id: contractIds },
-          include: contractIncludeOptions,
+          include: contractListIncludeOptions,
           order: [['id', 'DESC']],
         });
       }
@@ -630,7 +714,13 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
     
     const allContracts = combineContractsWithOtrosi(baseContracts, otrosiContracts);
     
-    res.json(allContracts);
+    // Add hasOtrosi flags
+    let contractsWithFlags = addHasOtrosiFlag(allContracts);
+    
+    // Apply otrosi presence filter if specified
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json(contractsWithFlags);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -699,7 +789,12 @@ router.get('/awaiting-signature', auth, async (req, res) => {
     }
 
     const allContracts = combineContractsWithOtrosi(contracts, contractsWithOtrosiAwaitingSignature);
-    res.json(allContracts);
+    
+    // Add hasOtrosi flags and apply filters
+    let contractsWithFlags = addHasOtrosiFlag(allContracts);
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json(contractsWithFlags);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -741,7 +836,12 @@ router.get('/lawyer-awaiting-signature', auth, async (req, res) => {
     }
 
     const allContracts = combineContractsWithOtrosi(contracts, contractsWithOtrosiAwaitingSignature);
-    res.json(allContracts);
+    
+    // Add hasOtrosi flags and apply filters
+    let contractsWithFlags = addHasOtrosiFlag(allContracts);
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json(contractsWithFlags);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -790,7 +890,12 @@ router.get('/finalizado', auth, async (req, res) => {
     }
 
     const allContracts = combineContractsWithOtrosi(contracts, contractsWithOtrosiSigned);
-    res.json(allContracts);
+    
+    // Add hasOtrosi flags and apply filters
+    let contractsWithFlags = addHasOtrosiFlag(allContracts);
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json(contractsWithFlags);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -834,8 +939,72 @@ router.get('/lawyer-finalized', auth, async (req, res) => {
     }
 
     const allContracts = combineContractsWithOtrosi(contracts, contractsWithOtrosiSigned);
-    res.json(allContracts);
+    
+    // Add hasOtrosi flags and apply filters
+    let contractsWithFlags = addHasOtrosiFlag(allContracts);
+    contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
+    
+    res.json(contractsWithFlags);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/contracts/:id/full - Get complete contract data including history
+router.get('/:id/full', auth, async (req, res) => {
+  try {
+    const contract = await Contract.findByPk(req.params.id, {
+      include: contractIncludeOptions
+    });
+    
+    if (!contract) {
+      return res.status(404).json({ error: 'Contrato no encontrado' });
+    }
+    
+    // Check access permissions
+    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    
+    // Track lawyer viewer
+    if (req.user.role === 'lawyer') {
+      try {
+        await ContractViewer.findOrCreate({
+          where: { contractId: contract.id, userId: req.user.id },
+          defaults: { contractId: contract.id, userId: req.user.id }
+        });
+      } catch (viewerErr) {
+        console.warn('Viewer tracking warning:', viewerErr.message);
+      }
+    }
+    
+    // Get contract history
+    const ContractHistory = require('../models/ContractHistory');
+    const history = await ContractHistory.findAll({
+      where: { contractId: contract.id },
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'role']
+      }],
+      order: [['timestamp', 'DESC']]
+    });
+    
+    // Add flags
+    const contractData = contract.toJSON();
+    contractData.hasOtrosi = !!(contractData.otrosi && contractData.otrosi.length > 0);
+    contractData.otrosiCount = contractData.otrosi ? contractData.otrosi.length : 0;
+    
+    res.json({
+      contract: contractData,
+      history: history || [],
+      metadata: {
+        hasFiles: !!(contractData.files && contractData.files.length > 0),
+        filesCount: contractData.files ? contractData.files.length : 0
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in GET /api/contracts/:id/full:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -852,6 +1021,10 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Contrato no encontrado' });
     }
     
+    // Check access permissions
+    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
     
     // If a lawyer opens the contract, record as viewer (first time)
     try {
@@ -875,7 +1048,12 @@ router.get('/:id', auth, async (req, res) => {
       filesInResponse: contract.files ? contract.files.length : 0
     });
     
-    res.json(contract);
+    // Add hasOtrosi flag
+    const contractData = contract.toJSON();
+    contractData.hasOtrosi = !!(contractData.otrosi && contractData.otrosi.length > 0);
+    contractData.otrosiCount = contractData.otrosi ? contractData.otrosi.length : 0;
+    
+    res.json(contractData);
   } catch (error) {
     console.error('❌ Error in GET /api/contracts/:id:', error);
     res.status(500).json({ error: error.message });
@@ -1615,6 +1793,55 @@ router.get('/files/debug', async (req, res) => {
     });
   } catch (error) {
     console.error('Error in debug route:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/contracts/:id/poliza
+router.post('/:id/poliza', auth, uploadContractResponseFiles, async (req, res) => {
+  try {
+    const contract = await Contract.findByPk(req.params.id);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contrato no encontrado' });
+    }
+
+    // Only lawyers can upload poliza files
+    if (req.user.role !== 'lawyer') {
+      return res.status(403).json({ error: 'Solo los abogados pueden subir archivos de póliza' });
+    }
+
+    // Only allow poliza upload for signed contracts
+    if (contract.estado !== 'signed') {
+      return res.status(400).json({ error: 'Solo se pueden subir pólizas para contratos firmados' });
+    }
+
+    const { comment } = req.body;
+
+    if (req.googleDriveFiles && req.googleDriveFiles.length > 0) {
+      for (const fileData of req.googleDriveFiles) {
+        await ContractFile.create({
+          contractId: contract.id,
+          filename: fileData.originalName,
+          filepath: fileData.googleDriveFileId,
+          category: 'poliza',
+          fileType: 'Poliza',
+          responseType: 'lawyer',
+          uploadedBy: req.user.id,
+          uploadedAt: new Date()
+        });
+      }
+    }
+
+    // Record history
+    await recordHistory(contract.id, 'poliza_uploaded', req.user.id, comment || 'Póliza subida', contract.estado, contract.estado);
+
+    res.json({ 
+      message: 'Póliza subida exitosamente',
+      filesUploaded: req.googleDriveFiles ? req.googleDriveFiles.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error uploading poliza:', error);
     res.status(500).json({ error: error.message });
   }
 });
