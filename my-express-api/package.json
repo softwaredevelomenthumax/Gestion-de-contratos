@@ -1,6 +1,9 @@
 {
   "scripts": {
     "db:clear": "node scripts/clearDatabase.js",
+    "db:quick-clean": "node scripts/quickClean.js",
+    "db:reset": "node scripts/quickClean.js --reset",
+    "db:clean-force": "node scripts/quickClean.js --force",
     "db:migrate:enviar-otrosi": "node scripts/addEnviarOtrosiColumn.js"
   },
   "dependencies": {

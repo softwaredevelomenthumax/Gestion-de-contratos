@@ -267,6 +267,34 @@ const formatFileTimestamp = (timestamp) => {
   });
 };
 
+// Función para obtener las clases CSS del badge según el tipo de archivo
+const getFileTypeBadgeClasses = (fileType) => {
+  switch (fileType) {
+    case 'Contrato':
+      return 'text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+    case 'Cámara':
+      return 'text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+    case 'Oferta':
+      return 'text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+    case 'Carta de Solicitud':
+      return 'text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+    case 'Respuesta Abogado':
+      return 'text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+    case 'Respuesta Usuario':
+      return 'text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
+    case 'Firma Abogado':
+      return 'text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
+    case 'Firma Usuario':
+      return 'text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+    case 'Devuelto':
+      return 'text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+    case 'Otrosí Sin Firma':
+      return 'text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+    default:
+      return 'text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+  }
+};
+
 // Función para determinar el tipo específico de archivo usando datos del backend
 const getFileTypeLabel = (file) => {
   // Si el backend ya tiene el fileType específico y no es null, usarlo directamente
@@ -1935,16 +1963,13 @@ const ContractFullDetail = ({ contract }) => {
               <Badge className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">Oferta</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Abogado</Badge>
+              <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Respuesta Abogado</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">Usuario</Badge>
+              <Badge className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">Respuesta Usuario</Badge>
             </div>
             <div className="flex items-center gap-2">
               <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Firma</Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">Contable</Badge>
             </div>
             <div className="flex items-center gap-2">
               <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Devuelto</Badge>
@@ -1997,26 +2022,7 @@ const ContractFullDetail = ({ contract }) => {
                   <CardContent className="pt-0">
                     {/* Tipo de archivo principal - Badge con colores específicos por categoría */}
                     <div className="mb-3">
-                      <Badge className={`text-xs px-3 py-1 border ${getFileTypeLabel(file) === 'Contrato'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-600' :
-                        getFileTypeLabel(file) === 'Cámara'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-600' :
-                          getFileTypeLabel(file) === 'Oferta'
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-600' :
-                            getFileTypeLabel(file) === 'Respuesta Abogado'
-                              ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-600' :
-                              getFileTypeLabel(file) === 'Respuesta Usuario'
-                                ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-600' :
-                                getFileTypeLabel(file) === 'Firma Abogado' || getFileTypeLabel(file) === 'Firma Usuario'
-                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
-                                  getFileTypeLabel(file) === 'Contable'
-                                    ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300 border-teal-200 dark:border-teal-600' :
-                                    getFileTypeLabel(file) === 'Devuelto'
-                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
-                                      getFileTypeLabel(file) === 'Otrosí Sin Firma'
-                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-600' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600'
-                        }`}>
+                      <Badge className={getFileTypeBadgeClasses(getFileTypeLabel(file))}>
                         {getFileTypeLabel(file)}
                       </Badge>
                     </div>
@@ -2167,18 +2173,7 @@ const ContractFullDetail = ({ contract }) => {
                           <CardContent className="pt-0">
                             {/* Tipo de archivo principal - Badge con colores específicos por categoría */}
                             <div className="mb-3">
-                              <Badge className={`text-xs px-3 py-1 border ${getFileTypeLabel(file) === 'Carta de Solicitud'
-                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-600' :
-                                getFileTypeLabel(file) === 'Firma Usuario'
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-600' :
-                                  getFileTypeLabel(file) === 'Firma Abogado'
-                                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-600' :
-                                    getFileTypeLabel(file) === 'Devuelto'
-                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-600' :
-                                      getFileTypeLabel(file) === 'Otrosí Sin Firma'
-                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-600' :
-                                    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-600'
-                                }`}>
+                              <Badge className={getFileTypeBadgeClasses(getFileTypeLabel(file))}>
                                 {getFileTypeLabel(file)}
                               </Badge>
                             </div>
@@ -2246,7 +2241,7 @@ const ContractFullDetail = ({ contract }) => {
                       <div className="flex items-center gap-2 mb-2">
                         <IconEdit size={16} className="text-indigo-600 dark:text-indigo-400" />
                         <h5 className="font-semibold text-indigo-900 dark:text-indigo-100">⚖️ Comentarios del Abogado</h5>
-                        <Badge className="bg-indigo-100 text-indigo-800 dark:text-indigo-900/30 dark:text-indigo-300 text-xs">
+                        <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs">
                           Otrosí #{otro.numeroOtrosi}
                         </Badge>
                       </div>
@@ -2377,11 +2372,6 @@ const ContractFullDetail = ({ contract }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>💡 Información:</strong> Esta sección muestra los comentarios realizados durante el flujo normal del contrato. Aparecen los comentarios de los usuarios y los de los abogados.
-            </p>
-          </div>
           {contractHistory.filter(history =>
             history.comment &&
             history.comment.trim() &&

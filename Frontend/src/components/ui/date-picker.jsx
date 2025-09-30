@@ -1,15 +1,15 @@
-import * as React from "react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { Calendar as CalendarIcon } from "lucide-react";
-import { cn } from "../../lib/utils";
-import Button from "../Button";
-import { Calendar } from "./calendar";
+import * as React from "react"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { cn } from "../../lib/utils"
+import Button from "../Button"
+import { Calendar } from "./calendar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "./popover";
+} from "./popover"
 
 export function DatePicker({ date, setDate, minDate, maxDate, className }) {
   return (
@@ -27,19 +27,20 @@ export function DatePicker({ date, setDate, minDate, maxDate, className }) {
           {date ? format(date, "PPP", { locale: es }) : <span>Elige una fecha</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-lg" align="start">
+      <PopoverContent className="w-auto p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50" align="start">
         <Calendar
           mode="single"
           selected={date}
           onSelect={setDate}
           initialFocus
           locale={es}
+          captionLayout="dropdown"
           disabled={(date) => {
             if (minDate && date < minDate) return true;
             if (maxDate && date > maxDate) return true;
             return false;
           }}
-          className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          className="rounded-md border shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
         />
       </PopoverContent>
     </Popover>

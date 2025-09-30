@@ -2,6 +2,16 @@ const nodemailer = require('nodemailer');
 require('dotenv').config({ path: __dirname + '/.env' });
 
 // Email service for sending notifications
+// CONFIGURACIÓN: Se envían notificaciones cuando se requiere acción del usuario y para eventos importantes de usuario
+// NOTIFICACIONES DE ACCIÓN REQUERIDA:
+// - sendContractActionRequiredNotification: Cuando se requiere revisión, respuesta, firma o aprobación
+// - sendContractSentToLawyerNotification: Cuando se envía un contrato al abogado para revisión
+// - sendAdminNewUserNotification: Cuando hay un nuevo usuario pendiente de aprobación
+// NOTIFICACIONES DE USUARIO:
+// - sendUserRegistrationNotification: Confirmación de registro exitoso
+// - sendUserApprovalNotification: Notificación de cuenta aprobada
+// - sendUserRejectionNotification: Notificación de cuenta rechazada
+// Todas las notificaciones incluyen el enlace directo: http://10.255.6.4:5173/
 class EmailService {
   constructor() {
     this.transporter = null;
@@ -73,27 +83,29 @@ class EmailService {
   }
 
   // Contract-related email templates
-  async sendContractCreatedNotification(userEmail, contractData) {
-    const subject = `Nuevo contrato creado - ${contractData.descripcion}`;
-    const html = this.getContractCreatedTemplate(contractData);
-    
-    return await this.sendEmail({
-      to: userEmail,
-      subject,
-      html
-    });
-  }
+  // DISABLED: Solo se envían notificaciones cuando se requiere acción
+  // async sendContractCreatedNotification(userEmail, contractData) {
+  //   const subject = `Nuevo contrato creado - ${contractData.descripcion}`;
+  //   const html = this.getContractCreatedTemplate(contractData);
+  //   
+  //   return await this.sendEmail({
+  //     to: userEmail,
+  //     subject,
+  //     html
+  //   });
+  // }
 
-  async sendContractStatusChangeNotification(userEmail, contractData, oldStatus, newStatus) {
-    const subject = `Actualización de contrato - ${contractData.descripcion}`;
-    const html = this.getContractStatusChangeTemplate(contractData, oldStatus, newStatus);
-    
-    return await this.sendEmail({
-      to: userEmail,
-      subject,
-      html
-    });
-  }
+  // DISABLED: Solo se envían notificaciones cuando se requiere acción
+  // async sendContractStatusChangeNotification(userEmail, contractData, oldStatus, newStatus) {
+  //   const subject = `Actualización de contrato - ${contractData.descripcion}`;
+  //   const html = this.getContractStatusChangeTemplate(contractData, oldStatus, newStatus);
+  //   
+  //   return await this.sendEmail({
+  //     to: userEmail,
+  //     subject,
+  //     html
+  //   });
+  // }
 
   async sendContractActionRequiredNotification(userEmail, contractData, action, userRole) {
     const actionTexts = {
@@ -192,10 +204,6 @@ class EmailService {
                 <td style="padding: 8px 0;">${contractData.proveedor}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Descripción:</td>
-                <td style="padding: 8px 0;">${contractData.descripcion || 'N/A'}</td>
-              </tr>
-              <tr>
                 <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Estado:</td>
                 <td style="padding: 8px 0;"><span style="background-color: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 4px; font-size: 12px;">NUEVO</span></td>
               </tr>
@@ -206,6 +214,15 @@ class EmailService {
             <p style="margin: 0; color: #065f46;">
               <strong>Próximo paso:</strong> Su contrato ha sido enviado para revisión legal. Recibirá una notificación cuando requiera alguna acción de su parte.
             </p>
+          </div>
+          
+          <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #0c4a6e;">
+              <strong>Acceso al sistema:</strong> Ingrese para ver el estado de sus contratos.
+            </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
           </div>
           
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
@@ -255,6 +272,15 @@ class EmailService {
             </p>
           </div>
           
+          <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #0c4a6e;">
+              <strong>Acceso al sistema:</strong> Ingrese para ver el estado actualizado de sus contratos.
+            </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
+          </div>
+          
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
             Este es un mensaje automático del Sistema de Gestión de Contratos.
           </p>
@@ -299,10 +325,13 @@ class EmailService {
             </table>
           </div>
           
-          <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 20px;">
-            <p style="margin: 0; color: #065f46;">
+          <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #065f46;">
               <strong>Próximo paso:</strong> Ingrese al sistema para revisar los detalles del contrato y realizar la acción correspondiente.
             </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
           </div>
           
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
@@ -344,6 +373,15 @@ class EmailService {
             </table>
           </div>
           
+          <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #0c4a6e;">
+              <strong>Acceso al sistema:</strong> Una vez aprobada su cuenta, podrá acceder al sistema.
+            </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
+          </div>
+          
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
             Este es un mensaje automático del Sistema de Gestión de Contratos.
           </p>
@@ -383,6 +421,15 @@ class EmailService {
             </table>
           </div>
           
+          <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #0c4a6e;">
+              <strong>Acceso al sistema:</strong> Ingrese para comenzar a gestionar sus contratos.
+            </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
+          </div>
+          
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
             Este es un mensaje automático del Sistema de Gestión de Contratos.
           </p>
@@ -411,6 +458,15 @@ class EmailService {
             </div>
           </div>
           
+          <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #0c4a6e;">
+              <strong>Acceso al sistema:</strong> Para más información, puede acceder al sistema.
+            </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
+          </div>
+          
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
             Este es un mensaje automático del Sistema de Gestión de Contratos.
           </p>
@@ -423,10 +479,16 @@ class EmailService {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #f59e0b; margin-bottom: 20px;">👤 Nuevo Usuario Pendiente</h2>
+          <h2 style="color: #dc2626; margin-bottom: 20px;">⚠️ Acción Requerida - Aprobación de Usuario</h2>
           
           <div style="background-color: white; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
-            <p style="color: #374151; margin-bottom: 15px;">Se ha registrado un nuevo usuario en el sistema que requiere aprobación.</p>
+            <h3 style="color: #374151; margin-bottom: 15px;">Nuevo Usuario Pendiente de Aprobación</h3>
+            
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 15px;">
+              <p style="margin: 0; color: #92400e;">
+                <strong>Acción requerida:</strong> Se ha registrado un nuevo usuario que requiere su aprobación como administrador.
+              </p>
+            </div>
             
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
               <tr>
@@ -442,12 +504,15 @@ class EmailService {
                 <td style="padding: 8px 0;">${userData.role === 'regular' ? 'Usuario Regular' : userData.role === 'lawyer' ? 'Abogado' : 'Administrador'}</td>
               </tr>
             </table>
-            
-            <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px;">
-              <p style="margin: 0; color: #92400e;">
-                <strong>Acción requerida:</strong> Ingrese al panel de administración para aprobar o rechazar esta solicitud.
-              </p>
-            </div>
+          </div>
+          
+          <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #065f46;">
+              <strong>Próximo paso:</strong> Ingrese al panel de administración para aprobar o rechazar esta solicitud.
+            </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
           </div>
           
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
@@ -462,19 +527,19 @@ class EmailService {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #2563eb; margin-bottom: 20px;">📋 Nuevo Contrato Enviado para Revisión</h2>
+          <h2 style="color: #dc2626; margin-bottom: 20px;">⚠️ Acción Requerida - Revisión Legal</h2>
           
           <div style="background-color: white; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
-            <h3 style="color: #374151; margin-bottom: 15px;">Detalles del Contrato</h3>
+            <h3 style="color: #374151; margin-bottom: 15px;">Contrato: ${contractData.descripcion}</h3>
+            <p style="color: #6b7280; margin-bottom: 15px;">Radicado: ${contractData.id}</p>
+            
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 15px;">
+              <p style="margin: 0; color: #92400e;">
+                <strong>Acción requerida:</strong> Un nuevo contrato ha sido enviado para su revisión legal. Por favor, revise los detalles y tome la acción correspondiente.
+              </p>
+            </div>
+            
             <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">ID:</td>
-                <td style="padding: 8px 0;">${contractData.id}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Descripción:</td>
-                <td style="padding: 8px 0;">${contractData.descripcion}</td>
-              </tr>
               <tr>
                 <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Proveedor:</td>
                 <td style="padding: 8px 0;">${contractData.proveedor}</td>
@@ -485,15 +550,18 @@ class EmailService {
               </tr>
               <tr>
                 <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Estado:</td>
-                <td style="padding: 8px 0;"><span style="background-color: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px;">NUEVO</span></td>
+                <td style="padding: 8px 0;"><span style="background-color: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px;">ESPERANDO REVISIÓN LEGAL</span></td>
               </tr>
             </table>
           </div>
           
-          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 20px;">
-            <p style="margin: 0; color: #92400e;">
-              <strong>Acción requerida:</strong> Un nuevo contrato ha sido enviado para su revisión legal. Por favor, revise los detalles y tome la acción correspondiente en el sistema.
+          <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #065f46;">
+              <strong>Próximo paso:</strong> Ingrese al sistema para revisar el contrato y realizar la acción correspondiente.
             </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
           </div>
           
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
