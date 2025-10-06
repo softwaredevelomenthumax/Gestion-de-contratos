@@ -8,7 +8,8 @@ const ActionCard = ({ action, index }) => {
   // Preload page on hover (only for lazy-loaded pages)
   const preloadPage = useCallback(() => {
     const pageMap = {
-      // Only SendContract and Trazabilidad are loaded immediately, preload all others
+      '/send_contracts': () => import('../pages/SendContract'),
+      '/trazabilidad': () => import('../pages/Trazabilidad'),
       '/my_contracts': () => import('../pages/user/UserSentContracts'),
       '/user_awaiting_response_contracts': () => import('../pages/user/UserAwaitingResponseContracts'),
       '/AwaitingSignature': () => import('../pages/user/UserAwaitingSignature'),
@@ -21,7 +22,9 @@ const ActionCard = ({ action, index }) => {
     };
 
     if (pageMap[action.href]) {
-      pageMap[action.href]();
+      pageMap[action.href]().catch(() => {
+        // Silently fail if preload doesn't work
+      });
     }
   }, [action.href]);
 

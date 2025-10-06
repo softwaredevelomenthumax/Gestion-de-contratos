@@ -3,19 +3,23 @@ import Card from '../../components/Card';
 import { useNavigate } from 'react-router-dom';
 import { getFinalizadoContracts } from '../../api/contracts';
 import ContractFilters from '../../components/ContractFilters';
-// ✅ REMOVED: useContractFilters - backend now handles filtering
 import LoadingAnimation from '../../components/LoadingAnimation';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const UserFinalizado = () => {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
-    
+
     // ✅ Server-side filtering - simple state for filter inputs
     const [filter, setFilter] = useState('');
     const [ticketFilter, setTicketFilter] = useState('');
     const [sortType, setSortType] = useState('fecha-desc');
+
+    // ✅ Usar debounce para optimizar las búsquedas
+    const debouncedFilter = useDebounce(filter, 500);
+    const debouncedTicketFilter = useDebounce(ticketFilter, 500);
 
     const fetchContracts = useCallback(async () => {
         setLoading(true);
@@ -23,10 +27,10 @@ const UserFinalizado = () => {
         try {
             // Build filter object for backend API
             const filters = {};
-            if (filter && filter.trim()) filters.search = filter.trim();
-            if (ticketFilter && ticketFilter.trim()) filters.ticket = ticketFilter.trim();
+            if (debouncedFilter && debouncedFilter.trim()) filters.search = debouncedFilter.trim();
+            if (debouncedTicketFilter && debouncedTicketFilter.trim()) filters.ticket = debouncedTicketFilter.trim();
             if (sortType && sortType !== 'fecha-desc') filters.sort = sortType;
-            
+
             const contracts = await getFinalizadoContracts(filters);
             setContracts(contracts);
         } catch (err) {
@@ -35,7 +39,7 @@ const UserFinalizado = () => {
         } finally {
             setLoading(false);
         }
-    }, [filter, ticketFilter, sortType]);
+    }, [debouncedFilter, debouncedTicketFilter, sortType]);
 
     useEffect(() => {
         fetchContracts();

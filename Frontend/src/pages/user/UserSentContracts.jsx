@@ -5,8 +5,8 @@ import { getContracts } from '../../api/contracts';
 import Card from '../../components/Card';
 import { useRefresh } from '../../context/RefreshContext';
 import ContractFilters from '../../components/ContractFilters';
-// ✅ REMOVED: useContractFilters - backend now handles filtering
 import LoadingAnimation from '../../components/LoadingAnimation';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const UserSentContracts = () => {
   const [contracts, setContracts] = useState([]);
@@ -21,6 +21,10 @@ const UserSentContracts = () => {
   const [ticketFilter, setTicketFilter] = useState('');
   const [sortType, setSortType] = useState('fecha-desc');
 
+  // ✅ Usar debounce para optimizar las búsquedas
+  const debouncedFilter = useDebounce(filter, 500);
+  const debouncedTicketFilter = useDebounce(ticketFilter, 500);
+
   useEffect(() => {
     const fetchContracts = async () => {
       setLoading(true);
@@ -28,8 +32,8 @@ const UserSentContracts = () => {
       try {
         // Build filter object for backend API
         const filters = {};
-        if (filter && filter.trim()) filters.search = filter.trim();
-        if (ticketFilter && ticketFilter.trim()) filters.ticket = ticketFilter.trim();
+        if (debouncedFilter && debouncedFilter.trim()) filters.search = debouncedFilter.trim();
+        if (debouncedTicketFilter && debouncedTicketFilter.trim()) filters.ticket = debouncedTicketFilter.trim();
         if (sortType && sortType !== 'fecha-desc') filters.sort = sortType;
         
         const data = await getContracts(filters);
@@ -44,7 +48,7 @@ const UserSentContracts = () => {
     if (user) {
       fetchContracts();
     }
-  }, [user, refreshTrigger, filter, ticketFilter, sortType]);
+  }, [user, refreshTrigger, debouncedFilter, debouncedTicketFilter, sortType]);
 
   const isEmptyContractsError = error && contracts.length === 0 && (
     error === 'Invalid contract or file id' ||

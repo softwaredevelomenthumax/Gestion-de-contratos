@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axiosInstance";
+import api, { clearCache } from "../api/axiosInstance";
 import {
   IconFileText,
   IconCurrencyDollar,

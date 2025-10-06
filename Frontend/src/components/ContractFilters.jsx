@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { X, Filter } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { useDebounce } from '../hooks/useDebounce';
 
 const filterOptions = [
   { value: 'fecha-desc', label: 'Más reciente' },
@@ -14,18 +15,47 @@ const filterOptions = [
   { value: 'with-otrosi', label: 'Solo con otrosí' },
   { value: 'without-otrosi', label: 'Sin otrosí' },
 ];
-const ContractFilters = ({ 
-  filter, 
-  setFilter, 
-  ticketFilter, 
-  setTicketFilter, 
+
+const ContractFilters = ({
+  filter,
+  setFilter,
+  ticketFilter,
+  setTicketFilter,
   searchTerm,
   setSearchTerm,
-  sortType, 
+  sortType,
   setSortType,
   showTitle = false,
   title = "Contratos"
 }) => {
+  // Estados locales para inputs (sin debounce)
+  const [localFilter, setLocalFilter] = useState(filter || '');
+  const [localTicketFilter, setLocalTicketFilter] = useState(ticketFilter || searchTerm || '');
+
+  // Aplicar debounce a los valores (500ms)
+  const debouncedFilter = useDebounce(localFilter, 500);
+  const debouncedTicketFilter = useDebounce(localTicketFilter, 500);
+
+  // Actualizar los filtros reales solo cuando el debounce se complete
+  useEffect(() => {
+    if (setFilter) setFilter(debouncedFilter);
+  }, [debouncedFilter, setFilter]);
+
+  useEffect(() => {
+    const handleSetTicketFilter = typeof setTicketFilter === 'function' ? setTicketFilter : (setSearchTerm || (() => {}));
+    handleSetTicketFilter(debouncedTicketFilter);
+  }, [debouncedTicketFilter, setTicketFilter, setSearchTerm]);
+
+  // Sincronizar cuando cambien desde fuera
+  useEffect(() => {
+    if (filter !== localFilter) setLocalFilter(filter || '');
+  }, [filter]);
+
+  useEffect(() => {
+    const effectiveTicketFilter = typeof ticketFilter !== 'undefined' ? ticketFilter : (searchTerm || '');
+    if (effectiveTicketFilter !== localTicketFilter) setLocalTicketFilter(effectiveTicketFilter);
+  }, [ticketFilter, searchTerm]);
+
   const effectiveTicketFilter = typeof ticketFilter !== 'undefined' ? ticketFilter : (searchTerm || '');
   const handleSetTicketFilter = typeof setTicketFilter === 'function' ? setTicketFilter : (setSearchTerm || (() => {}));
 
@@ -38,6 +68,8 @@ const ContractFilters = ({
 
   // Clear all filters handler
   const handleClearFilters = () => {
+    setLocalFilter('');
+    setLocalTicketFilter('');
     if (setFilter) setFilter('');
     handleSetTicketFilter('');
     if (setSortType) setSortType('fecha-desc');
@@ -78,8 +110,8 @@ const ContractFilters = ({
             <Input
               id="filter-input"
               placeholder="Buscar contratos..."
-              value={filter}
-              onChange={e => setFilter && setFilter(e.target.value)}
+              value={localFilter}
+              onChange={e => setLocalFilter(e.target.value)}
               autoComplete="off"
               className="w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20"
             />
@@ -91,8 +123,8 @@ const ContractFilters = ({
             <Input
               id="ticket-filter"
               placeholder="Número de radicado..."
-              value={effectiveTicketFilter}
-              onChange={e => handleSetTicketFilter(e.target.value)}
+              value={localTicketFilter}
+              onChange={e => setLocalTicketFilter(e.target.value)}
               autoComplete="off"
               className="w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20"
             />

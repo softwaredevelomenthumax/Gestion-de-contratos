@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -8,14 +8,16 @@ import NotificationContainer from "./components/Notification";
 import { ThemeProvider } from "./components/ui/theme-provider";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingAnimation from "./components/LoadingAnimation";
-import NavigationIndicator from "./components/NavigationIndicator";
 
-// 🚀 TODO con lazy loading - Bundle inicial MÁS PEQUEÑO posible
-const Home = lazy(() => import("./pages/Home"));
+// ✅ IMPORTACIONES NORMALES (Sin lazy) para páginas críticas
+// Estas se cargan inmediatamente y NO tienen demora
+import SendContract from "./pages/SendContract";
+import Trazabilidad from './pages/Trazabilidad';
+import Home from "./pages/Home";
+
+// Lazy load para otras páginas menos críticas
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
-const SendContract = lazy(() => import("./pages/SendContract"));
-const Trazabilidad = lazy(() => import('./pages/Trazabilidad'));
 const UserContractDetail = lazy(() => import("./pages/user/UserContractDetail"));
 const LawyerContractDetail = lazy(() => import("./pages/lawyer/LawyerContractDetail"));
 const AwaitingSignature = lazy(() => import("./pages/user/UserAwaitingSignature"));
@@ -32,32 +34,14 @@ const ContractTracePage = lazy(() => import('./pages/ContractTracePage'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const CreateAdmin = lazy(() => import('./pages/CreateAdmin'));
 
+// Loader simple para Suspense
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <LoadingAnimation text="Cargando..." />
   </div>
 );
 
-/**
- * PREFETCH AGRESIVO: Precarga INMEDIATAMENTE las páginas críticas
- * Se ejecuta en paralelo con la carga inicial
- */
-const useAggressivePrefetch = () => {
-  useEffect(() => {
-    const isLoggedIn = !window.location.pathname.match(/\/(login|register)/);
-    if (!isLoggedIn) return;
-
-    // Prefetch INMEDIATO en paralelo (no espera a que termine la carga inicial)
-    // El navegador descargará estos chunks en paralelo con el bundle principal
-    import("./pages/SendContract").catch(() => {});
-    import('./pages/Trazabilidad').catch(() => {});
-    import("./pages/user/UserSentContracts").catch(() => {});
-  }, []);
-};
-
 const App = () => {
-  useAggressivePrefetch();
-
   return (
     <ErrorBoundary>
       <ThemeProvider>
@@ -65,14 +49,17 @@ const App = () => {
           <RefreshProvider>
             <NotificationProvider>
               <Router>
-                <NavigationIndicator />
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
+                    
+                    {/* ✅ Rutas críticas SIN lazy loading - Carga instantánea */}
                     <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                     <Route path="/send_contracts" element={<ProtectedRoute><SendContract /></ProtectedRoute>} />
                     <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
+                    
+                    {/* Otras rutas con lazy loading */}
                     <Route path="/my_contracts" element={<ProtectedRoute><UserSentContracts /></ProtectedRoute>} />
                     <Route path="/user/contracts/:id" element={<ProtectedRoute><UserContractDetail/></ProtectedRoute>} />
                     <Route path="/regular/contracts/:id" element={<ProtectedRoute><UserContractDetail/></ProtectedRoute>} />

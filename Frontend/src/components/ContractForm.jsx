@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
-import api from "../api/axiosInstance";
+import api, { clearCache } from "../api/axiosInstance";
 import Button from "./Button";
 import DropFile from "./DropFile";
 import { IconUpload } from "@tabler/icons-react";

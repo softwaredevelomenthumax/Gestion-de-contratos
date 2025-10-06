@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../context/NotificationContext';
 import Layout from '../components/Layout';
-import api from '../api/axiosInstance';
+import api, { clearCache } from '../api/axiosInstance';
 import { Users, CheckCircle, XCircle, Clock, Mail, User } from 'lucide-react';
 
 const AdminUsers = () => {

@@ -2,9 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Card from '../../components/Card';
 import { getAwaitingSignatureContracts } from '../../api/contracts';
 import ContractFilters from '../../components/ContractFilters';
-// ✅ REMOVED: useContractFilters - backend now handles filtering
 import LoadingAnimation from '../../components/LoadingAnimation';
 import { useNavigate } from 'react-router-dom';
+import { useDebounce } from '../../hooks/useDebounce';
 
 
 const LawyerAwaitingSignature = () => {
@@ -18,14 +18,18 @@ const LawyerAwaitingSignature = () => {
     const [ticketFilter, setTicketFilter] = useState('');
     const [sortType, setSortType] = useState('fecha-desc');
 
+    // ✅ Usar debounce para optimizar las búsquedas
+    const debouncedFilter = useDebounce(filter, 500);
+    const debouncedTicketFilter = useDebounce(ticketFilter, 500);
+
     const fetchContracts = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
             // Build filter object for backend API
             const filters = {};
-            if (filter && filter.trim()) filters.search = filter.trim();
-            if (ticketFilter && ticketFilter.trim()) filters.ticket = ticketFilter.trim();
+            if (debouncedFilter && debouncedFilter.trim()) filters.search = debouncedFilter.trim();
+            if (debouncedTicketFilter && debouncedTicketFilter.trim()) filters.ticket = debouncedTicketFilter.trim();
             if (sortType && sortType !== 'fecha-desc') filters.sort = sortType;
             
             const contracts = await getAwaitingSignatureContracts(filters);
@@ -36,7 +40,7 @@ const LawyerAwaitingSignature = () => {
         } finally {
             setLoading(false);
         }
-    }, [filter, ticketFilter, sortType]);
+    }, [debouncedFilter, debouncedTicketFilter, sortType]);
 
     useEffect(() => {
         fetchContracts();
