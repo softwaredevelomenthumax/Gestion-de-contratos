@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
-import api, { clearCache } from "../api/axiosInstance";
+import api from "../api/axiosInstance";
 import Button from "./Button";
 import DropFile from "./DropFile";
 import { IconUpload } from "@tabler/icons-react";
@@ -101,7 +101,9 @@ const ContractForm = () => {
   const [dateError, setDateError] = useState("");
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [showDescriptionAlert, setShowDescriptionAlert] = useState(false);
+  const [showFormaPagoAlert, setShowFormaPagoAlert] = useState(false);
   const descriptionRef = useRef(null);
+  const formaPagoRef = useRef(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStage, setUploadStage] = useState("");
   const uploadProgressRef = useRef(0);
@@ -149,6 +151,26 @@ const ContractForm = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showDescriptionAlert]);
+
+  // Manejar click fuera del área de forma de pago para cerrar la alerta
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        formaPagoRef.current &&
+        !formaPagoRef.current.contains(event.target)
+      ) {
+        setShowFormaPagoAlert(false);
+      }
+    };
+
+    if (showFormaPagoAlert) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFormaPagoAlert]);
 
   useEffect(() => {
     if (fechaInicio && fechaFinal) {
@@ -899,29 +921,72 @@ const ContractForm = () => {
                   placeholder="Valor del IVA"
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 md:col-span-2" ref={formaPagoRef}>
                 <Label htmlFor="formaPago" className="text-foreground">
                   Forma de Pago
                 </Label>
-                <Input
-                  className={`bg-background text-foreground border-input ${
-                    hasFieldError("Forma de Pago")
-                      ? "border-red-500 focus:ring-red-500"
-                      : ""
-                  }`}
-                  id="formaPago"
-                  type="text"
-                  value={formaPago}
-                  onChange={(e) => {
-                    setFormaPago(e.target.value);
-                    clearErrorsOnInput();
-                  }}
-                  placeholder="Forma de pago"
-                />
+                <div
+                  className="relative cursor-pointer"
+                  onClick={() => setShowFormaPagoAlert(!showFormaPagoAlert)}
+                >
+                  <Textarea
+                    className={`bg-background text-foreground border-input ${
+                      hasFieldError("Forma de Pago")
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
+                    }`}
+                    id="formaPago"
+                    value={formaPago}
+                    onChange={(e) => {
+                      setFormaPago(e.target.value);
+                      clearErrorsOnInput();
+                    }}
+                    placeholder="Ej: 50% al inicio y 50% contra entrega final del servicio"
+                    rows={3}
+                  />
+                  <div className="absolute inset-0 pointer-events-none" />
+                </div>
                 {hasFieldError("Forma de Pago") && (
                   <p className="text-red-500 text-xs mt-1">
                     ⚠️ Este campo es obligatorio
                   </p>
+                )}
+                {showFormaPagoAlert && (
+                  <Alert className="mt-4">
+                    <AlertTitle className="font-bold text-lg mb-3">
+                      Forma de Pago
+                    </AlertTitle>
+                    <AlertDescription className="space-y-3">
+                      <p>
+                        Indique cómo y cuándo se realizará el pago al contratista o proveedor. 
+                        Especifique los plazos, porcentajes y condiciones acordadas.
+                      </p>
+                      <div className="space-y-2">
+                        <p className="font-semibold">Ejemplos:</p>
+                        <ul className="list-disc list-inside space-y-1 ml-2">
+                          <li>
+                            "50% al inicio y 50% contra entrega final del servicio."
+                          </li>
+                          <li>
+                            "Pago mensual dentro de los primeros 10 días hábiles de cada mes, 
+                            previa presentación de factura."
+                          </li>
+                          <li>
+                            "Un único pago dentro de los 30 días siguientes a la entrega y 
+                            aceptación del producto."
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                        <p className="text-sm">
+                          <span className="font-bold">Recomendación:</span> Use términos simples 
+                          y evite expresiones generales como "según acuerdo" o "por definir". 
+                          Si aplica retención o condiciones especiales (por ejemplo, anticipo, 
+                          hitos de entrega o pagos condicionados), descríbalos brevemente.
+                        </p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
             </div>

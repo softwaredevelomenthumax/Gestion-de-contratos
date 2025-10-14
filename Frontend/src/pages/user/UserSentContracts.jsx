@@ -88,11 +88,11 @@ const UserSentContracts = () => {
       ) : (
         <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {contracts.map((contract) => (
-            <Card
+              <Card
               key={contract.id}
               solicitante={contract.solicitante}
               contract={contract}
-              onClick={() => navigate(`/user/contracts/${contract.id}`, { state: { fromMyContracts: true } })}
+                onClick={() => navigate(`/user/contracts/${contract.id}`, { state: { fromMyContracts: true } })} variant="compact"
             />
           ))}
         </div>

@@ -87,6 +87,7 @@ const LawyerAwaitingReviewContracts = () => {
                             <Card
                                 solicitante={contract.solicitante}
                                 contract={contract}
+                                variant="lawyer"
                             />
                         </div>
                     ))}

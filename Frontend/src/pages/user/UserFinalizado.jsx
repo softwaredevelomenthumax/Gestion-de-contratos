@@ -76,8 +76,9 @@ const UserFinalizado = () => {
                     {contracts.map((contract) => (
                         <Card
                             key={contract.id}
-                            solicitante={contract.solicitante}
                             contract={contract}
+                            solicitante={contract.solicitante}
+                            variant="compact"
                             onClick={() => navigate(`/user/contracts/${contract.id}`)}
                         />
                     ))}

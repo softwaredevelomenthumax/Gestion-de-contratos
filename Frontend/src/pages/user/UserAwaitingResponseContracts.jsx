@@ -86,6 +86,7 @@ const UserAwaitingResponseContracts = () => {
                             key={contract.id}
                             solicitante={contract.solicitante}
                             contract={contract}
+                            variant="compact"
                             onClick={() => handleCardClick(contract.id)}
                         />
                     ))}

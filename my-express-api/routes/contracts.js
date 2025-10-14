@@ -74,6 +74,12 @@ const contractListIncludeOptions = [
     attributes: ['id', 'firstName', 'lastName', 'email', 'role']
   },
   {
+    model: User,
+    as: 'viewers',
+    attributes: ['id', 'firstName', 'lastName'],
+    through: { attributes: [] }
+  },
+  {
     model: require('../models/Otrosi'),
     as: 'otrosi',
     // Minimal data for card display
@@ -422,25 +428,12 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       //   );
       // }
       
-      // 2. Enviar "Nuevo Contrato Enviado para Revisión" a los abogados
+      // 2. Obtener lista de abogados para notificaciones
       const lawyers = await User.findAll({
         where: { role: 'lawyer', status: 'approved' },
         attributes: ['email']
       });
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
-      
-      if (lawyerEmails.length > 0) {
-        await emailService.sendContractSentToLawyerNotification(
-          lawyerEmails,
-          {
-            id: contract.id,
-            descripcion: contract.descripcion,
-            proveedor: contract.proveedor,
-            valorTotal: contract.valorTotal,
-            moneda: contract.moneda
-          }
-        );
-      }
 
       // 3. Enviar "Acción Requerida" SOLO a quien debe responder (abogados)
       if (lawyerEmails.length > 0) {

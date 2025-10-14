@@ -61,16 +61,27 @@ const App = () => {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider>
-          <RefreshProvider>
-            <NotificationProvider>
-              <Router>
+              <Router>  
                 <NavigationIndicator />
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
-                    <Route path="/login" element={<Login />} />
+              {/* Public routes - Register doesn't need any provider */}
                     <Route path="/register" element={<Register />} />
-                    <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              
+              {/* Login needs only AuthProvider */}
+              <Route path="/login" element={
+                <AuthProvider>
+                  <Login />
+                </AuthProvider>
+              } />
+              
+              {/* Protected routes - Full context stack */}
+              <Route path="/*" element={
+                <AuthProvider>
+                  <RefreshProvider>
+                    <NotificationProvider>
+                      <Routes>
+                    <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />  
                     <Route path="/send_contracts" element={<ProtectedRoute><SendContract /></ProtectedRoute>} />
                     <Route path="/trazabilidad" element={<ProtectedRoute><Trazabilidad /></ProtectedRoute>} />
                     <Route path="/my_contracts" element={<ProtectedRoute><UserSentContracts /></ProtectedRoute>} />
@@ -90,12 +101,14 @@ const App = () => {
                     <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
                     <Route path="/admin/create" element={<ProtectedRoute><CreateAdmin /></ProtectedRoute>} />
                   </Routes>
-                </Suspense>
                 <NotificationContainer />
-              </Router>
             </NotificationProvider>
           </RefreshProvider>
         </AuthProvider>
+              } />
+            </Routes>
+          </Suspense>
+        </Router>
       </ThemeProvider>
     </ErrorBoundary>
   );

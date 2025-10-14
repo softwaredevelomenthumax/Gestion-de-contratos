@@ -82,6 +82,7 @@ const LawyerAwaitingSignature = () => {
                             key={contract.id}
                             solicitante={contract.solicitante}
                             contract={contract}
+                            variant="lawyer"
                             onClick={() => navigate(`/lawyer/contracts/${contract.id}`)}
                         />
                     ))}

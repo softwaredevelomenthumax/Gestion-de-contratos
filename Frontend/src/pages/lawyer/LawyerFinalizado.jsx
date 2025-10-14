@@ -63,7 +63,7 @@ const LawyerFinalizado = () => {
                     <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {contracts.map(contract => (
                             <div key={contract.id}>
-                                <Card solicitante={contract.solicitante} contract={contract} onClick={() => navigate(`/lawyer/contracts/${contract.id}`)} />
+                                <Card solicitante={contract.solicitante} contract={contract} variant="lawyer" onClick={() => navigate(`/lawyer/contracts/${contract.id}`)} />
                             </div>
                         ))}
                     </div>

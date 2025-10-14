@@ -88,6 +88,7 @@ const LawyerManagedContracts = () => {
                             <Card
                                 solicitante={contract.solicitante}
                                 contract={contract}
+                                variant="lawyer"
                             />
                         </div>
                     ))}

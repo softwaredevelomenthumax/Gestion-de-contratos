@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../context/NotificationContext';
 import Layout from '../components/Layout';
 import api, { clearCache } from '../api/axiosInstance';
-import { Users, CheckCircle, XCircle, Clock, Mail, User, RefreshCw } from 'lucide-react';
+import { Users, CheckCircle, XCircle, Clock, Mail, User } from 'lucide-react';
 
 const AdminUsers = () => {
   const { user } = useAuth();
@@ -11,9 +11,16 @@ const AdminUsers = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingUser, setProcessingUser] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchPendingUsers = useCallback(async () => {
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      addNotification('Acceso denegado. Se requieren privilegios de administrador.', 'error');
+      return;
+    }
+    fetchPendingUsers();
+  }, [user]);
+
+  const fetchPendingUsers = async () => {
     try {
       setLoading(true);
       const response = await api.get('/admin/users/pending');
@@ -26,47 +33,19 @@ const AdminUsers = () => {
     } finally {
       setLoading(false);
     }
-  }, [addNotification]);
-
-  const handleManualRefresh = async () => {
-    try {
-      setRefreshing(true);
-      clearCache();
-      await fetchPendingUsers();
-      addNotification('Lista actualizada correctamente', 'success');
-    } catch {
-      addNotification('Error al actualizar la lista', 'error');
-    } finally {
-      setRefreshing(false);
-    }
   };
-
-  useEffect(() => {
-    if (user?.role !== 'admin') {
-      addNotification('Acceso denegado. Se requieren privilegios de administrador.', 'error');
-      return;
-    }
-    fetchPendingUsers();
-  }, [user, addNotification, fetchPendingUsers]);
 
   const handleApprove = async (userId) => {
     try {
       setProcessingUser(userId);
       const response = await api.post(`/admin/users/${userId}/approve`);
       if (response.data.success) {
-        // Remove the user from the list immediately (optimistic update)
-        setPendingUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
         addNotification('Usuario aprobado exitosamente', 'success');
-        // Clear cache and refresh the list to ensure consistency
-        clearCache();
-        await fetchPendingUsers();
+        fetchPendingUsers(); // Refresh the list
       }
     } catch (error) {
       console.error('Error approving user:', error);
       addNotification('Error al aprobar usuario', 'error');
-      // Clear cache and refresh the list on error to revert optimistic update
-      clearCache();
-      await fetchPendingUsers();
     } finally {
       setProcessingUser(null);
     }
@@ -81,19 +60,12 @@ const AdminUsers = () => {
       setProcessingUser(userId);
       const response = await api.post(`/admin/users/${userId}/reject`);
       if (response.data.success) {
-        // Remove the user from the list immediately (optimistic update)
-        setPendingUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
         addNotification('Usuario rechazado y eliminado exitosamente', 'success');
-        // Clear cache and refresh the list to ensure consistency
-        clearCache();
-        await fetchPendingUsers();
+        fetchPendingUsers(); // Refresh the list
       }
     } catch (error) {
       console.error('Error rejecting user:', error);
       addNotification('Error al rechazar usuario', 'error');
-      // Clear cache and refresh the list on error to revert optimistic update
-      clearCache();
-      await fetchPendingUsers();
     } finally {
       setProcessingUser(null);
     }
@@ -118,25 +90,14 @@ const AdminUsers = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 pb-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-600 dark:text-blue-400 mr-3" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Usuarios</h1>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Aprobar o rechazar registros de usuarios pendientes
-                </p>
-              </div>
+          <div className="flex items-center">
+            <Users className="h-8 w-8 text-blue-600 dark:text-blue-400 mr-3" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Usuarios</h1>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                Aprobar o rechazar registros de usuarios pendientes
+              </p>
             </div>
-            <button
-              onClick={handleManualRefresh}
-              disabled={refreshing || loading}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              title="Actualizar lista de usuarios pendientes"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Actualizando...' : 'Actualizar'}
-            </button>
           </div>
         </div>
 

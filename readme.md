@@ -127,6 +127,7 @@ npm run build
 
 pm2 serve "C:\software\Gestion-de-contratos\Frontend\dist" 5173 --name contract-frontend --spa
 
+
 pm2 logs contract-frontend --lines 30
 
 Pm2 save

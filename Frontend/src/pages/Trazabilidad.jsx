@@ -69,6 +69,7 @@ const Trazabilidad = () => {
               key={contract.id}
               solicitante={contract.solicitante}
               contract={contract}
+              variant="lawyer"
               onClick={() => navigate(`/trazabilidad/${contract.id}`)}
             />
           ))}
