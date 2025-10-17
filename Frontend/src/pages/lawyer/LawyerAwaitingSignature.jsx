@@ -5,6 +5,7 @@ import ContractFilters from '../../components/ContractFilters';
 import LoadingAnimation from '../../components/LoadingAnimation';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useRefresh } from '../../context/RefreshContext';
 
 
 const LawyerAwaitingSignature = () => {
@@ -12,6 +13,7 @@ const LawyerAwaitingSignature = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
+    const { refreshTrigger } = useRefresh();
     
     // ✅ Server-side filtering - simple state for filter inputs
     const [filter, setFilter] = useState('');
@@ -44,7 +46,7 @@ const LawyerAwaitingSignature = () => {
 
     useEffect(() => {
         fetchContracts();
-    }, [fetchContracts]);
+    }, [refreshTrigger, fetchContracts]);
 
 
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api/axiosInstance";
+import api, { clearCache } from "../api/axiosInstance";
 import {
   IconFileText,
   IconInfoCircle,
@@ -24,6 +24,7 @@ import { getOtrosiByContract } from "../api/otrosi";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
+import { useRefresh } from "../context/RefreshContext";
 import useDownload from "../hooks/useDownload";
 import DownloadingAnimation from "./DownloadingAnimation";
 import LottieAnimation from "./LottieAnimation";
@@ -446,13 +447,21 @@ const formatContractType = (contractType) => {
     .join(' ');
 };
 
-const ContractFullDetail = ({ contract }) => {
+const ContractFullDetail = ({ contract: contractProp }) => {
+  // Estado local del contrato que se puede actualizar
+  const [contract, setContract] = useState(contractProp);
   const [contractFiles, setContractFiles] = useState([]);
   const [contractHistory, setContractHistory] = useState([]);
   const [otrosi, setOtrosi] = useState([]);
   const [_otrosiLoading, setOtrosiLoading] = useState(true);
   const [otrosiFiles, setOtrosiFiles] = useState({}); // Para almacenar archivos de cada otrosí
   const { user } = useAuth();
+  const { triggerRefresh } = useRefresh();
+
+  // Sincronizar estado local cuando cambia el prop
+  useEffect(() => {
+    setContract(contractProp);
+  }, [contractProp]);
 
   // Hook para manejar animación de descarga
   const { isDownloading, downloadMessage, downloadWithAnimation } = useDownload();
@@ -700,6 +709,19 @@ const ContractFullDetail = ({ contract }) => {
       setUploadProgress(100);
       setUploadStage("¡Operación completada exitosamente!");
       addNotification(result.message || "Operación exitosa", "success");
+      
+      // Actualizar estado local del contrato si el servidor devuelve el contrato actualizado
+      if (result?.contract) {
+        setContract(result.contract);
+      } else if (result) {
+        // Fallback: mezclar propiedades devueltas con el contrato actual
+        setContract(prev => ({ ...prev, ...result }));
+      }
+      
+      // Invalidar caché y notificar al resto de la app que algo cambió
+      clearCache();
+      triggerRefresh();
+      
       // Cerrar el formulario correspondiente
       setShowResponder(false);
       setShowLawyerResponder(false);

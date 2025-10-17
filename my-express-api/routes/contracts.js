@@ -1336,6 +1336,20 @@ router.post('/:id/respond', auth, uploadContractResponseFiles, async (req, res) 
             'regular'
           );
         }
+      } else if (finalContractStatus === 'signed') {
+        // 3. Enviar notificación de "Contrato Completamente Firmado" a AMBOS (solicitante + abogados)
+        if (allEmails.length > 0) {
+          await emailService.sendContractFullySignedNotification(
+            allEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            }
+          );
+        }
       }
 
     } catch (emailError) {
@@ -1539,6 +1553,20 @@ router.post('/:id/sign', auth, uploadContractResponseFiles, async (req, res) => 
             },
             'sign',
             'regular'
+          );
+        }
+      } else if (finalContractStatus === 'signed') {
+        // 3. Enviar notificación de "Contrato Completamente Firmado" a AMBOS (solicitante + abogados)
+        if (allEmails.length > 0) {
+          await emailService.sendContractFullySignedNotification(
+            allEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            }
           );
         }
       }

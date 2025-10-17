@@ -126,6 +126,17 @@ class EmailService {
     });
   }
 
+  async sendContractFullySignedNotification(emails, contractData) {
+    const subject = `✅ Contrato firmado por ambas partes - ${contractData.descripcion}`;
+    const html = this.getContractFullySignedTemplate(contractData);
+    
+    return await this.sendEmail({
+      to: emails,
+      subject,
+      html
+    });
+  }
+
   async sendContractSentToLawyerNotification(userEmail, contractData) {
     const subject = `Nuevo contrato enviado para revisión - ${contractData.descripcion}`;
     const html = this.getContractSentToLawyerTemplate(contractData);
@@ -560,6 +571,61 @@ class EmailService {
               <strong>Próximo paso:</strong> Ingrese al sistema para revisar el contrato y realizar la acción correspondiente.
             </p>
             <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              🔗 Acceder al Sistema
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">
+            Este es un mensaje automático del Sistema de Gestión de Contratos.
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  getContractFullySignedTemplate(contractData) {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #10b981; margin-bottom: 20px;">✅ Contrato Firmado por Ambas Partes</h2>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+            <h3 style="color: #374151; margin-bottom: 15px;">Contrato: ${contractData.descripcion}</h3>
+            <p style="color: #6b7280; margin-bottom: 15px;">Radicado: ${contractData.id}</p>
+            
+            <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 15px;">
+              <p style="margin: 0; color: #065f46;">
+                <strong>¡Excelente noticia!</strong> El contrato ha sido firmado por ambas partes y ahora está completamente ejecutado.
+              </p>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Proveedor:</td>
+                <td style="padding: 8px 0;">${contractData.proveedor}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Descripción:</td>
+                <td style="padding: 8px 0;">${contractData.descripcion || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Estado:</td>
+                <td style="padding: 8px 0;"><span style="background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 12px;">✅ FIRMADO</span></td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #eff6ff; border-left: 4px solid #2563eb; padding: 15px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #1e40af;">
+              <strong>Información:</strong> El contrato está ahora activo y puede consultarlo en cualquier momento en el sistema.
+            </p>
+          </div>
+          
+          <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 15px 0; color: #0c4a6e;">
+              <strong>Acceso al sistema:</strong> Ingrese para ver los detalles completos del contrato firmado.
+            </p>
+            <a href="http://10.255.6.4:5173/" style="display: inline-block; background-color: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
               🔗 Acceder al Sistema
             </a>
           </div>

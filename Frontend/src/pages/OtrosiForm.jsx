@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNotification } from "../context/NotificationContext";
+import { useRefresh } from "../context/RefreshContext";
 import LottieAnimation from "../components/LottieAnimation";
 import sendAnimation from "../assets/animations/send.json";
 import {
@@ -42,6 +43,7 @@ const OtrosiForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addNotification } = useNotification();
+  const { triggerRefresh } = useRefresh();
 
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -331,6 +333,11 @@ const OtrosiForm = () => {
           `Otrosí creado exitosamente: ${result.message}`,
           "success"
         );
+        
+        // Invalidar caché y notificar al resto de la app que algo cambió
+        clearCache();
+        triggerRefresh();
+        
         // Navigate based on user role
         if (user?.role === "lawyer") {
           navigate(`/lawyer/contracts/${id}`);

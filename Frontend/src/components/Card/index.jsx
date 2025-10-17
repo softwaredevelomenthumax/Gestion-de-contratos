@@ -2,7 +2,8 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import api from '../../api/axiosInstance';
+import api, { clearCache } from '../../api/axiosInstance';
+import { useRefresh } from '../../context/RefreshContext';
 import Badge from './Badge';
 import IconBlock from './IconBlock';
 import OtrosiBadge from './OtrosiBadge';
@@ -81,6 +82,7 @@ export const Card = React.memo(function Card({
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { triggerRefresh } = useRefresh();
   const [hasOtrosi, setHasOtrosi] = React.useState(false);
 
   // Check if contract has otrosi
@@ -104,6 +106,9 @@ export const Card = React.memo(function Card({
     // Mark as viewed
     try {
       await api.patch(`/contracts/${contract.id}/viewed`);
+      // Invalidar caché y notificar cambio
+      clearCache();
+      triggerRefresh();
     } catch { /* intentionally ignore error */ }
     
     // Navigate

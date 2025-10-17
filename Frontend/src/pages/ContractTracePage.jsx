@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getContract, getContractHistory } from '../api/contracts';
 import { getOtrosiByContract } from '../api/otrosi';
+import { useRefresh } from '../context/RefreshContext';
 import ContractTraceDetail from './ContractTraceDetail';
 import LoadingAnimation from '../components/LoadingAnimation';
 
 const ContractTracePage = () => {
   const { id } = useParams();
+  const { refreshTrigger } = useRefresh();
   const [contract, setContract] = useState(null);
   const [history, setHistory] = useState([]);
   const [otrosi, setOtrosi] = useState([]);
@@ -35,7 +37,7 @@ const ContractTracePage = () => {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, refreshTrigger]); // ← Agregado refreshTrigger para actualizar automáticamente
 
   if (loading) return <LoadingAnimation text="Cargando trazabilidad del contrato..." />;
   if (!contract) return <div className="text-center py-10 text-gray-500">Contrato no encontrado.</div>;

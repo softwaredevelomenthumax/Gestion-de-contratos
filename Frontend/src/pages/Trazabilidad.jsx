@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getContractsForTraceability } from '../api/contracts';
 import { useAuth } from '../hooks/useAuth';
+import { useRefresh } from '../context/RefreshContext';
 import { Card } from '../components/Card';
 import { useNavigate } from 'react-router-dom';
 import ContractFilters from '../components/ContractFilters';
@@ -8,6 +9,7 @@ import { useDebounce } from '../hooks/useDebounce';
 
 const Trazabilidad = () => {
   const { user } = useAuth();
+  const { refreshTrigger } = useRefresh();
   const [contracts, setContracts] = useState([]);
   const [_loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -41,7 +43,7 @@ const Trazabilidad = () => {
     if (user) {
       fetchContracts();
     }
-  }, [user, fetchContracts]);
+  }, [user, fetchContracts, refreshTrigger]); // ← Agregado refreshTrigger
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4">

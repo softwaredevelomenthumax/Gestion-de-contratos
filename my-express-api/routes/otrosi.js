@@ -476,6 +476,8 @@ router.post('/:id/sign', auth, upload.single('firmaAbogado'), async (req, res) =
 
     // Update contract state based on whether user already signed
     const contract = await Contract.findByPk(otrosi.contractId);
+    const wasFullySigned = otrosi.firmadoPorUsuario;
+    
     if (otrosi.firmadoPorUsuario) {
       // If user already signed, contract goes directly to 'signed' state
       await contract.update({ estado: 'signed' });
@@ -543,8 +545,20 @@ router.post('/:id/sign', auth, upload.single('firmaAbogado'), async (req, res) =
       // }
 
       // 2. Enviar "Acción Requerida" SOLO a quien debe responder
-      if (otrosi.firmadoPorUsuario) {
-        // Lawyer signed after user -> fully signed, no action required
+      if (wasFullySigned) {
+        // Lawyer signed after user -> fully signed, send completion notification to both parties
+        if (allEmails.length > 0) {
+          await emailService.sendContractFullySignedNotification(
+            allEmails,
+            {
+              id: contract.id,
+              descripcion: contract.descripcion,
+              proveedor: contract.proveedor,
+              valorTotal: contract.valorTotal,
+              moneda: contract.moneda
+            }
+          );
+        }
       } else if (!otrosi.firmadoPorUsuario && solicitanteEmail) {
         // Now awaiting user's signature
         await emailService.sendContractActionRequiredNotification(
@@ -752,6 +766,11 @@ router.post('/:id/action',
 
              // Actualizar estado del contrato según el estado del otrosí
        const contract = await Contract.findByPk(otrosi.contractId);
+       const previousContractState = contract.estado;
+       const contractWillBeSigned = nextStatus === 'otrosi_signed' && 
+         (contract.estado === 'signature_otrosi_already_signedByUser' || 
+          contract.estado === 'otrosi_awaiting_signature');
+       
        if (nextStatus === 'otrosi_awaiting_user_response') {
          await contract.update({ estado: 'otrosi_awaiting_user_response' });
        } else if (nextStatus === 'otrosi_awaiting_lawyer_review') {
@@ -811,39 +830,27 @@ router.post('/:id/action',
 
         const solicitanteEmail = contract?.solicitante?.email;
 
-        // 1. Enviar "Estado del Contrato Actualizado" a TODOS (solicitante + abogados)
-        const allEmails = [];
-        
-        // Agregar email del solicitante
-        if (solicitanteEmail) {
-          allEmails.push(solicitanteEmail);
-        }
-        
         // Agregar emails de abogados
         const lawyers = await User.findAll({
           where: { role: 'lawyer', status: 'approved' },
           attributes: ['email']
         });
         const lawyerEmails = lawyers.map(lawyer => lawyer.email);
-        allEmails.push(...lawyerEmails);
         
-        // Enviar estado actualizado a todos
-        if (allEmails.length > 0) {
-          await emailService.sendContractStatusChangeNotification(
-            allEmails,
-            {
-              id: contract.id,
-              descripcion: contract.descripcion,
-              proveedor: contract.proveedor,
-              valorTotal: contract.valorTotal,
-              moneda: contract.moneda
-            },
-            oldStatus,
-            nextStatus
-          );
-        }
+        // DISABLED: Solo se envían notificaciones cuando se requiere acción
+        // const allEmails = [];
+        // if (solicitanteEmail) allEmails.push(solicitanteEmail);
+        // allEmails.push(...lawyerEmails);
+        // if (allEmails.length > 0) {
+        //   await emailService.sendContractStatusChangeNotification(
+        //     allEmails,
+        //     contractData,
+        //     oldStatus,
+        //     nextStatus
+        //   );
+        // }
 
-        // 2. Enviar "Acción Requerida" SOLO a quien debe responder
+        // Enviar "Acción Requerida" SOLO a quien debe responder
         if (nextStatus === 'otrosi_awaiting_user_response' && solicitanteEmail) {
           await emailService.sendContractActionRequiredNotification(
             solicitanteEmail,
@@ -883,8 +890,24 @@ router.post('/:id/action',
             'sign',
             'regular'
           );
-        } else if (nextStatus === 'otrosi_signed') {
-          // Otrosí completamente firmado, no se requiere acción adicional
+        } else if (nextStatus === 'otrosi_signed' && contractWillBeSigned) {
+          // Otrosí completamente firmado y contrato pasa a 'signed' - enviar notificación de firmado completo
+          const allEmails = [];
+          if (solicitanteEmail) allEmails.push(solicitanteEmail);
+          allEmails.push(...lawyerEmails);
+          
+          if (allEmails.length > 0) {
+            await emailService.sendContractFullySignedNotification(
+              allEmails,
+              {
+                id: contract.id,
+                descripcion: contract.descripcion,
+                proveedor: contract.proveedor,
+                valorTotal: contract.valorTotal,
+                moneda: contract.moneda
+              }
+            );
+          }
         }
 
       } catch (emailErr) {
@@ -958,15 +981,17 @@ router.post('/:id/return',
         }
       }
 
-      // Enviar notificaciones por email
-      
+      // Enviar notificaciones por email - PATRÓN ESTÁNDAR
       try {
         const contractWithUser = await Contract.findByPk(otrosi.contractId, {
           include: [{ model: User, as: 'solicitante', attributes: ['email'] }]
         });
         const solicitanteEmail = contractWithUser?.solicitante?.email;
         
+        // DISABLED: Solo se envían notificaciones cuando se requiere acción
+        // Las notificaciones de cambio de estado están deshabilitadas
         
+        // Enviar "Acción Requerida" SOLO a quien debe responder
         if (nextStatus === 'otrosi_awaiting_user_response' && solicitanteEmail) {
           await emailService.sendContractActionRequiredNotification(
             solicitanteEmail,
@@ -980,63 +1005,6 @@ router.post('/:id/return',
             'respond',
             'regular'
           );
-          
-          // También enviar email de actualización de estado
-          await emailService.sendContractStatusChangeNotification(
-            solicitanteEmail,
-            {
-              id: contract.id,
-              descripcion: contract.descripcion,
-              proveedor: contract.proveedor,
-              valorTotal: contract.valorTotal,
-              moneda: contract.moneda
-            },
-            otrosi.estado,
-            nextStatus
-          );
-          
-          // También notificar a los abogados sobre la actualización de estado
-          try {
-            const lawyers = await User.findAll({
-              where: { role: 'lawyer', status: 'approved' },
-              attributes: ['email']
-            });
-            
-            if (lawyers.length > 0) {
-              const lawyerEmails = lawyers.map(lawyer => lawyer.email);
-              await emailService.sendContractStatusChangeNotification(
-                lawyerEmails,
-                {
-                  id: contract.id,
-                  descripcion: contract.descripcion,
-                  proveedor: contract.proveedor,
-                  valorTotal: contract.valorTotal,
-                  moneda: contract.moneda
-                },
-                otrosi.estado,
-                nextStatus
-              );
-            }
-          } catch (lawyerEmailErr) {
-            console.error('❌ Error enviando email de actualización a abogados:', lawyerEmailErr);
-          }
-        } else {
-          
-          // Fallback: notify status change to solicitante if available
-          if (solicitanteEmail) {
-            await emailService.sendContractStatusChangeNotification(
-              solicitanteEmail,
-              {
-                id: contract.id,
-                descripcion: contract.descripcion,
-                proveedor: contract.proveedor,
-                valorTotal: contract.valorTotal,
-                moneda: contract.moneda
-              },
-              otrosi.estado,
-              nextStatus
-            );
-          }
         }
       } catch (emailErr) {
         console.error('❌ Error enviando email al devolver otrosí:', emailErr);
