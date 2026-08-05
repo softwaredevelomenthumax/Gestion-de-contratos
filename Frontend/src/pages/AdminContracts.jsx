@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import { getContractsForTraceability, deleteContract } from '../api/contracts';
 import { useRefresh } from '../context/RefreshContext';
@@ -11,7 +10,6 @@ import Card from '../components/Card';
 import LoadingAnimation from '../components/LoadingAnimation';
 
 const AdminContracts = () => {
-  const navigate = useNavigate();
   const { refreshTrigger } = useRefresh();
   const { addNotification } = useNotification();
   const [contracts, setContracts] = useState([]);
@@ -94,26 +92,28 @@ const AdminContracts = () => {
           </span>
         </div>
       ) : (
-        <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid auto-rows-fr gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {contracts.map((contract) => (
-            <div key={contract.id} className="space-y-3">
-              <Card
-                solicitante={contract.solicitante}
-                contract={contract}
-                onClick={() => navigate(`/admin/contracts/${contract.id}`)}
-                variant="compact"
-              />
-              <Button
-                type="button"
-                variant="destructive"
-                className="w-full gap-2"
-                onClick={() => handleDelete(contract)}
-                disabled={deletingId === contract.id}
-              >
-                <Trash2 className="h-4 w-4" />
-                {deletingId === contract.id ? 'Eliminando...' : 'Eliminar'}
-              </Button>
-            </div>
+            <Card
+              key={contract.id}
+              solicitante={contract.solicitante}
+              contract={contract}
+              variant="compact"
+              isInteractive={false}
+              className="min-h-[220px]"
+              footerAction={(
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full gap-2"
+                  onClick={() => handleDelete(contract)}
+                  disabled={deletingId === contract.id}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deletingId === contract.id ? 'Eliminando...' : 'Eliminar'}
+                </Button>
+              )}
+            />
           ))}
         </div>
       )}

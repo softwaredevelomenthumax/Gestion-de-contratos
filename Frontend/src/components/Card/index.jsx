@@ -78,7 +78,9 @@ export const Card = React.memo(function Card({
   solicitante, 
   onClick, 
   variant = 'compact',
-  className 
+  className,
+  footerAction,
+  isInteractive = true
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -119,7 +121,9 @@ export const Card = React.memo(function Card({
     }
   };
 
-  const handleClick = onClick ? () => onClick(contract) : handleCardClick;
+  const handleClick = isInteractive
+    ? (onClick ? () => onClick(contract) : handleCardClick)
+    : undefined;
 
   // Compact variant (original Card design)
   if (variant === 'compact') {
@@ -127,20 +131,21 @@ export const Card = React.memo(function Card({
       <div
         onClick={handleClick}
         className={cn(
-          "group relative flex overflow-hidden rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 backdrop-blur-lg transition-all hover:shadow-2xl hover:scale-[1.02] cursor-pointer hover:border-blue-400",
+          "group relative flex h-full flex-col overflow-hidden rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 backdrop-blur-lg transition-all",
+          isInteractive ? "hover:shadow-2xl hover:scale-[1.02] cursor-pointer hover:border-blue-400" : "cursor-default",
           className
         )}
       >
         <Badge radicado={contract?.id} position="center" />
         
-        <div className={`flex-1 px-6 pt-6 pb-4 flex flex-col ${hasOtrosi ? 'gap-2' : 'gap-4'}`}>
-          <div className="flex items-center gap-4 mt-4">
+        <div className={`flex-1 px-5 pt-5 pb-3 flex flex-col ${hasOtrosi ? 'gap-2' : 'gap-3'}`}>
+          <div className="flex items-center gap-3 mt-3">
             <IconBlock size="large" />
             <div className="flex-1 min-w-0">
-              <h3 className="text-xl font-bold text-foreground break-words whitespace-normal leading-snug">
+              <h3 className="text-lg font-bold text-foreground break-words whitespace-normal leading-snug line-clamp-2">
                 {contract?.proveedor || 'Sin proveedor'}
               </h3>
-              <p className={`text-muted-foreground break-words leading-tight ${hasOtrosi ? 'text-xs' : 'text-sm'}`} title={formatContractType(contract?.tipoContrato)}>
+              <p className={`text-muted-foreground break-words leading-tight line-clamp-2 ${hasOtrosi ? 'text-xs' : 'text-sm'}`} title={formatContractType(contract?.tipoContrato)}>
                 {formatContractType(contract?.tipoContrato)}
               </p>
             </div>
@@ -163,11 +168,20 @@ export const Card = React.memo(function Card({
               </svg>
             }
             value={getSolicitanteDisplay(solicitante)}
-            className={hasOtrosi ? 'text-xs' : 'text-sm'}
+            className={hasOtrosi ? 'text-xs line-clamp-2' : 'text-sm line-clamp-2'}
           />
           
           <OtrosiBadge hasOtrosi={hasOtrosi} />
         </div>
+
+        {footerAction && (
+          <div
+            className="border-t border-gray-200 dark:border-gray-700 px-5 py-3"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {footerAction}
+          </div>
+        )}
       </div>
     );
   }
