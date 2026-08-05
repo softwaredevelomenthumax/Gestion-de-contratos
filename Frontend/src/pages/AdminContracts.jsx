@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Eye, FileText } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { getContractsForTraceability, deleteContract } from '../api/contracts';
 import { useRefresh } from '../context/RefreshContext';
 import { useNotification } from '../context/NotificationContext';
 import ContractFilters from '../components/ContractFilters';
 import Button from '../components/Button';
 import { useDebounce } from '../hooks/useDebounce';
+import Card from '../components/Card';
+import LoadingAnimation from '../components/LoadingAnimation';
 
 const AdminContracts = () => {
   const navigate = useNavigate();
@@ -63,74 +65,56 @@ const AdminContracts = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-10 px-4">
-      <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight text-center">
-        Administración de Contratos
-      </h1>
-
-      <div className="mb-8">
-        <ContractFilters
-          filter={filter}
-          setFilter={setFilter}
-          ticketFilter={ticketFilter}
-          setTicketFilter={setTicketFilter}
-          sortType={sortType}
-          setSortType={setSortType}
-        />
-      </div>
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+      <ContractFilters
+        filter={filter}
+        setFilter={setFilter}
+        ticketFilter={ticketFilter}
+        setTicketFilter={setTicketFilter}
+        sortType={sortType}
+        setSortType={setSortType}
+        showTitle={true}
+        title="Administración de Contratos"
+      />
 
       <div className="mb-6 flex items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-foreground">
           Contratos ({contracts.length})
         </h2>
-        {loading && <span className="text-sm text-muted-foreground">Cargando...</span>}
       </div>
 
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        {contracts.map((contract) => (
-          <div key={contract.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <FileText className="h-4 w-4" />
-                  <span>Radicado #{contract.id}</span>
-                </div>
-                <h3 className="text-lg font-semibold text-foreground truncate">{contract.descripcion}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">Proveedor / Cliente: {contract.proveedor}</p>
-                <p className="text-sm text-muted-foreground">
-                  Solicitante: {contract.solicitante?.firstName} {contract.solicitante?.lastName}
-                </p>
-                <p className="text-sm text-muted-foreground">Estado: {contract.estado}</p>
-              </div>
-              <div className="flex flex-col gap-2 shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => navigate(`/trazabilidad/${contract.id}`)}
-                >
-                  <Eye className="h-4 w-4" />
-                  Ver
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  className="gap-2"
-                  onClick={() => handleDelete(contract)}
-                  disabled={deletingId === contract.id}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {deletingId === contract.id ? 'Eliminando...' : 'Eliminar'}
-                </Button>
-              </div>
+      {loading ? (
+        <LoadingAnimation text="Cargando contratos..." />
+      ) : contracts.length === 0 ? (
+        <div className="text-center py-10">
+          <span className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-gray-500 dark:text-gray-400 shadow rounded-md">
+            {filter || ticketFilter
+              ? 'No hay contratos que coincidan con los filtros aplicados.'
+              : 'No hay contratos disponibles.'}
+          </span>
+        </div>
+      ) : (
+        <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {contracts.map((contract) => (
+            <div key={contract.id} className="space-y-3">
+              <Card
+                solicitante={contract.solicitante}
+                contract={contract}
+                onClick={() => navigate(`/admin/contracts/${contract.id}`)}
+                variant="compact"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full gap-2"
+                onClick={() => handleDelete(contract)}
+                disabled={deletingId === contract.id}
+              >
+                <Trash2 className="h-4 w-4" />
+                {deletingId === contract.id ? 'Eliminando...' : 'Eliminar'}
+              </Button>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {!loading && contracts.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
-          No hay contratos para mostrar.
+          ))}
         </div>
       )}
     </div>
