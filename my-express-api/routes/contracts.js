@@ -9,6 +9,9 @@ const { recordHistory } = require('../services/traceability');
 const auth = require('../middleware/auth');
 const emailService = require('../services/emailService');
 const { getContractNotificationRecipients } = require('../services/notificationRecipients');
+const ContractHistory = require('../models/ContractHistory');
+const Otrosi = require('../models/Otrosi');
+const OtrosiFile = require('../models/OtrosiFile');
 
 // Removed unused filesRouter import
 // Ensure associations are registered (Contract <-> User via ContractViewer)
@@ -157,7 +160,7 @@ router.get('/', auth, async (req, res) => {
     let baseWhere;
     const allowedStates = ['new', 'awaiting_lawyer_review', 'signature_otrosi_already_signedByUser', 'otrosi_awaiting_lawyer_review'];
     
-    if (req.user.role === 'lawyer') {
+    if (req.user.role === 'lawyer' || req.user.role === 'admin') {
       baseWhere = { estado: allowedStates };
     } else {
       baseWhere = { 
@@ -212,7 +215,7 @@ router.get('/', auth, async (req, res) => {
 router.get('/traceability', auth, async (req, res) => {
   try {
     // Abogado: todos los contratos; Usuario regular: solo los propios
-    let baseWhere = req.user.role === 'lawyer' ? {} : { solicitanteId: req.user.id };
+    let baseWhere = (req.user.role === 'lawyer' || req.user.role === 'admin') ? {} : { solicitanteId: req.user.id };
     const whereClause = buildWhereClause(baseWhere, req.query);
     const order = getSortOrder(req.query.sort);
     
@@ -243,7 +246,7 @@ router.get('/:id/history', auth, async (req, res) => {
     }
 
     // Usuarios regulares solo pueden ver sus contratos
-    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
 
@@ -975,7 +978,7 @@ router.get('/:id/full', auth, async (req, res) => {
     }
     
     // Check access permissions
-    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
     
@@ -1035,7 +1038,7 @@ router.get('/:id', auth, async (req, res) => {
     }
     
     // Check access permissions
-    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
     
@@ -1070,6 +1073,70 @@ router.get('/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('❌ Error in GET /api/contracts/:id:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/contracts/:id - Admin only
+router.delete('/:id', auth, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Solo los administradores pueden eliminar contratos' });
+  }
+
+  const transaction = await Contract.sequelize.transaction();
+
+  try {
+    const contract = await Contract.findByPk(req.params.id, {
+      include: [
+        { model: ContractFile, as: 'files' },
+        { model: Otrosi, as: 'otrosi', include: [{ model: OtrosiFile, as: 'files' }] }
+      ],
+      transaction
+    });
+
+    if (!contract) {
+      await transaction.rollback();
+      return res.status(404).json({ error: 'Contrato no encontrado' });
+    }
+
+    for (const file of contract.files || []) {
+      try {
+        if (file.driveFileId) {
+          await googleDriveService.deleteFile(file.driveFileId);
+        } else if (file.filepath && fs.existsSync(file.filepath)) {
+          fs.unlinkSync(file.filepath);
+        }
+      } catch (fileError) {
+        console.warn('Warning deleting contract file:', fileError.message);
+      }
+    }
+
+    for (const otrosi of contract.otrosi || []) {
+      for (const file of otrosi.files || []) {
+        try {
+          if (file.filepath && googleDriveService.isGoogleDriveFileId(file.filepath)) {
+            await googleDriveService.deleteFile(file.filepath);
+          } else if (file.filepath && fs.existsSync(file.filepath)) {
+            fs.unlinkSync(file.filepath);
+          }
+        } catch (fileError) {
+          console.warn('Warning deleting otrosi file:', fileError.message);
+        }
+      }
+    }
+
+    await ContractViewer.destroy({ where: { contractId: contract.id }, transaction });
+    await ContractHistory.destroy({ where: { contractId: contract.id }, transaction });
+    await OtrosiFile.destroy({ where: { contractId: contract.id }, transaction });
+    await Otrosi.destroy({ where: { contractId: contract.id }, transaction });
+    await ContractFile.destroy({ where: { contractId: contract.id }, transaction });
+    await contract.destroy({ transaction });
+
+    await transaction.commit();
+    res.json({ message: 'Contrato eliminado correctamente' });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('❌ Error deleting contract:', error);
+    res.status(500).json({ error: 'No se pudo eliminar el contrato' });
   }
 });
 

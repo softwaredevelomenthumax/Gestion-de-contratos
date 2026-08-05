@@ -184,3 +184,8 @@ export const getContractHistory = async (contractId) => {
   const response = await api.get(`/traceability/contracts/${contractId}`);
   return response.data;
 };
+
+export const deleteContract = async (contractId) => {
+  const response = await api.delete(`/contracts/${contractId}`);
+  return response.data;
+};

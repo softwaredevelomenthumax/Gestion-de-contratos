@@ -59,7 +59,7 @@ router.get('/contract/:contractId', auth, async (req, res) => {
     }
     
     // Check if user has access to this contract
-    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

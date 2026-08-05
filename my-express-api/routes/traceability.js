@@ -40,7 +40,7 @@ router.get('/contracts/:id', auth, async (req, res) => {
     }
 
     // Usuarios regulares solo pueden ver su propio contrato
-    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
 

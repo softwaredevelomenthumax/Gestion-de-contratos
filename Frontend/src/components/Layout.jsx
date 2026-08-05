@@ -12,7 +12,8 @@ import {
   X,
   Search,
   Shield,
-  UserPlus
+  UserPlus,
+  FileText
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -26,6 +27,7 @@ const Layout = ({ children }) => {
   const navigation = useMemo(() => (
     user?.role === 'admin'
       ? [
+          { name: 'Contratos', href: '/admin/contracts', icon: FileText },
           { name: 'Gestión de cuentas', href: '/admin/users', icon: Shield },
           { name: 'Crear administrador', href: '/admin/create', icon: UserPlus },
         ]

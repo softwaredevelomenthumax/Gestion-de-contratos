@@ -31,6 +31,7 @@ const OtrosiForm = lazy(() => import("./pages/OtrosiForm"));
 const ContractTracePage = lazy(() => import('./pages/ContractTracePage'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const CreateAdmin = lazy(() => import('./pages/CreateAdmin'));
+const AdminContracts = lazy(() => import('./pages/AdminContracts'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -100,6 +101,7 @@ const App = () => {
                     <Route path="/user_ended" element={<ProtectedRoute><UserFinalizado /></ProtectedRoute>} />
                     <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
                     <Route path="/admin/create" element={<ProtectedRoute><CreateAdmin /></ProtectedRoute>} />
+                    <Route path="/admin/contracts" element={<ProtectedRoute><AdminContracts /></ProtectedRoute>} />
                   </Routes>
                 <NotificationContainer />
             </NotificationProvider>
