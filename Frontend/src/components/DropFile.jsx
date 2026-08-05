@@ -83,9 +83,9 @@ export function DropFile({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full min-w-0">
       <div
-        className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 transition-colors ${
+        className={`flex min-w-0 flex-col items-center justify-center border-2 border-dashed rounded-xl p-6 sm:p-8 transition-colors ${
           dragActive
             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
             : 'border-gray-300 bg-card'
@@ -100,22 +100,28 @@ export function DropFile({
         {files.length > 0 ? (
           <>
             <Download size={48} className="text-blue-500 mb-2" />
-            <ul className="w-full mb-2">
+            <ul className="w-full min-w-0 mb-2 space-y-2">
               {files.map((file, idx) => (
-                <li key={idx} className="flex items-center justify-between text-sm text-foreground mb-1">
-                  <span>{file.name}</span>
-                  <Button variant="outline" onClick={e => { e.stopPropagation(); handleRemove(idx); }} className="ml-2 px-2 py-1 text-xs"><X className="inline mr-1" />Quitar</Button>
+                <li key={idx} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-background/60 p-3 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between">
+                  <span className="min-w-0 break-words text-left leading-relaxed">{file.name}</span>
+                  <Button
+                    variant="outline"
+                    onClick={e => { e.stopPropagation(); handleRemove(idx); }}
+                    className="w-full shrink-0 px-2 py-1 text-xs sm:ml-2 sm:w-auto"
+                  >
+                    <X className="mr-1 h-4 w-4" />Quitar
+                  </Button>
                 </li>
               ))}
             </ul>
-            <p className="text-muted-foreground text-sm mb-2">Listo para subir</p>
+            <p className="text-center text-muted-foreground text-sm mb-2">Listo para subir</p>
           </>
         ) : (
           <>
             <UploadCloud size={48} className="text-blue-500 mb-2" />
             <p className="font-semibold text-lg text-center text-foreground">Subir contrato</p>
-            <p className="text-muted-foreground text-sm mb-2">Arrastra y suelta uno o varios archivos aquí, o haz clic para seleccionar</p>
-            <p className="text-muted-foreground text-xs">Solo archivos .pdf .doc .docx menores a 30MB</p>
+            <p className="text-center text-muted-foreground text-sm mb-2">Arrastra y suelta uno o varios archivos aquí, o haz clic para seleccionar</p>
+            <p className="text-center text-muted-foreground text-xs">Solo archivos .pdf .doc .docx menores a 30MB</p>
           </>
         )}
         <input
