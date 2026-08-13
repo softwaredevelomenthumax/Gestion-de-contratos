@@ -1,9 +1,11 @@
 import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion as Motion } from 'framer-motion';
+import { useLanguage } from '../context/LanguageContext';
 
 const ActionCard = ({ action, index }) => {
   const Icon = action.icon;
+  const { language } = useLanguage();
 
   // Preload page on hover (only for lazy-loaded pages)
   const preloadPage = useCallback(() => {
@@ -70,7 +72,7 @@ const ActionCard = ({ action, index }) => {
           </div>
           <div className="mt-6">
             <div className="flex items-center justify-end text-sm font-medium text-white opacity-80 group-hover:opacity-100 transition-opacity">
-              <span>Ir ahora</span>
+              <span>{language === 'en' ? 'Go now' : 'Ir ahora'}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>

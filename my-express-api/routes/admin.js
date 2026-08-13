@@ -4,6 +4,9 @@ const User = require('../models/User');
 const RejectedUser = require('../models/RejectedUser');
 const adminAuth = require('../middleware/adminAuth');
 const emailService = require('../services/emailService');
+const { normalizeCountryCode, compatibleCountryCodes } = require('../utils/countries');
+
+const ALLOWED_COUNTRY_CODES = ['CO', 'MX', 'AR', 'PE', 'CL', 'EC'];
 
 // All routes in this file require admin authentication
 router.use(adminAuth);
@@ -12,8 +15,8 @@ router.use(adminAuth);
 router.get('/users/pending', async (req, res) => {
   try {
     const pendingUsers = await User.findAll({
-      where: { status: 'pending' },
-      attributes: ['id', 'firstName', 'lastName', 'email', 'role'],
+      where: { status: 'pending', countryCode: compatibleCountryCodes(req.user.countryCode) },
+      attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'countryCode'],
       order: [['id', 'DESC']] // Order by ID instead of createdAt
     });
 
@@ -35,6 +38,10 @@ router.post('/users/:id/approve', async (req, res) => {
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+
+    if (normalizeCountryCode(user.countryCode) !== normalizeCountryCode(req.user.countryCode)) {
+      return res.status(403).json({ success: false, error: 'No puedes aprobar usuarios de otro país.' });
     }
 
     if (user.status !== 'pending') {
@@ -66,6 +73,7 @@ router.post('/users/:id/approve', async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        countryCode: user.countryCode,
         status: user.status
       }
     });
@@ -83,6 +91,10 @@ router.post('/users/:id/reject', async (req, res) => {
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+
+    if (normalizeCountryCode(user.countryCode) !== normalizeCountryCode(req.user.countryCode)) {
+      return res.status(403).json({ success: false, error: 'No puedes rechazar usuarios de otro país.' });
     }
 
     if (user.status !== 'pending') {
@@ -127,10 +139,14 @@ router.post('/users/:id/reject', async (req, res) => {
 
 // POST /api/admin/create-admin - Create a new admin user
 router.post('/create-admin', async (req, res) => {
-  const { firstName, lastName, email, password } = req.body;
+  const { firstName, lastName, email, password, countryCode } = req.body;
+  const normalizedCountryCode = normalizeCountryCode(countryCode);
   
-  if (!firstName || !lastName || !email || !password) {
+  if (!firstName || !lastName || !email || !password || !normalizedCountryCode) {
     return res.status(400).json({ success: false, error: 'Todos los campos son requeridos.' });
+  }
+  if (!ALLOWED_COUNTRY_CODES.includes(normalizedCountryCode)) {
+    return res.status(400).json({ success: false, error: 'Código de país inválido.' });
   }
 
   try {
@@ -140,6 +156,17 @@ router.post('/create-admin', async (req, res) => {
       return res.status(409).json({ success: false, error: 'El correo electrónico ya está registrado.' });
     }
 
+    const countryAdmin = await User.findOne({
+      where: {
+        role: 'admin',
+        status: 'approved',
+        countryCode: compatibleCountryCodes(normalizedCountryCode)
+      }
+    });
+    if (countryAdmin) {
+      return res.status(409).json({ success: false, error: `Ya existe un administrador aprobado para ${normalizedCountryCode}.` });
+    }
+
     // Create admin user with approved status
     const adminUser = await User.create({ 
       firstName, 
@@ -147,7 +174,9 @@ router.post('/create-admin', async (req, res) => {
       email, 
       password, 
       role: 'admin',
-      status: 'approved' 
+      status: 'approved',
+      countryCode: normalizedCountryCode,
+      preferredLanguage: 'es'
     });
 
     res.status(201).json({ 
@@ -159,6 +188,7 @@ router.post('/create-admin', async (req, res) => {
         lastName: adminUser.lastName,
         email: adminUser.email,
         role: adminUser.role,
+        countryCode: adminUser.countryCode,
         status: adminUser.status
       }
     });

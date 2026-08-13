@@ -1,4 +1,6 @@
 const { Contract } = require('../models/Contract');
+const User = require('../models/User');
+const { normalizeCountryCode } = require('../utils/countries');
 
 // Middleware para validar permisos y estados
 const validateContractAction = (allowedRoles, allowedStates) => {
@@ -24,6 +26,13 @@ const validateContractAction = (allowedRoles, allowedStates) => {
       // Validar que el usuario regular solo puede responder a sus propios contratos
       if (req.user.role === 'regular' && contract.solicitanteId !== req.user.id) {
         return res.status(403).json({ error: 'Solo puedes responder a tus propios contratos' });
+      }
+
+      if ((req.user.role === 'lawyer' || req.user.role === 'admin') && req.user.countryCode) {
+        const owner = await User.findByPk(contract.solicitanteId, { attributes: ['countryCode'] });
+        if (!owner || normalizeCountryCode(owner.countryCode) !== normalizeCountryCode(req.user.countryCode)) {
+          return res.status(403).json({ error: 'No tienes permisos para esta acción en otro país' });
+        }
       }
 
       req.contract = contract;

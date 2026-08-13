@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
+import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * Badge component for displaying contract radicado number
@@ -9,6 +10,7 @@ import { cn } from '../../lib/utils';
  * @param {string} props.className - Additional CSS classes
  */
 export const Badge = ({ radicado, position = 'center', className }) => {
+  const { language } = useLanguage();
   if (radicado == null) return null;
 
   const positionClasses = {
@@ -24,7 +26,7 @@ export const Badge = ({ radicado, position = 'center', className }) => {
         className
       )}
     >
-      Radicado: {radicado}
+      {language === 'en' ? 'Ticket' : 'Radicado'}: {radicado}
     </div>
   );
 };

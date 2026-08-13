@@ -7,12 +7,20 @@ function getApiBaseUrl() {
     : null;
 
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-  const targetHost = isLocal ? 'localhost' : '10.255.6.4';
+  // Use the same host the frontend was opened from when not local,
+  // so LAN access works from other PCs without changing code per IP.
+  const targetHost = isLocal ? 'localhost' : hostname;
 
   return `http://${targetHost}:3001/api`;
 }
 
 const API_URL = getApiBaseUrl();
+
+function isPublicAuthRoute() {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const path = window.location.pathname || '';
+  return path === '/login' || path === '/register';
+}
 
 // Simple request cache for GET requests (5 minutes TTL)
 const requestCache = new Map();
@@ -43,10 +51,17 @@ api.interceptors.request.use(
           // Clear mismatched data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          delete api.defaults.headers.common['Authorization'];
 
-          // Redirect to login
-          window.location.href = '/login';
-          return Promise.reject(new Error('Token/user mismatch detected'));
+          // Redirect only when navigating protected areas.
+          // Never force redirects from public auth pages, to avoid route bounce.
+          if (!isPublicAuthRoute()) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('Token/user mismatch detected'));
+          }
+
+          // Allow public page requests to continue without auth header.
+          return config;
         }
       } catch {
         // Token validation error - continue with request
@@ -110,8 +125,8 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       delete api.defaults.headers.common['Authorization'];
 
-      // Only redirect if not already on login page
-      if (window.location.pathname !== '/login') {
+      // Never force redirects from public auth pages, to avoid bouncing login/register.
+      if (!isPublicAuthRoute()) {
         // Use React Router navigation if available, otherwise fallback to window.location
         if (window.history && window.history.pushState) {
           window.history.pushState(null, null, '/login');

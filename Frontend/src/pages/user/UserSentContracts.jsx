@@ -7,12 +7,14 @@ import { useRefresh } from '../../context/RefreshContext';
 import ContractFilters from '../../components/ContractFilters';
 import LoadingAnimation from '../../components/LoadingAnimation';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useLanguage } from '../../context/LanguageContext';
 
 const UserSentContracts = () => {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { refreshTrigger } = useRefresh();
   const navigate = useNavigate();
   
@@ -66,7 +68,7 @@ const UserSentContracts = () => {
         sortType={sortType}
         setSortType={setSortType}
         showTitle={true}
-        title="Mis Contratos"
+        title={language === 'en' ? 'My Contracts' : 'Mis Contratos'}
       />
 
       {loading ? (

@@ -4,16 +4,39 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const emailService = require('../services/emailService');
+const { normalizeCountryCode, normalizeLanguageCode, compatibleCountryCodes } = require('../utils/countries');
+const { fn, col, where } = require('sequelize');
+
+const ALLOWED_COUNTRY_CODES = ['CO', 'US', 'MX', 'AR', 'PE', 'CL', 'EC'];
+const ALLOWED_LANGUAGES = ['es', 'en'];
 
 // POST /api/login
 router.post('/', async (req, res) => {
   const { email, password } = req.body;
 
+  // Normalize incoming email for lookup to avoid case-sensitivity mismatches
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+
+  // Debugging/logging: capture attempts to diagnose language-dependent login failures.
+  try {
+    const headersToLog = {
+      'accept-language': req.headers['accept-language'],
+      host: req.headers.host,
+      'user-agent': req.headers['user-agent']
+    };
+    console.log('🛈 Login attempt:', { rawEmail: String(email || ''), normalizedEmail, hasPassword: !!password, headers: headersToLog });
+  } catch (logErr) {
+    console.error('Error logging login attempt:', logErr);
+  }
+
   try {
     // Find the user by email using Sequelize's findOne
-    const user = await User.findOne({ where: { email } });
+    // Use a case-insensitive lookup by applying LOWER(email) in SQL to avoid
+    // mismatches when the DB collation or stored case differs from the input.
+    const user = await User.findOne({ where: where(fn('lower', col('email')), normalizedEmail) });
 
     if (!user) {
+      console.warn('🔒 Login failed: user not found for', normalizedEmail);
       return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
     }
 
@@ -30,6 +53,7 @@ router.post('/', async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      console.warn('🔒 Login failed: invalid password for', normalizedEmail);
       return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
     }
 
@@ -37,6 +61,10 @@ router.post('/', async (req, res) => {
     // Generate a JWT token using the Sequelize user ID
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '24h' });
 
+    const normalizedCountryCode = normalizeCountryCode(user.countryCode) || 'CO';
+    const normalizedLanguage = normalizeLanguageCode(user.preferredLanguage);
+
+    console.log('✅ Login successful for user id', user.id, 'email', user.email);
     // Return the user's profile information and the token
     res.json({
       success: true,
@@ -44,8 +72,21 @@ router.post('/', async (req, res) => {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      role: user.role,
+      role: user.role || 'regular',
+      countryCode: normalizedCountryCode,
+      preferredLanguage: normalizedLanguage,
       token,
+      status: user.status,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role || 'regular',
+        countryCode: normalizedCountryCode,
+        preferredLanguage: normalizedLanguage,
+        status: user.status,
+      }
     }); 
   } catch (error) {
     console.error('Error during login:', error);
@@ -55,12 +96,21 @@ router.post('/', async (req, res) => {
 
 // POST /api/register
 router.post('/register', async (req, res) => {
-  const { firstName, lastName, email, password, role } = req.body;
-  if (!firstName || !lastName || !email || !password || !role) {
+  const { firstName, lastName, email, password, role, countryCode, preferredLanguage } = req.body;
+  const normalizedCountryCode = normalizeCountryCode(countryCode);
+  const normalizedLanguage = normalizeLanguageCode(preferredLanguage);
+
+  if (!firstName || !lastName || !email || !password || !role || !normalizedCountryCode) {
     return res.status(400).json({ success: false, error: 'Todos los campos son requeridos.' });
   }
   if (!['regular', 'lawyer'].includes(role)) {
     return res.status(400).json({ success: false, error: 'Rol inválido.' });
+  }
+  if (!ALLOWED_COUNTRY_CODES.includes(normalizedCountryCode)) {
+    return res.status(400).json({ success: false, error: 'Código de país inválido.' });
+  }
+  if (!ALLOWED_LANGUAGES.includes(normalizedLanguage)) {
+    return res.status(400).json({ success: false, error: 'Idioma inválido.' });
   }
   try {
     // Check if user already exists
@@ -69,7 +119,16 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ success: false, error: 'El correo electrónico ya está registrado.' });
     }
     // Create user with pending status (password will be hashed by model hook)
-    const user = await User.create({ firstName, lastName, email, password, role, status: 'pending' });
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      password,
+      role,
+      status: 'pending',
+      countryCode: normalizedCountryCode,
+      preferredLanguage: normalizedLanguage
+    });
     
     // Enviar notificación de registro al usuario
     try {
@@ -77,7 +136,8 @@ router.post('/register', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role
+        role: user.role,
+        countryCode: user.countryCode
       });
       console.log('✅ Email de registro enviado a:', user.email);
     } catch (emailError) {
@@ -88,7 +148,7 @@ router.post('/register', async (req, res) => {
     // Notificar a los administradores sobre el nuevo usuario
     try {
       const admins = await User.findAll({
-        where: { role: 'admin', status: 'approved' },
+        where: { role: 'admin', status: 'approved', countryCode: compatibleCountryCodes(user.countryCode) },
         attributes: ['email']
       });
       
@@ -98,7 +158,8 @@ router.post('/register', async (req, res) => {
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
-          role: user.role
+          role: user.role,
+          countryCode: user.countryCode
         });
         console.log('✅ Email de nuevo usuario enviado a administradores:', adminEmails);
       }

@@ -1,10 +1,12 @@
 import React, { useState, memo, useCallback, useMemo } from 'react';
 import axios from '../api/axiosInstance';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Loader2Icon } from "lucide-react";
 import OptimizedInput from '../components/OptimizedInput';
+// LanguageSelector moved to sidebar; no local import needed here
+import { countries, useLanguage } from '../context/LanguageContext';
 
 // Move validation functions outside component to prevent recreation
 const validateEmail = (email) => /.+@.+\..+/.test(email);
@@ -16,18 +18,20 @@ const validateName = (name) => {
 
 // ButtonLoading component
 function ButtonLoading() {
+  const { t } = useLanguage();
   return (
     <Button 
       className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-cyan-700 hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition ease-in-out duration-300 transform hover:scale-105 opacity-50 cursor-not-allowed"
       disabled
     >
       <Loader2Icon className="animate-spin mr-2 h-4 w-4" />
-      Registrando...
+      {t.signingUp}
     </Button>
   );
 }
 
 const Register = memo(() => {
+  const { t, language } = useLanguage();
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -36,6 +40,7 @@ const Register = memo(() => {
     password: '',
     confirmPassword: '',
     role: 'regular',
+    countryCode: 'CO',
   });
   const [touched, setTouched] = useState({});
   const [loading, setLoading] = useState(false);
@@ -58,6 +63,10 @@ const Register = memo(() => {
     setForm(prev => ({ ...prev, role: value }));
   }, []);
 
+  const handleCountryChange = useCallback((value) => {
+    setForm(prev => ({ ...prev, countryCode: value }));
+  }, []);
+
   // Memoize validation results
   const validations = useMemo(() => {
     const isEmailValid = validateEmail(form.email);
@@ -74,7 +83,7 @@ const Register = memo(() => {
       isLastNameValid,
       doEmailsMatch,
       doPasswordsMatch,
-      canSubmit: isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid && doEmailsMatch && doPasswordsMatch && form.role
+      canSubmit: isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid && doEmailsMatch && doPasswordsMatch && form.role && form.countryCode
     };
   }, [form]);
 
@@ -124,7 +133,9 @@ const Register = memo(() => {
         lastName: form.lastName,
         email: form.email,
         password: form.password,
-        role: form.role
+        role: form.role,
+        countryCode: form.countryCode,
+        preferredLanguage: language
       });
       
       if (res.data.success) {
@@ -144,8 +155,8 @@ const Register = memo(() => {
     <div className={styles.container}>
       <div className={styles.card}>
         <div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-white">Registro</h2>
-          <p className="mt-2 text-center text-sm text-gray-400">Crea tu cuenta para continuar</p>
+          <h2 className="mt-2 text-center text-3xl font-extrabold text-white">{t.registerTitle}</h2>
+          <p className="mt-2 text-center text-sm text-gray-400">{t.registerSubtitle}</p>
         </div>
         
         <form onSubmit={handleSubmit} className={styles.form} aria-label="Formulario de registro">
@@ -153,11 +164,11 @@ const Register = memo(() => {
             id="firstName"
             name="firstName"
             type="text"
-            label="Nombre"
+            label={t.firstName}
             value={form.firstName}
             onChange={handleChange}
             onBlur={handleBlur}
-            placeholder="Tu nombre"
+            placeholder={language === 'en' ? 'Your first name' : 'Tu nombre'}
             autoComplete="given-name"
             isValid={isFirstNameValid}
             isTouched={touched.firstName}
@@ -168,11 +179,11 @@ const Register = memo(() => {
             id="lastName"
             name="lastName"
             type="text"
-            label="Apellido"
+            label={t.lastName}
             value={form.lastName}
             onChange={handleChange}
             onBlur={handleBlur}
-            placeholder="Tu apellido"
+            placeholder={language === 'en' ? 'Your last name' : 'Tu apellido'}
             autoComplete="family-name"
             isValid={isLastNameValid}
             isTouched={touched.lastName}
@@ -183,7 +194,7 @@ const Register = memo(() => {
             id="email"
             name="email"
             type="email"
-            label="Email"
+            label={t.email}
             value={form.email}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -198,7 +209,7 @@ const Register = memo(() => {
             id="confirmEmail"
             name="confirmEmail"
             type="email"
-            label="Confirma tu Email"
+            label={t.confirmEmail}
             value={form.confirmEmail}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -214,11 +225,11 @@ const Register = memo(() => {
             id="password"
             name="password"
             type="password"
-            label="Contraseña"
+            label={t.password}
             value={form.password}
             onChange={handleChange}
             onBlur={handleBlur}
-            placeholder="Tu contraseña"
+            placeholder={language === 'en' ? 'Your password' : 'Tu contrasena'}
             autoComplete="new-password"
             isValid={isPasswordValid}
             isTouched={touched.password}
@@ -229,7 +240,7 @@ const Register = memo(() => {
             id="confirmPassword"
             name="confirmPassword"
             type="password"
-            label="Confirma tu Contraseña"
+            label={t.confirmPassword}
             value={form.confirmPassword}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -242,14 +253,30 @@ const Register = memo(() => {
           />
 
           <div className="mb-4">
-            <label htmlFor="role" className="block text-sm font-medium text-gray-200 mb-1">Rol</label>
+            <label htmlFor="countryCode" className="block text-sm font-medium text-gray-200 mb-1">{t.countryCode}</label>
+            <Select value={form.countryCode} onValueChange={handleCountryChange}>
+              <SelectTrigger className="w-full bg-gray-700 text-white border border-gray-600 rounded-md">
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-700 text-white border border-gray-600">
+                {countries.map((country) => (
+                  <SelectItem key={country.code} value={country.code}>
+                    {country.code} - {country.name[language]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="role" className="block text-sm font-medium text-gray-200 mb-1">{t.role}</label>
             <Select value={form.role} onValueChange={handleRoleChange}>
               <SelectTrigger className="w-full bg-gray-700 text-white border border-gray-600 rounded-md">
                 <SelectValue placeholder="Selecciona el rol" />
               </SelectTrigger>
               <SelectContent className="bg-gray-700 text-white border border-gray-600">
-                <SelectItem value="regular">Usuario Regular</SelectItem>
-                <SelectItem value="lawyer">Abogado</SelectItem>
+                <SelectItem value="regular">{t.regularUser}</SelectItem>
+                <SelectItem value="lawyer">{t.lawyer}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -265,14 +292,14 @@ const Register = memo(() => {
               className={styles.button}
               disabled={!canSubmit}
             >
-              Registrar
+              {t.register}
             </Button>
           )}
         </form>
         
         <p className="mt-6 text-center text-sm text-gray-400">
-          ¿Ya tienes cuenta?{' '}
-          <a href="/login" className="text-blue-400 hover:underline font-medium">Inicia sesión</a>
+          {t.haveAccount}{' '}
+          <Link to="/login" className="text-blue-400 hover:underline font-medium">{t.signInNow}</Link>
         </p>
       </div>
     </div>

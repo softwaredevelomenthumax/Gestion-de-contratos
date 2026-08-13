@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
+import { useLanguage } from "../context/LanguageContext";
 import api from "../api/axiosInstance";
 import Button from "./Button";
 import DropFile from "./DropFile";
-import { IconUpload } from "@tabler/icons-react";
+import { IconUpload, IconInfoCircle } from "@tabler/icons-react";
 import { DatePicker } from "./ui/date-picker";
 import { Textarea } from "./ui/textarea";
 import { Input } from "./ui/input";
@@ -23,17 +24,46 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge"
 const tipoContratoOptions = [
-  { value: "prestacion_de_servicios", label: "Prestación de servicios" },
-  { value: "Compra de equipos", label: "Compra de equipos" },
-  { value: "Obra_civil", label: "Obra civil" },
-  { value: "Contrato suministro", label: "Contrato suministro" },
-  { value: "Acuerdo_comercial", label: "Acuerdo comercial" },
+  {
+    value: "prestacion_de_servicios",
+    labelEn: "Service provision",
+    labelEs: "Prestación de servicios",
+  },
+  {
+    value: "Compra de equipos",
+    labelEn: "Equipment purchase",
+    labelEs: "Compra de equipos",
+  },
+  {
+    value: "Obra_civil",
+    labelEn: "Civil works",
+    labelEs: "Obra civil",
+  },
+  {
+    value: "Contrato suministro",
+    labelEn: "Supply contract",
+    labelEs: "Contrato suministro",
+  },
+  {
+    value: "Acuerdo_comercial",
+    labelEn: "Commercial agreement",
+    labelEs: "Acuerdo comercial",
+  },
   {
     value: "Acuerdo_de_confidencialidad",
-    label: "Acuerdo de confidencialidad",
+    labelEn: "Confidentiality agreement",
+    labelEs: "Acuerdo de confidencialidad",
   },
-  { value: "conseccion_de_espacios", label: "Concesión de espacios" },
-  { value: "contrato_maquila", label: "Contrato de maquila" },
+  {
+    value: "conseccion_de_espacios",
+    labelEn: "Space concession",
+    labelEs: "Concesión de espacios",
+  },
+  {
+    value: "contrato_maquila",
+    labelEn: "Manufacturing contract",
+    labelEs: "Contrato de maquila",
+  },
 ];
 
 const monedaOptions = [
@@ -73,6 +103,8 @@ const getBadgeClasses = (type) => {
 };
 
 const ContractForm = () => {
+  const { language } = useLanguage();
+  const tr = (en, es) => (language === "en" ? en : es);
   const tipoSolicitud = "contrato";
   const [tipoContrato, setTipoContrato] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -80,8 +112,9 @@ const ContractForm = () => {
   const [area, setArea] = useState("");
   const [gerenteArea, setGerenteArea] = useState("");
   const [proveedor, setProveedor] = useState("");
+  // Supplier tax ID (NIT) - single field
   const [nitProveedor, setNitProveedor] = useState("");
-  const [esNacional, setEsNacional] = useState(true);
+  const [esExtranjero, setEsExtranjero] = useState(false);
   const [formaPago, setFormaPago] = useState("");
   const [valorSinIVA, setValorSinIVA] = useState(0);
   const [valorIndeterminado, setValorIndeterminado] = useState(false);
@@ -104,8 +137,12 @@ const ContractForm = () => {
   const [dateError, setDateError] = useState("");
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [showDescriptionAlert, setShowDescriptionAlert] = useState(false);
+  const [showNitAlert, setShowNitAlert] = useState(false);
+  const [showDocumentInfo, setShowDocumentInfo] = useState(false);
   const [showFormaPagoAlert, setShowFormaPagoAlert] = useState(false);
   const descriptionRef = useRef(null);
+  const nitRef = useRef(null);
+  // const documentRef = useRef(null);
   const formaPagoRef = useRef(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStage, setUploadStage] = useState("");
@@ -175,105 +212,79 @@ const ContractForm = () => {
     };
   }, [showFormaPagoAlert]);
 
-  useEffect(() => {
-    if (fechaInicio && fechaFinal) {
-      const [startYear, startMonth, startDay] = fechaInicio
-        .split("-")
-        .map(Number);
-      const [endYear, endMonth, endDay] = fechaFinal.split("-").map(Number);
-
-      const start = new Date(startYear, startMonth - 1, startDay);
-      const end = new Date(endYear, endMonth - 1, endDay);
-
-      const diff = end.getTime() - start.getTime();
-      const days = Math.round(diff / (1000 * 60 * 60 * 24)); // Changed from Math.ceil to Math.round
-      setDuracion(days >= 0 ? days : 0);
-
-      // Update date error message
-      if (end <= start) {
-        setDateError("La fecha final debe ser mayor que la fecha de inicio");
-      } else {
-        setDateError("");
-      }
-    }
-  }, [fechaInicio, fechaFinal]);
-
-  // Add NIT validation function
-  const isValidNIT = (nit) => {
-    // Must be exactly 9 alphanumeric characters
-    return /^[a-zA-Z0-9]{9}$/.test(nit);
-  };
-
   const getValidationErrors = () => {
     const errors = [];
 
     if (!tipoContrato) {
-      errors.push("Tipo de Contrato");
+      errors.push(tr("Contract Type", "Tipo de Contrato"));
     }
 
     if (!descripcion || descripcion.trim() === "") {
-      errors.push("Descripción");
+      errors.push(tr("Description", "Descripción"));
     }
 
     if (!nombreSolicitante || nombreSolicitante.trim() === "") {
-      errors.push("Solicitante");
+      errors.push(tr("Requester", "Solicitante"));
     }
 
     if (!area || area.trim() === "") {
-      errors.push("Área");
+      errors.push(tr("Area", "Área"));
     }
 
     if (!gerenteArea || gerenteArea.trim() === "") {
-      errors.push("Gerente del Área");
+      errors.push(tr("Area Manager", "Gerente del Área"));
     }
 
     if (!proveedor || proveedor.trim() === "") {
-      errors.push("Proveedor / Cliente");
+      errors.push(tr("Supplier / Client", "Proveedor / Cliente"));
     }
 
-    if (esNacional) {
-      if (!nitProveedor || nitProveedor.trim() === "") {
-        errors.push("NIT / Identificación del Proveedor / Cliente");
-      } else if (!isValidNIT(nitProveedor)) {
-        errors.push(
-          "NIT / Identificación del Proveedor / Cliente (debe tener exactamente 9 caracteres alfanuméricos)"
-        );
-      }
+    // Validate NIT (if not foreign)
+    if (!esExtranjero && (!nitProveedor || String(nitProveedor).trim() === "")) {
+      errors.push(tr("Tax ID (NIT)", "Registro Tributario (NIT)"));
     }
 
     if (!formaPago || formaPago.trim() === "") {
-      errors.push("Forma de Pago");
+      errors.push(tr("Payment Terms", "Forma de Pago"));
     }
 
     if (!valorIndeterminado && (!valorSinIVA || valorSinIVA <= 0)) {
-      errors.push("Valor Total del Contrato");
+      errors.push(tr("Total Contract Value", "Valor Total del Contrato"));
     }
 
     if (!moneda) {
-      errors.push("Moneda");
+      errors.push(tr("Currency", "Moneda"));
     }
 
     if (!fechaInicio) {
-      errors.push("Fecha de Inicio");
+      errors.push(tr("Start Date", "Fecha de Inicio"));
     }
 
     if (!fechaFinal) {
-      errors.push("Fecha Final");
+      errors.push(tr("End Date", "Fecha Final"));
     }
 
     if (!areDatesValid()) {
       errors.push(
-        "Fechas (la fecha final debe ser mayor que la fecha de inicio)"
+        tr(
+          "Dates (the end date must be later than the start date)",
+          "Fechas (la fecha final debe ser mayor que la fecha de inicio)"
+        )
       );
     }
 
     if (duracion <= 0) {
-      errors.push("Duración (debe ser mayor a 0 días)");
+      errors.push(
+        tr(
+          "Duration (must be greater than 0 days)",
+          "Duración (debe ser mayor a 0 días)"
+        )
+      );
     }
 
     // File validation - only oferta is required
     if (ofertaFiles.length === 0) {
-      errors.push("Archivo de Oferta");
+      errors.push(tr("Offer File", "Archivo de Oferta"));
     }
 
     return errors;
@@ -306,10 +317,18 @@ const ContractForm = () => {
     if (validationErrors.length > 0) {
       const errorMessage =
         validationErrors.length === 1
-          ? `Falta completar el siguiente campo: ${validationErrors[0]}`
-          : `Faltan completar los siguientes campos:\n• ${validationErrors.join(
-              "\n• "
-            )}`;
+          ? tr(
+              `Please complete the following field: ${validationErrors[0]}`,
+              `Falta completar el siguiente campo: ${validationErrors[0]}`
+            )
+          : tr(
+              `Please complete the following fields:\n• ${validationErrors.join(
+                "\n• "
+              )}`,
+              `Faltan completar los siguientes campos:\n• ${validationErrors.join(
+                "\n• "
+              )}`
+            );
 
       setError(errorMessage);
 
@@ -351,8 +370,9 @@ const ContractForm = () => {
       formData.append("area", area);
       formData.append("gerenteArea", gerenteArea || "");
       formData.append("proveedor", proveedor);
+      // Supplier tax ID (legacy single-field)
       formData.append("nitProveedor", nitProveedor || "");
-      formData.append("esNacional", esNacional ? "true" : "false");
+      formData.append("esExtranjero", esExtranjero ? "true" : "false");
       formData.append("formaPago", formaPago);
       formData.append("valorSinIVA", valorIndeterminado ? 0 : valorSinIVA);
       formData.append("porcentajeIVA", porcentajeIVA);
@@ -394,7 +414,12 @@ const ContractForm = () => {
 
       // Calculate total files for progress tracking
       const totalFiles = contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length;
-      setUploadStage(`Subiendo ${totalFiles} archivo${totalFiles !== 1 ? 's' : ''}...`);
+      setUploadStage(
+        tr(
+          `Uploading ${totalFiles} file${totalFiles !== 1 ? "s" : ""}...`,
+          `Subiendo ${totalFiles} archivo${totalFiles !== 1 ? "s" : ""}...`
+        )
+      );
 
       // Reset progress tracking refs
       uploadProgressRef.current = 0;
@@ -433,7 +458,12 @@ const ContractForm = () => {
             lastUpdateTimeRef.current = now;
             
             setUploadProgress(newPercent);
-            setUploadStage(`Subiendo archivos... ${newPercent}%`);
+            setUploadStage(
+              tr(
+                `Uploading files... ${newPercent}%`,
+                `Subiendo archivos... ${newPercent}%`
+              )
+            );
           }
         },
       });
@@ -442,7 +472,7 @@ const ContractForm = () => {
       if (uploadProgressRef.current < 90) {
         for (let i = uploadProgressRef.current; i <= 90; i += 5) {
           setUploadProgress(i);
-          setUploadStage(`Subiendo archivos... ${i}%`);
+          setUploadStage(tr(`Uploading files... ${i}%`, `Subiendo archivos... ${i}%`));
           await new Promise(resolve => setTimeout(resolve, 50));
         }
       }
@@ -450,13 +480,20 @@ const ContractForm = () => {
       // Upload completed, now processing on server
       await new Promise(resolve => setTimeout(resolve, 200));
       setUploadProgress(95);
-      setUploadStage("Procesando contrato en el servidor...");
+      setUploadStage(
+        tr(
+          "Processing contract on the server...",
+          "Procesando contrato en el servidor..."
+        )
+      );
       
       // Small delay to show processing state
       await new Promise(resolve => setTimeout(resolve, 400));
       
       // All done!
-      setUploadStage("¡Contrato creado exitosamente!");
+      setUploadStage(
+        tr("Contract created successfully!", "¡Contrato creado exitosamente!")
+      );
       setUploadProgress(100);
       
       // Small delay to show completion before hiding
@@ -466,14 +503,24 @@ const ContractForm = () => {
         setUploadStage("");
       }, 800);
       
-      addNotification("Contrato enviado correctamente", "success");
+      addNotification(
+        tr("Contract submitted successfully", "Contrato enviado correctamente"),
+        "success"
+      );
     } catch (error) {
       console.error("❌ Contract creation failed:", error);
       console.error("❌ Error status:", error.response?.status);
       console.error("❌ Error message:", error.response?.data?.error || error.message);
 
       const serverMessage = error.response?.data?.error;
-      setError(serverMessage || error.message || "Ocurrió un error al crear el contrato");
+      setError(
+        serverMessage ||
+          error.message ||
+          tr(
+            "An error occurred while creating the contract",
+            "Ocurrió un error al crear el contrato"
+          )
+      );
       
       // Reset progress on error
       setUploadProgress(0);
@@ -493,16 +540,19 @@ const ContractForm = () => {
           role="status"
         >
           <h2 className="text-2xl font-bold mb-2">
-            ¡Contrato enviado correctamente!
+            {tr("Contract submitted successfully!", "¡Contrato enviado correctamente!")}
           </h2>
           <p className="mb-4">
-            Tu contrato ha sido registrado y está en proceso.
+            {tr(
+              "Your contract has been registered and is in progress.",
+              "Tu contrato ha sido registrado y está en proceso."
+            )}
           </p>
           <button
             className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 transition-colors duration-200"
             onClick={() => navigate("/my_contracts")}
           >
-            Ir a "Mis contratos"
+            {tr('Go to "My contracts"', 'Ir a "Mis contratos"')}
           </button>
         </div>
       </div>
@@ -513,10 +563,13 @@ const ContractForm = () => {
     <div className="max-w-2xl mx-auto py-12 px-4">
       <div className="contract-form-header mb-8 text-center">
         <h1 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
-          Crear un nuevo contrato
+          {tr("Create a new contract", "Crear un nuevo contrato")}
         </h1>
         <p className="text-muted-foreground text-lg">
-          Completa los siguientes datos para crear un nuevo contrato.
+          {tr(
+            "Complete the following details to create a new contract.",
+            "Completa los siguientes datos para crear un nuevo contrato."
+          )}
         </p>
       </div>
 
@@ -524,43 +577,53 @@ const ContractForm = () => {
         <form
           onSubmit={handleSubmit}
           className="space-y-8"
-          aria-label="Formulario de contrato"
+          aria-label={tr("Contract form", "Formulario de contrato")}
         >
           {error && (
             <Alert className="animate-fade-in" variant="destructive">
-              <AlertTitle className="font-semibold mb-2">❌ Error de validación:</AlertTitle>
+              <AlertTitle className="font-semibold mb-2">
+                ❌ {tr("Validation error:", "Error de validación:")}
+              </AlertTitle>
               <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
             </Alert>
           )}
           {!hasAttemptedSubmit && (
+            <>
             <div
               className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 text-sm text-blue-700 dark:text-blue-300"
               role="alert"
             >
-              <div className="font-semibold mb-2">ℹ️ Información:</div>
+              <div className="flex items-center gap-2 font-semibold mb-2">
+                <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-100 text-blue-700 text-xl">ℹ️</span>
+                <span>{tr("Information:", "Información:")}</span>
+              </div>
               <div>
-                Completa todos los campos para crear el contrato. Los campos con
-                errores se mostrarán en rojo.
+                {tr(
+                  "Complete all fields to create the contract. Fields with errors will be shown in red.",
+                  "Completa todos los campos para crear el contrato. Los campos con errores se mostrarán en rojo."
+                )}
               </div>
             </div>
+            {/* removed the top 'What to put here?' helper per request */}
+            </>
           )}
           <div className="grid gap-6 md:grid-cols-2">
             <div className="relative">
               <Label htmlFor="tipoSolicitud" className="mb-1 text-foreground">
-                Tipo de Solicitud
+                {tr("Request Type", "Tipo de Solicitud")}
               </Label>
               <Input
                 className="bg-muted text-foreground border-input"
                 id="tipoSolicitud"
                 type="text"
-                value="Contrato"
+                value={tr("Contract", "Contrato")}
                 readOnly
-                placeholder="Contrato"
+                placeholder={tr("Contract", "Contrato")}
               />
             </div>
             <div className="relative">
               <Label htmlFor="tipoContrato" className="mb-1 text-foreground">
-                Tipo de Contrato
+                {tr("Contract Type", "Tipo de Contrato")}
               </Label>
               <Select
                 value={tipoContrato}
@@ -571,33 +634,33 @@ const ContractForm = () => {
               >
                 <SelectTrigger
                   className={`w-full ${
-                    hasFieldError("Tipo de Contrato")
+                    hasFieldError(tr("Contract Type", "Tipo de Contrato"))
                       ? "border-red-500 focus:ring-red-500"
                       : ""
                   }`}
                 >
-                  <SelectValue placeholder="Tipo de Contrato" />
+                  <SelectValue placeholder={tr("Contract Type", "Tipo de Contrato")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Tipo de Contrato</SelectLabel>
+                    <SelectLabel>{tr("Contract Type", "Tipo de Contrato")}</SelectLabel>
                     {tipoContratoOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        {language === "en" ? option.labelEn : option.labelEs}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              {hasFieldError("Tipo de Contrato") && (
+              {hasFieldError(tr("Contract Type", "Tipo de Contrato")) && (
                 <p className="text-red-500 text-xs mt-1">
-                  ⚠️ Este campo es obligatorio
+                  ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                 </p>
               )}
             </div>
             <div className="space-y-2 md:col-span-2" ref={descriptionRef}>
               <Label htmlFor="descripcion" className="text-foreground">
-                Descripción
+                {tr("Description", "Descripción")}
               </Label>
               <div
                 className="relative cursor-pointer"
@@ -605,7 +668,7 @@ const ContractForm = () => {
               >
                 <Textarea
                   className={`bg-background text-foreground border-input ${
-                    hasFieldError("Descripción")
+                    hasFieldError(tr("Description", "Descripción"))
                       ? "border-red-500 focus:ring-red-500"
                       : ""
                   }`}
@@ -615,65 +678,84 @@ const ContractForm = () => {
                     setDescripcion(e.target.value);
                     clearErrorsOnInput();
                   }}
-                  placeholder="Descripción del contrato"
+                  placeholder={tr("Contract description", "Descripción del contrato")}
                   rows={4}
                 />
                 <div className="absolute inset-0 pointer-events-none" />
               </div>
-              {hasFieldError("Descripción") && (
+              {hasFieldError(tr("Description", "Descripción")) && (
                 <p className="text-red-500 text-xs mt-1">
-                  ⚠️ Este campo es obligatorio
+                  ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                 </p>
               )}
               {showDescriptionAlert && (
-                <Alert className="mt-4">
-                  <AlertTitle className="font-bold text-lg mb-3">
-                    Descripción del objeto del contrato
-                  </AlertTitle>
-                  <AlertDescription className="space-y-3">
-                    <p>
-                      En este campo debe indicar, de manera clara y detallada,
-                      cuál es la finalidad del contrato. Procure incluir:
-                    </p>
-                    <div className="space-y-2">
-                      <p>
-                        <span className="font-bold">
-                          Objeto o propósito principal:
-                        </span>{" "}
-                        explique qué servicio, bien o actividad se va a realizar
-                        o entregar.
-                      </p>
-                      <p>
-                        <span className="font-bold">Alcance:</span> especifique
-                        qué incluye y qué no incluye el contrato, para evitar
-                        dudas o interpretaciones posteriores.
-                      </p>
-                      <p>
-                        <span className="font-bold">Entregables y plazos:</span>{" "}
-                        describa los productos, servicios o resultados
-                        esperados, señalando fechas de entrega o hitos
-                        relevantes.
-                      </p>
-                      <p>
-                        <span className="font-bold">
-                          Otros aspectos relevantes:
-                        </span>{" "}
-                        toda información adicional que ayude a precisar cómo
-                        debe ejecutarse la obligación (condiciones,
-                        limitaciones, requisitos, etc.).
-                      </p>
+                <div className="mt-4">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setShowDescriptionAlert(false)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowDescriptionAlert(false); }}
+                    className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 text-sm text-blue-700 dark:text-blue-300 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 font-semibold mb-2">
+                      <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-100 text-blue-700 text-xl">ℹ️</span>
+                      <span className="text-sm font-semibold text-blue-700">{tr("Information:", "Información:")}</span>
                     </div>
-                  </AlertDescription>
-                </Alert>
+                    <div className="font-bold text-lg mb-3">
+                      {tr(
+                        "Contract purpose description",
+                        "Descripción del objeto del contrato"
+                      )}
+                    </div>
+                    <div className="space-y-3 text-foreground">
+                      <p>
+                        {tr(
+                          "In this field, clearly and in detail explain the purpose of the contract. Include:",
+                          "En este campo debe indicar, de manera clara y detallada, cuál es la finalidad del contrato. Procure incluir:"
+                        )}
+                      </p>
+                      <div className="space-y-2">
+                        <p>
+                          <span className="font-bold">{tr("Main purpose:", "Objeto o propósito principal:")}</span>{" "}
+                          {tr(
+                            "Explain which service, product, or activity will be delivered.",
+                            "Explique qué servicio, bien o actividad se va a realizar o entregar."
+                          )}
+                        </p>
+                        <p>
+                          <span className="font-bold">{tr("Scope:", "Alcance:")}</span>{" "}
+                          {tr(
+                            "Specify what is included and excluded to avoid misunderstandings.",
+                            "Especifique qué incluye y qué no incluye el contrato, para evitar dudas o interpretaciones posteriores."
+                          )}
+                        </p>
+                        <p>
+                          <span className="font-bold">{tr("Deliverables and deadlines:", "Entregables y plazos:")}</span>{" "}
+                          {tr(
+                            "Describe expected results with delivery dates and key milestones.",
+                            "Describa los productos, servicios o resultados esperados, señalando fechas de entrega o hitos relevantes."
+                          )}
+                        </p>
+                        <p>
+                          <span className="font-bold">{tr("Other relevant details:", "Otros aspectos relevantes:")}</span>{" "}
+                          {tr(
+                            "Add any extra information to clarify execution conditions, limits, and requirements.",
+                            "Toda información adicional que ayude a precisar cómo debe ejecutarse la obligación (condiciones, limitaciones, requisitos, etc.)."
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="nombreSolicitante" className="text-foreground">
-                Solicitante
+                {tr("Requester", "Solicitante")}
               </Label>
               <Input
                 className={`bg-background text-foreground border-input ${
-                  hasFieldError("Solicitante")
+                  hasFieldError(tr("Requester", "Solicitante"))
                     ? "border-red-500 focus:ring-red-500"
                     : ""
                 }`}
@@ -684,18 +766,21 @@ const ContractForm = () => {
                   setNombreSolicitante(e.target.value);
                   clearErrorsOnInput();
                 }}
-                placeholder="Nombre del solicitante"
+                placeholder={tr("Requester name", "Nombre del solicitante")}
               />
-              {hasFieldError("Solicitante") && (
+              {hasFieldError(tr("Requester", "Solicitante")) && (
                 <p className="text-red-500 text-xs mt-1">
-                  ⚠️ Este campo es obligatorio
+                  ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                 </p>
               )}
             </div>
             <div className="space-y-2 md:col-span-2">
               <div className="rounded-md border border-border/60 bg-background/70 px-3 py-3">
                 <Label className="text-foreground cursor-pointer">
-                  ¿Es proveedor / cliente extranjero?
+                  {tr(
+                    "Is the supplier or client foreign?",
+                    "¿El proveedor o cliente es extranjero?"
+                  )}
                 </Label>
                 <div className="mt-2 flex flex-wrap items-center gap-4">
                   <label className="flex items-center gap-2 text-sm text-foreground">
@@ -703,35 +788,35 @@ const ContractForm = () => {
                       id="esExtranjeroSi"
                       type="radio"
                       name="esExtranjero"
-                      checked={!esNacional}
+                      checked={esExtranjero}
                       onChange={() => {
-                        setEsNacional(false);
-                        setNitProveedor("");
+                        setEsExtranjero(true);
                         clearErrorsOnInput();
                       }}
                       className="h-4 w-4 border-border text-primary focus:ring-primary"
                     />
-                    <span>Sí</span>
+                    <span>{tr("Yes", "Sí")}</span>
                   </label>
                   <label className="flex items-center gap-2 text-sm text-foreground">
                     <input
                       id="esExtranjeroNo"
                       type="radio"
                       name="esExtranjero"
-                      checked={esNacional}
+                      checked={!esExtranjero}
                       onChange={() => {
-                        setEsNacional(true);
+                        setEsExtranjero(false);
                         clearErrorsOnInput();
                       }}
                       className="h-4 w-4 border-border text-primary focus:ring-primary"
                     />
-                    <span>No</span>
+                    <span>{tr("No", "No")}</span>
                   </label>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {esNacional
-                    ? "Si no es extranjero, el NIT será obligatorio."
-                    : "Si es extranjero, el NIT quedará deshabilitado."}
+                  {tr(
+                    "This selection is saved and shown in contract details.",
+                    "Esta selección se guarda y se muestra en los detalles del contrato."
+                  )}
                 </p>
               </div>
             </div>
@@ -740,11 +825,11 @@ const ContractForm = () => {
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="area" className="text-foreground">
-                Área
+                {tr("Area", "Área")}
               </Label>
               <Input
                 className={`bg-background text-foreground border-input ${
-                  hasFieldError("Área")
+                  hasFieldError(tr("Area", "Área"))
                     ? "border-red-500 focus:ring-red-500"
                     : ""
                 }`}
@@ -755,24 +840,24 @@ const ContractForm = () => {
                   setArea(e.target.value);
                   clearErrorsOnInput();
                 }}
-                placeholder="Área del solicitante"
+                placeholder={tr("Requester area", "Área del solicitante")}
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
               />
-              {hasFieldError("Área") && (
+              {hasFieldError(tr("Area", "Área")) && (
                 <p className="text-red-500 text-xs mt-1">
-                  ⚠️ Este campo es obligatorio
+                  ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                 </p>
               )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="gerenteArea" className="text-foreground">
-                Gerente del Área
+                {tr("Area Manager", "Gerente del Área")}
               </Label>
               <Input
                 className={`bg-background text-foreground border-input ${
-                  hasFieldError("Gerente del Área")
+                  hasFieldError(tr("Area Manager", "Gerente del Área"))
                     ? "border-red-500 focus:ring-red-500"
                     : ""
                 }`}
@@ -783,24 +868,24 @@ const ContractForm = () => {
                   setGerenteArea(e.target.value);
                   clearErrorsOnInput();
                 }}
-                placeholder="Nombre del gerente"
+                placeholder={tr("Manager name", "Nombre del gerente")}
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
               />
-              {hasFieldError("Gerente del Área") && (
+              {hasFieldError(tr("Area Manager", "Gerente del Área")) && (
                 <p className="text-red-500 text-xs mt-1">
-                  ⚠️ Este campo es obligatorio
+                  ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                 </p>
               )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="proveedor" className="text-foreground">
-                Proveedor / Cliente
+                {tr("Supplier / Client", "Proveedor / Cliente")}
               </Label>
               <Input
                 className={`bg-background text-foreground border-input ${
-                  hasFieldError("Proveedor / Cliente")
+                  hasFieldError(tr("Supplier / Client", "Proveedor / Cliente"))
                     ? "border-red-500 focus:ring-red-500"
                     : ""
                 }`}
@@ -811,72 +896,76 @@ const ContractForm = () => {
                   setProveedor(e.target.value);
                   clearErrorsOnInput();
                 }}
-                placeholder="Nombre del proveedor o cliente"
+                placeholder={tr("Supplier or client name", "Nombre del proveedor o cliente")}
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
               />
-              {hasFieldError("Proveedor / Cliente") && (
+              {hasFieldError(tr("Supplier / Client", "Proveedor / Cliente")) && (
                 <p className="text-red-500 text-xs mt-1">
-                  ⚠️ Este campo es obligatorio
+                  ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                 </p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="nitProveedor" className="text-foreground">
-                NIT / Identificación del Proveedor / Cliente
-              </Label>
-              <Input
-                className={`bg-background text-foreground border-input ${
-                  hasFieldError("NIT / Identificación del Proveedor / Cliente")
-                    ? "border-red-500 focus:ring-red-500"
-                    : ""
-                }`}
-                id="nitProveedor"
-                type="text"
-                value={nitProveedor}
-                onChange={(e) => {
-                  const valor = e.target.value
-                    .replace(/[^a-zA-Z0-9]/g, "")
-                    .slice(0, 9);
-                  setNitProveedor(valor);
-                }}
-                placeholder="NIT o identificación (9 caracteres alfanuméricos)"
-                maxLength={9}
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
-                disabled={!esNacional}
-              />
-              <div className="text-xs text-muted-foreground">
-                Debe tener exactamente 9 caracteres alfanuméricos (sin dígito de
-                verificación)
+            <div className="grid gap-4 md:grid-cols-1">
+              <div className="space-y-2">
+                <Label htmlFor="nitProveedor" className="text-foreground">
+                  {tr("Identity Document", "Documento de identidad")}
+                </Label>
+                <div className="relative">
+                  <Input
+                    className={`bg-background text-foreground border-input ${
+                      hasFieldError(tr("Tax ID (NIT)", "Registro Tributario (NIT)")) ? "border-red-500 focus:ring-red-500" : ""
+                    }`}
+                    id="nitProveedor"
+                    type="text"
+                    value={nitProveedor}
+                    onChange={(e) => {
+                      setNitProveedor(e.target.value);
+                      clearErrorsOnInput();
+                    }}
+                    onClick={() => setShowDocumentInfo((s) => !s)}
+                    placeholder={tr("Enter supplier identity document", "Ingrese documento proveedor/cliente")}
+                    maxLength={60}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  <div className="absolute inset-0 pointer-events-none" />
+                </div>
+                {showDocumentInfo && (
+                  <div className="mt-4">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setShowDocumentInfo(false)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowDocumentInfo(false); }}
+                        className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 text-sm text-blue-700 dark:text-blue-300 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 font-semibold mb-2">
+                        <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-100 text-blue-700 text-xl">ℹ️</span>
+                        <span className="text-sm font-semibold text-blue-700">{tr("Information:", "Información:")}</span>
+                      </div>
+                      <div className="text-sm text-foreground">
+                        {tr(
+                          "You may register any official identity document or valid fiscal registration for the client or supplier.",
+                          "Puede registrar cualquier documento de identificación oficial o registro fiscal válido para el cliente o proveedor."
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              {nitProveedor && nitProveedor.length !== 9 && (
-                <p className="text-red-500 text-xs mt-1">
-                  El NIT debe tener exactamente 9 caracteres ({nitProveedor.length}/9)
-                </p>
-              )}
-              {nitProveedor && !/^[a-zA-Z0-9]*$/.test(nitProveedor) && (
-                <p className="text-red-500 text-xs mt-1">
-                  Solo se permiten letras y números
-                </p>
-              )}
-              {hasFieldError("NIT / Identificación del Proveedor / Cliente") && (
-                <p className="text-red-500 text-xs mt-1">
-                  ⚠️ Este campo es obligatorio
-                </p>
-              )}
             </div>
           </div>
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
-              Información Financiera
+              {tr("Financial Information", "Información Financiera")}
             </h3>
             <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="tipoValor" className="text-foreground">
-                  Tipo de valor
+                  {tr("Value type", "Tipo de valor")}
                 </Label>
                 <Select
                   value={valorIndeterminado ? "indeterminado" : "determinado"}
@@ -890,35 +979,41 @@ const ContractForm = () => {
                   }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccione" />
+                    <SelectValue placeholder={tr("Select", "Seleccione")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>Tipo de valor</SelectLabel>
-                      <SelectItem value="determinado">Determinado</SelectItem>
-                      <SelectItem value="indeterminado">Indeterminado</SelectItem>
+                      <SelectLabel>{tr("Value type", "Tipo de valor")}</SelectLabel>
+                      <SelectItem value="determinado">{tr("Determined", "Determinado")}</SelectItem>
+                      <SelectItem value="indeterminado">{tr("Undetermined", "Indeterminado")}</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   {valorIndeterminado
-                    ? "El contrato se registrará con valor indeterminado."
-                    : "Seleccione si el valor es determinado o indeterminado."}
+                    ? tr(
+                        "The contract will be registered with an undetermined value.",
+                        "El contrato se registrará con valor indeterminado."
+                      )
+                    : tr(
+                        "Select whether the value is determined or undetermined.",
+                        "Seleccione si el valor es determinado o indeterminado."
+                      )}
                 </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="valorSinIVA" className="text-foreground">
-                  Valor total del contrato
+                  {tr("Total contract value", "Valor total del contrato")}
                 </Label>
                 <Input
                   className={`bg-background text-foreground border-input ${
-                    hasFieldError("Valor Total del Contrato")
+                    hasFieldError(tr("Total Contract Value", "Valor Total del Contrato"))
                       ? "border-red-500 focus:ring-red-500"
                       : ""
                   }`}
                   id="valorSinIVA"
                   type="text"
-                  value={valorIndeterminado ? "Indeterminado" : valorSinIVA}
+                  value={valorIndeterminado ? tr("Undetermined", "Indeterminado") : valorSinIVA}
                   onChange={(e) => {
                     if (valorIndeterminado) return;
                     const valor = e.target.value.replace(/[^0-9.]/g, "");
@@ -930,12 +1025,15 @@ const ContractForm = () => {
                     setValorSinIVA(Number(valorLimpio) || 0);
                     clearErrorsOnInput();
                   }}
-                  placeholder="Ingrese el valor total del contrato"
+                  placeholder={tr("Enter the total contract value", "Ingrese el valor total del contrato")}
                   disabled={valorIndeterminado}
                 />
-                {hasFieldError("Valor Total del Contrato") && (
+                {hasFieldError(tr("Total Contract Value", "Valor Total del Contrato")) && (
                   <p className="text-red-500 text-xs mt-1">
-                    ⚠️ Este campo es obligatorio y debe ser mayor a 0
+                    ⚠️ {tr(
+                      "This field is required and must be greater than 0",
+                      "Este campo es obligatorio y debe ser mayor a 0"
+                    )}
                   </p>
                 )}
               </div>
@@ -944,7 +1042,7 @@ const ContractForm = () => {
             <div className="grid gap-6 md:grid-cols-3 md:pt-2">
               <div className="space-y-2">
                 <Label htmlFor="moneda" className="text-foreground">
-                  Moneda
+                  {tr("Currency", "Moneda")}
                 </Label>
                 <Select
                   value={moneda}
@@ -955,16 +1053,16 @@ const ContractForm = () => {
                 >
                   <SelectTrigger
                     className={`w-full ${
-                      hasFieldError("Moneda")
+                      hasFieldError(tr("Currency", "Moneda"))
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                   >
-                    <SelectValue placeholder="Moneda" />
+                    <SelectValue placeholder={tr("Currency", "Moneda")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>Moneda</SelectLabel>
+                      <SelectLabel>{tr("Currency", "Moneda")}</SelectLabel>
                       {monedaOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
@@ -973,26 +1071,26 @@ const ContractForm = () => {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                {hasFieldError("Moneda") && (
+                {hasFieldError(tr("Currency", "Moneda")) && (
                   <p className="text-red-500 text-xs mt-1">
-                    ⚠️ Este campo es obligatorio
+                    ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                   </p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="porcentajeIVA" className="text-foreground">
-                  Porcentaje de IVA
+                  {tr("VAT Percentage", "Porcentaje de IVA")}
                 </Label>
                 <Select
                   value={porcentajeIVA.toString()}
                   onValueChange={(value) => setPorcentajeIVA(Number(value))}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona el porcentaje de IVA" />
+                    <SelectValue placeholder={tr("Select VAT percentage", "Selecciona el porcentaje de IVA")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>Porcentaje de IVA</SelectLabel>
+                      <SelectLabel>{tr("VAT Percentage", "Porcentaje de IVA")}</SelectLabel>
                       {ivaOptions.map((option) => (
                         <SelectItem
                           key={option.value}
@@ -1007,23 +1105,23 @@ const ContractForm = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="valorIVA" className="text-foreground">
-                  Valor del IVA (Calculado)
+                  {tr("VAT Value (Calculated)", "Valor del IVA (Calculado)")}
                 </Label>
                 <Input
                   className="bg-muted text-foreground border-input"
                   id="valorIVA"
                   type="text"
-                  value={valorIVA.toLocaleString("es-CO", {
+                  value={valorIVA.toLocaleString(language === "en" ? "en-US" : "es-CO", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
                   readOnly
-                  placeholder="Valor del IVA"
+                  placeholder={tr("VAT value", "Valor del IVA")}
                 />
               </div>
               <div className="space-y-2 md:col-span-2" ref={formaPagoRef}>
                 <Label htmlFor="formaPago" className="text-foreground">
-                  Forma de Pago
+                  {tr("Payment Terms", "Forma de Pago")}
                 </Label>
                 <div
                   className="relative cursor-pointer"
@@ -1031,7 +1129,7 @@ const ContractForm = () => {
                 >
                   <Textarea
                     className={`bg-background text-foreground border-input ${
-                      hasFieldError("Forma de Pago")
+                      hasFieldError(tr("Payment Terms", "Forma de Pago"))
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
@@ -1041,52 +1139,75 @@ const ContractForm = () => {
                       setFormaPago(e.target.value);
                       clearErrorsOnInput();
                     }}
-                    placeholder="Ej: 50% al inicio y 50% contra entrega final del servicio"
+                    placeholder={tr(
+                      "E.g.: 50% at start and 50% upon final delivery",
+                      "Ej: 50% al inicio y 50% contra entrega final del servicio"
+                    )}
                     rows={3}
                   />
                   <div className="absolute inset-0 pointer-events-none" />
                 </div>
-                {hasFieldError("Forma de Pago") && (
+                {hasFieldError(tr("Payment Terms", "Forma de Pago")) && (
                   <p className="text-red-500 text-xs mt-1">
-                    ⚠️ Este campo es obligatorio
+                    ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                   </p>
                 )}
                 {showFormaPagoAlert && (
-                  <Alert className="mt-4">
-                    <AlertTitle className="font-bold text-lg mb-3">
-                      Forma de Pago
-                    </AlertTitle>
-                    <AlertDescription className="space-y-3">
-                      <p>
-                        Indique cómo y cuándo se realizará el pago al contratista o proveedor. 
-                        Especifique los plazos, porcentajes y condiciones acordadas.
-                      </p>
-                      <div className="space-y-2">
-                        <p className="font-semibold">Ejemplos:</p>
-                        <ul className="list-disc list-inside space-y-1 ml-2">
-                          <li>
-                            "50% al inicio y 50% contra entrega final del servicio."
-                          </li>
-                          <li>
-                            "Pago mensual dentro de los primeros 10 días hábiles de cada mes, 
-                            previa presentación de factura."
-                          </li>
-                          <li>
-                            "Un único pago dentro de los 30 días siguientes a la entrega y 
-                            aceptación del producto."
-                          </li>
-                        </ul>
+                  <div className="mt-4">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setShowFormaPagoAlert(false)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowFormaPagoAlert(false); }}
+                      className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 text-sm text-blue-700 dark:text-blue-300 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 font-semibold mb-2">
+                        <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-100 text-blue-700 text-xl">ℹ️</span>
+                        <span className="text-sm font-semibold text-blue-700">{tr("Information:", "Información:")}</span>
                       </div>
-                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                        <p className="text-sm">
-                          <span className="font-bold">Recomendación:</span> Use términos simples 
-                          y evite expresiones generales como "según acuerdo" o "por definir". 
-                          Si aplica retención o condiciones especiales (por ejemplo, anticipo, 
-                          hitos de entrega o pagos condicionados), descríbalos brevemente.
+                      <div className="font-bold text-lg mb-3">{tr("Payment Terms", "Forma de Pago")}</div>
+                      <div className="space-y-3 text-foreground">
+                        <p>
+                          {tr(
+                            "Describe how and when payment will be made to the contractor or supplier. Include deadlines, percentages, and agreed conditions.",
+                            "Indique cómo y cuándo se realizará el pago al contratista o proveedor. Especifique los plazos, porcentajes y condiciones acordadas."
+                          )}
                         </p>
+                        <div className="space-y-2">
+                          <p className="font-semibold">{tr("Examples:", "Ejemplos:")}</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>
+                              {tr(
+                                '"50% at the beginning and 50% upon final service delivery."',
+                                '"50% al inicio y 50% contra entrega final del servicio."'
+                              )}
+                            </li>
+                            <li>
+                              {tr(
+                                '"Monthly payment within the first 10 business days of each month, after invoice submission."',
+                                '"Pago mensual dentro de los primeros 10 días hábiles de cada mes, previa presentación de factura."'
+                              )}
+                            </li>
+                            <li>
+                              {tr(
+                                '"A single payment within 30 days after delivery and acceptance of the product."',
+                                '"Un único pago dentro de los 30 días siguientes a la entrega y aceptación del producto."'
+                              )}
+                            </li>
+                          </ul>
+                        </div>
+                        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                          <p className="text-sm">
+                            <span className="font-bold">{tr("Recommendation:", "Recomendación:")}</span>{" "}
+                            {tr(
+                              'Use clear language and avoid vague terms like "as agreed" or "to be defined". If retention or special conditions apply (advance payment, milestones, conditional payments), describe them briefly.',
+                              'Use términos simples y evite expresiones generales como "según acuerdo" o "por definir". Si aplica retención o condiciones especiales (por ejemplo, anticipo, hitos de entrega o pagos condicionados), descríbalos brevemente.'
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </AlertDescription>
-                  </Alert>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -1095,16 +1216,16 @@ const ContractForm = () => {
           {/* Section 4: Date Information */}
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
-              Vigencia del contrato
+              {tr("Contract term", "Vigencia del contrato")}
             </h3>
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="fechaInicio" className="text-foreground">
-                  Fecha de Inicio del contrato
+                  {tr("Contract start date", "Fecha de Inicio del contrato")}
                 </Label>
                 <div
                   className={`${
-                    hasFieldError("Fecha de Inicio")
+                    hasFieldError(tr("Start Date", "Fecha de Inicio"))
                       ? "ring-2 ring-red-500 rounded-md"
                       : ""
                   }`}
@@ -1147,9 +1268,9 @@ const ContractForm = () => {
                     }
                   />
                 </div>
-                {hasFieldError("Fecha de Inicio") && (
+                {hasFieldError(tr("Start Date", "Fecha de Inicio")) && (
                   <p className="text-red-500 text-xs mt-1">
-                    ⚠️ Este campo es obligatorio
+                    ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                   </p>
                 )}
                 {dateError && (
@@ -1158,11 +1279,11 @@ const ContractForm = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="fechaFinal" className="text-foreground">
-                  Fecha Final
+                  {tr("End date", "Fecha Final")}
                 </Label>
                 <div
                   className={`${
-                    hasFieldError("Fecha Final")
+                    hasFieldError(tr("End Date", "Fecha Final"))
                       ? "ring-2 ring-red-500 rounded-md"
                       : ""
                   }`}
@@ -1205,9 +1326,9 @@ const ContractForm = () => {
                     }
                   />
                 </div>
-                {hasFieldError("Fecha Final") && (
+                {hasFieldError(tr("End Date", "Fecha Final")) && (
                   <p className="text-red-500 text-xs mt-1">
-                    ⚠️ Este campo es obligatorio
+                    ⚠️ {tr("This field is required", "Este campo es obligatorio")}
                   </p>
                 )}
                 {dateError && (
@@ -1216,11 +1337,11 @@ const ContractForm = () => {
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="duracion" className="text-foreground">
-                  Duración (días)
+                  {tr("Duration (days)", "Duración (días)")}
                 </Label>
                 <Input
                   className={`bg-background text-foreground border-input ${
-                    hasFieldError("Duración")
+                    hasFieldError(tr("Duration", "Duración"))
                       ? "border-red-500 focus:ring-red-500"
                       : ""
                   }`}
@@ -1229,9 +1350,12 @@ const ContractForm = () => {
                   value={duracion}
                   readOnly
                 />
-                {hasFieldError("Duración") && (
+                {hasFieldError(tr("Duration", "Duración")) && (
                   <p className="text-red-500 text-xs mt-1">
-                    ⚠️ La duración debe ser mayor a 0 días
+                    ⚠️ {tr(
+                      "Duration must be greater than 0 days",
+                      "La duración debe ser mayor a 0 días"
+                    )}
                   </p>
                 )}
               </div>
@@ -1242,7 +1366,7 @@ const ContractForm = () => {
           {tipoSolicitud === "contrato" && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">
-                Archivos del Contrato
+                {tr("Contract files", "Archivos del Contrato")}
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {/* Sección Contrato */}
@@ -1251,14 +1375,16 @@ const ContractForm = () => {
                     htmlFor="contractFiles"
                     className="text-foreground flex items-center gap-2"
                   >
-                    <IconUpload size={18} className="text-blue-500" /> Adjunta
-                    el Contrato (PDF, DOC, DOCX) <Badge className={getBadgeClasses('optional')}>Opcional</Badge>
+                    <IconUpload size={18} className="text-blue-500" /> {tr("Attach", "Adjunta")}
+                    {" "}{tr("the Contract", "el Contrato")} (PDF, DOC, DOCX) <Badge className={getBadgeClasses('optional')}>{tr("Optional", "Opcional")}</Badge>
                   </Label>
                   <DropFile onFileSelect={setContractFiles} multiple accept=".pdf,.doc,.docx"/>
                   {contractFiles.length > 0 && (
                     <div className="text-sm text-muted-foreground">
-                      {contractFiles.length} archivo(s) de contrato
-                      seleccionado(s)
+                      {tr(
+                        `${contractFiles.length} contract file(s) selected`,
+                        `${contractFiles.length} archivo(s) de contrato seleccionado(s)`
+                      )}
                     </div>
                   )}
                 </div>
@@ -1269,13 +1395,16 @@ const ContractForm = () => {
                     htmlFor="ofertaFiles"
                     className="text-foreground flex items-center gap-2"
                   >
-                    <IconUpload size={18} className="text-blue-500" /> Adjunta
-                    la Oferta (PDF, DOC, DOCX) <Badge className={getBadgeClasses('required')}>Obligatorio</Badge>
+                    <IconUpload size={18} className="text-blue-500" /> {tr("Attach", "Adjunta")}
+                    {" "}{tr("the Offer", "la Oferta")} (PDF, DOC, DOCX) <Badge className={getBadgeClasses('required')}>{tr("Required", "Obligatorio")}</Badge>
                   </Label>
                   <DropFile onFileSelect={setOfertaFiles} multiple accept=".pdf,.doc,.docx"/>
                   {ofertaFiles.length > 0 && (
                     <div className="text-sm text-muted-foreground">
-                      {ofertaFiles.length} archivo(s) de oferta seleccionado(s)
+                      {tr(
+                        `${ofertaFiles.length} offer file(s) selected`,
+                        `${ofertaFiles.length} archivo(s) de oferta seleccionado(s)`
+                      )}
                     </div>
                   )}
                 </div>
@@ -1286,13 +1415,16 @@ const ContractForm = () => {
                     htmlFor="camaraFiles"
                     className="text-foreground flex items-center gap-2"
                   >
-                    <IconUpload size={18} className="text-blue-500" /> Adjunta
-                    Cámara de Comercio / CAF (PDF, DOC, DOCX) <Badge className={getBadgeClasses('optional')}>Opcional</Badge>
+                    <IconUpload size={18} className="text-blue-500" /> {tr("Attach", "Adjunta")}
+                    {" "}{tr("Chamber of Commerce / CAF", "Cámara de Comercio / CAF")} (PDF, DOC, DOCX) <Badge className={getBadgeClasses('optional')}>{tr("Optional", "Opcional")}</Badge>
                   </Label>
                   <DropFile onFileSelect={setCamaraFiles} multiple accept=".pdf,.doc,.docx"/>
                   {camaraFiles.length > 0 && (
                     <div className="text-sm text-muted-foreground">
-                      {camaraFiles.length} archivo(s) de cámara seleccionado(s)
+                      {tr(
+                        `${camaraFiles.length} chamber file(s) selected`,
+                        `${camaraFiles.length} archivo(s) de cámara seleccionado(s)`
+                      )}
                     </div>
                   )}
                 </div>
@@ -1301,10 +1433,14 @@ const ContractForm = () => {
                     htmlFor="otrosFiles"
                     className="text-foreground flex items-center gap-2"
                   >
-                    <IconUpload size={18} className="text-blue-500" /> Otros
-                    documentos (PDF DOC DOCX, puedes adjuntar varios) <Badge className={getBadgeClasses('optional')}>Opcional</Badge>
+                    <IconUpload size={18} className="text-blue-500" /> {tr("Other", "Otros")}
+                    {tr(
+                      "documents (PDF DOC DOCX, you can attach multiple files)",
+                      "documentos (PDF DOC DOCX, puedes adjuntar varios)"
+                    )} <Badge className={getBadgeClasses('optional')}>{tr("Optional", "Opcional")}</Badge>
                   </Label>
                   <input
+                    id="otrosFiles"
                     type="file"
                     accept=".pdf,.doc,.docx"
                     multiple
@@ -1320,8 +1456,19 @@ const ContractForm = () => {
                       );
                       setOtrosFiles(files);
                     }}
-                    className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 mb-2"
+                    className="sr-only"
                   />
+                  <label
+                    htmlFor="otrosFiles"
+                    className="inline-flex cursor-pointer items-center rounded-md bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+                  >
+                    {tr("Select files", "Seleccionar archivos")}
+                  </label>
+                  <span className="ml-3 text-sm text-muted-foreground">
+                    {otrosFiles.length > 0
+                      ? tr(`${otrosFiles.length} file(s) selected`, `${otrosFiles.length} archivo(s) seleccionado(s)`)
+                      : tr("No files selected", "Ningún archivo seleccionado")}
+                  </span>
                   {/* Mostrar archivos seleccionados */}
                   {otrosFiles.length > 0 && (
                     <ul className="text-xs text-muted-foreground mt-2">
@@ -1337,7 +1484,7 @@ const ContractForm = () => {
                               )
                             }
                           >
-                            Quitar
+                            {tr("Remove", "Quitar")}
                           </button>
                         </li>
                       ))}
@@ -1355,7 +1502,7 @@ const ContractForm = () => {
               variant="outline"
               className="px-6 py-3 rounded-lg font-semibold shadow-lg transition"
             >
-              Cancelar
+              {tr("Cancel", "Cancelar")}
             </Button>
             <Button
               type="submit"
@@ -1366,13 +1513,18 @@ const ContractForm = () => {
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"
               }`}
             >
-              {loading ? "Enviando..." : "Crear Contrato"}
+              {loading
+                ? tr("Submitting...", "Enviando...")
+                : tr("Create Contract", "Crear Contrato")}
             </Button>
           </div>
         </form>
         {hasAttemptedSubmit && !isFormValid() && (
           <p className="text-red-500 text-xs mt-2 text-right">
-            ⚠️ Completa todos los campos obligatorios para continuar
+            ⚠️ {tr(
+              "Complete all required fields to continue",
+              "Completa todos los campos obligatorios para continuar"
+            )}
           </p>
         )}
       </div>
@@ -1429,10 +1581,10 @@ const ContractForm = () => {
           <div className="flex items-center justify-between mt-2">
             <p className="text-xs text-muted-foreground">
               {uploadProgress < 90 
-                ? 'Subiendo archivos...' 
+                ? tr('Uploading files...', 'Subiendo archivos...') 
                 : uploadProgress < 100 
-                  ? 'Procesando...' 
-                  : '¡Completado!'}
+                  ? tr('Processing...', 'Procesando...') 
+                  : tr('Completed!', '¡Completado!')}
             </p>
             <p className="text-xs font-medium text-foreground">
               {uploadProgress}%
@@ -1443,7 +1595,10 @@ const ContractForm = () => {
           {(contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length) > 0 && (
             <div className="mt-3 pt-3 border-t border-border">
               <p className="text-xs text-muted-foreground">
-                {contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length} archivo(s) total
+                {tr(
+                  `${contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length} total file(s)`,
+                  `${contractFiles.length + ofertaFiles.length + camaraFiles.length + otrosFiles.length} archivo(s) total`
+                )}
               </p>
             </div>
           )}

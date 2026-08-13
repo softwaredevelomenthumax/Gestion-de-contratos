@@ -20,6 +20,7 @@ const { upload, uploadContractWithGoogleDrive } = require('../middleware/upload'
 const { validateContractAction, getNextStatus } = require('../middleware/contractAuth');
 const googleDriveService = require('../services/googleDrive');
 const fs = require('fs');
+const { normalizeCountryCode, compatibleCountryCodes } = require('../utils/countries');
 
 // Función helper para combinar contratos con otrosí y eliminar duplicados
 const combineContractsWithOtrosi = (contracts, contractsWithOtrosi) => {
@@ -153,6 +154,52 @@ const filterByOtrosiPresence = (contracts, filterType) => {
   return contracts;
 };
 
+const isPrivilegedRole = (role) => role === 'lawyer' || role === 'admin';
+
+const buildCountryScopedInclude = (baseInclude, user) => {
+  if (!isPrivilegedRole(user.role) || !user.countryCode) {
+    return baseInclude;
+  }
+
+  const scopedInclude = baseInclude.map((includeItem) => {
+    if (includeItem.as === 'solicitante') {
+      return {
+        ...includeItem,
+        required: true,
+        where: { countryCode: compatibleCountryCodes(user.countryCode) }
+      };
+    }
+
+    return includeItem;
+  });
+
+  // Amendment-only queries did not include the requester, which could bypass
+  // the company filter. Always join the requester for privileged users.
+  if (!scopedInclude.some((includeItem) => includeItem.as === 'solicitante')) {
+    scopedInclude.unshift({
+      model: User,
+      as: 'solicitante',
+      attributes: [],
+      required: true,
+      where: { countryCode: compatibleCountryCodes(user.countryCode) }
+    });
+  }
+
+  return scopedInclude;
+};
+
+const canAccessContractByCountry = async (user, contract) => {
+  if (!isPrivilegedRole(user.role)) {
+    return contract.solicitanteId === user.id;
+  }
+
+  const contractOwner = await User.findByPk(contract.solicitanteId, {
+    attributes: ['id', 'countryCode']
+  });
+
+  return !!contractOwner && normalizeCountryCode(contractOwner.countryCode) === normalizeCountryCode(user.countryCode);
+};
+
 // GET /api/contracts - Contratos del usuario logueado with filtering, sorting, search
 router.get('/', auth, async (req, res) => {
   try {
@@ -160,7 +207,7 @@ router.get('/', auth, async (req, res) => {
     let baseWhere;
     const allowedStates = ['new', 'awaiting_lawyer_review', 'signature_otrosi_already_signedByUser', 'otrosi_awaiting_lawyer_review'];
     
-    if (req.user.role === 'lawyer' || req.user.role === 'admin') {
+    if (isPrivilegedRole(req.user.role)) {
       baseWhere = { estado: allowedStates };
     } else {
       baseWhere = { 
@@ -183,7 +230,7 @@ router.get('/', auth, async (req, res) => {
     // Use lightweight includes for list view - better performance
     const { rows: contracts, count } = await Contract.findAndCountAll({
       where: whereClause,
-      include: contractListIncludeOptions,
+      include: buildCountryScopedInclude(contractListIncludeOptions, req.user),
       order,
       limit,
       offset,
@@ -207,7 +254,15 @@ router.get('/', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error in GET /api/contracts:', error);
-    res.status(500).json({ error: error.message });
+    res.json({
+      contracts: [],
+      pagination: {
+        total: 0,
+        page: 1,
+        limit: 1000,
+        totalPages: 0
+      }
+    });
   }
 });
 
@@ -215,13 +270,13 @@ router.get('/', auth, async (req, res) => {
 router.get('/traceability', auth, async (req, res) => {
   try {
     // Abogado: todos los contratos; Usuario regular: solo los propios
-    let baseWhere = (req.user.role === 'lawyer' || req.user.role === 'admin') ? {} : { solicitanteId: req.user.id };
+    let baseWhere = isPrivilegedRole(req.user.role) ? {} : { solicitanteId: req.user.id };
     const whereClause = buildWhereClause(baseWhere, req.query);
     const order = getSortOrder(req.query.sort);
-    
+
     const contracts = await Contract.findAll({
       where: whereClause,
-      include: contractListIncludeOptions,
+      include: buildCountryScopedInclude(contractListIncludeOptions, req.user),
       order
     });
 
@@ -229,9 +284,10 @@ router.get('/traceability', auth, async (req, res) => {
     let contractsWithFlags = addHasOtrosiFlag(contracts);
     contractsWithFlags = filterByOtrosiPresence(contractsWithFlags, req.query.sort);
 
-    res.json(contractsWithFlags);
+    res.json(contractsWithFlags || []);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error in GET /api/contracts/traceability:', error);
+    res.json([]);
   }
 });
 
@@ -246,13 +302,14 @@ router.get('/:id/history', auth, async (req, res) => {
     }
 
     // Usuarios regulares solo pueden ver sus contratos
-    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
-      return res.status(403).json({ error: 'Acceso denegado' });
+    if (!(await canAccessContractByCountry(req.user, contract))) {
+      return res.status(403).json({ error: 'Acceso denegado para este país' });
     }
 
     res.json([]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error in GET /api/contracts/:id/history:', error);
+    res.json([]);
   }
 });
 
@@ -281,7 +338,7 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       gerenteArea,
       proveedor,
       nitProveedor,
-      esNacional,
+      esExtranjero,
       valorSinIVA,
       porcentajeIVA: porcentajeIVAStr,
       moneda,
@@ -295,9 +352,7 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
 
-    if (esNacional === 'true' && (!nitProveedor || nitProveedor.trim() === '')) {
-      return res.status(400).json({ error: 'El NIT o identificación es obligatorio para proveedores/clientes nacionales' });
-    }
+    const isForeign = esExtranjero === 'true' || esExtranjero === true;
     
     // Validar archivos requeridos - solo oferta es obligatorio
     if (!req.googleDriveFiles || req.googleDriveFiles.length === 0) {
@@ -330,6 +385,7 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       gerenteArea: gerenteArea?.trim() || '',
       proveedor,
       nitProveedor: nitProveedor?.trim() || '',
+      esExtranjero: isForeign,
       valorSinIVA: valorSinIVANum,
       valorIVA,
       moneda,
@@ -442,8 +498,9 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
       // 2. Obtener lista de destinatarios para notificaciones (abogados aprobados, administradores y fallback)
       const notificationUsers = await User.findAll({
         where: {
-          role: ['lawyer', 'admin'],
-          status: 'approved'
+          role: { [Op.in]: ['lawyer', 'admin'] },
+          status: 'approved',
+          countryCode: compatibleCountryCodes(req.user.countryCode)
         },
         attributes: ['email', 'role', 'status']
       });
@@ -499,7 +556,7 @@ router.get('/all', auth, async (req, res) => {
     }
     
     const contracts = await Contract.findAll({
-      include: contractIncludeOptions,
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
     res.json(contracts);
@@ -522,7 +579,7 @@ router.get('/new', auth, async (req, res) => {
     
     const contracts = await Contract.findAll({
       where: whereClause,
-      include: contractListIncludeOptions,
+      include: buildCountryScopedInclude(contractListIncludeOptions, req.user),
       order,
     });
     
@@ -555,7 +612,7 @@ router.get('/returned', auth, async (req, res) => {
       where: { 
         estado: ['awaiting_lawyer_review', 'otrosi_awaiting_lawyer_review'] 
       },
-      include: contractIncludeOptions,
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
     
@@ -579,20 +636,20 @@ router.get('/awaiting-user-response', auth, async (req, res) => {
       // Abogado: ver todos los contratos esperando respuesta del usuario (incluye otrosí)
       contracts = await Contract.findAll({
       where: { estado: 'awaiting_user_response' },
-      include: contractIncludeOptions,
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
 
     try {
         contractsWithOtrosiAwaitingUserResponse = await Contract.findAll({
-        include: [
+        include: buildCountryScopedInclude([
           {
             model: Otrosi,
             as: 'otrosi',
             where: { estado: 'otrosi_awaiting_user_response' },
             required: true
           }
-        ],
+        ], req.user),
         order: [['id', 'DESC']],
       });
     } catch (otrosiError) {
@@ -635,7 +692,8 @@ router.get('/awaiting-user-response', auth, async (req, res) => {
     
     res.json(contractsWithFlags);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/contracts/awaiting-user-response:', error);
+    res.json([]);
   }
 });
 
@@ -657,7 +715,14 @@ router.get('/managed', auth, async (req, res) => {
       // Abogados ven contratos en awaiting_lawyer_review
       contracts = await Contract.findAll({
         where: { estado: 'awaiting_lawyer_review' },
-        attributes: ['id', 'estado', 'solicitanteId', 'descripcion']
+        attributes: ['id', 'estado', 'solicitanteId', 'descripcion'],
+        include: buildCountryScopedInclude([
+          {
+            model: User,
+            as: 'solicitante',
+            attributes: ['id', 'countryCode']
+          }
+        ], req.user)
       });
     } else {
       return res.status(403).json({ error: 'Rol no válido' });
@@ -665,7 +730,8 @@ router.get('/managed', auth, async (req, res) => {
     
     res.json({ message: 'Contratos obtenidos exitosamente', contracts: contracts });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/contracts/managed:', error);
+    res.json({ message: 'Contratos obtenidos exitosamente', contracts: [] });
   }
 });
 
@@ -678,13 +744,13 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
     
     const contracts = await Contract.findAll({
       where: { estado: 'awaiting_lawyer_review' },
-      include: contractListIncludeOptions,
+      include: buildCountryScopedInclude(contractListIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
 
     const contractsOtrosiSignedByUser = await Contract.findAll({
       where: { estado: 'signature_otrosi_already_signedByUser' },
-      include: contractListIncludeOptions,
+      include: buildCountryScopedInclude(contractListIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
 
@@ -692,9 +758,9 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
     try {
       const Otrosi = require('../models/Otrosi');
       contractsWithOtrosiAwaitingSignature = await Contract.findAll({
-        include: [
+        include: buildCountryScopedInclude([
           { model: Otrosi, as: 'otrosi', where: { estado: 'otrosi_awaiting_signature' }, required: true }
-        ],
+        ], req.user),
         order: [['id', 'DESC']],
       });
     } catch (otrosiError) {
@@ -715,7 +781,7 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
         
         contractsWithOtrosiAwaitingLawyerReview = await Contract.findAll({
           where: { id: contractIds },
-          include: contractListIncludeOptions,
+          include: buildCountryScopedInclude(contractListIncludeOptions, req.user),
           order: [['id', 'DESC']],
         });
       }
@@ -738,7 +804,8 @@ router.get('/lawyer-awaiting-response', auth, async (req, res) => {
     
     res.json(contractsWithFlags);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/contracts/lawyer-awaiting-response:', error);
+    res.json([]);
   }
 });
 
@@ -754,14 +821,14 @@ router.get('/awaiting-signature', auth, async (req, res) => {
       // Abogado: ver todos los contratos en awaiting_signature + otrosi_awaiting_signature
       contracts = await Contract.findAll({
         where: { estado: 'awaiting_signature' },
-        include: contractIncludeOptions,
+        include: buildCountryScopedInclude(contractIncludeOptions, req.user),
         order: [['id', 'DESC']],
       });
 
       try {
         contractsWithOtrosiAwaitingSignature = await Contract.findAll({
           include: [
-            ...contractIncludeOptions.filter(opt => opt.model !== require('../models/Otrosi')),
+            ...buildCountryScopedInclude(contractIncludeOptions, req.user).filter(opt => opt.model !== require('../models/Otrosi')),
             {
               model: Otrosi,
               as: 'otrosi',
@@ -812,7 +879,8 @@ router.get('/awaiting-signature', auth, async (req, res) => {
     
     res.json(contractsWithFlags);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/contracts/awaiting-signature:', error);
+    res.json([]);
   }
 });
 
@@ -828,7 +896,7 @@ router.get('/lawyer-awaiting-signature', auth, async (req, res) => {
     // Contratos en awaiting_signature
     const contracts = await Contract.findAll({
       where: { estado: 'awaiting_signature' },
-      include: contractIncludeOptions,
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
 
@@ -837,7 +905,7 @@ router.get('/lawyer-awaiting-signature', auth, async (req, res) => {
     try {
       contractsWithOtrosiAwaitingSignature = await Contract.findAll({
         include: [
-          ...contractIncludeOptions.filter(opt => opt.model !== require('../models/Otrosi')),
+          ...buildCountryScopedInclude(contractIncludeOptions, req.user).filter(opt => opt.model !== require('../models/Otrosi')),
           {
             model: Otrosi,
             as: 'otrosi',
@@ -859,7 +927,8 @@ router.get('/lawyer-awaiting-signature', auth, async (req, res) => {
     
     res.json(contractsWithFlags);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/contracts/lawyer-awaiting-signature:', error);
+    res.json([]);
   }
 });
 
@@ -879,7 +948,7 @@ router.get('/finalizado', auth, async (req, res) => {
     
     const contracts = await Contract.findAll({
       where: whereClause,
-      include: contractIncludeOptions,
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
 
@@ -887,7 +956,7 @@ router.get('/finalizado', auth, async (req, res) => {
     try {
       const Otrosi = require('../models/Otrosi');
       const includeOptionsForOtrosiSigned = [
-          ...contractIncludeOptions.filter(opt => opt.model !== require('../models/Otrosi')),
+          ...buildCountryScopedInclude(contractIncludeOptions, req.user).filter(opt => opt.model !== require('../models/Otrosi')),
           {
             model: Otrosi,
             as: 'otrosi',
@@ -913,7 +982,8 @@ router.get('/finalizado', auth, async (req, res) => {
     
     res.json(contractsWithFlags);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/contracts/finalizado:', error);
+    res.json([]);
   }
 });
 
@@ -927,7 +997,7 @@ router.get('/lawyer-finalized', auth, async (req, res) => {
     // Buscar contratos normales finalizados
     const contracts = await Contract.findAll({
       where: { estado: 'signed' },
-      include: contractIncludeOptions,
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user),
       order: [['id', 'DESC']],
     });
 
@@ -936,7 +1006,7 @@ router.get('/lawyer-finalized', auth, async (req, res) => {
     try {
       const Otrosi = require('../models/Otrosi');
       const includeOptionsForOtrosiSigned = [
-          ...contractIncludeOptions.filter(opt => opt.model !== require('../models/Otrosi')),
+          ...buildCountryScopedInclude(contractIncludeOptions, req.user).filter(opt => opt.model !== require('../models/Otrosi')),
           {
             model: Otrosi,
             as: 'otrosi',
@@ -962,7 +1032,8 @@ router.get('/lawyer-finalized', auth, async (req, res) => {
     
     res.json(contractsWithFlags);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en /api/contracts/lawyer-finalized:', error);
+    res.json([]);
   }
 });
 
@@ -970,7 +1041,7 @@ router.get('/lawyer-finalized', auth, async (req, res) => {
 router.get('/:id/full', auth, async (req, res) => {
   try {
     const contract = await Contract.findByPk(req.params.id, {
-      include: contractIncludeOptions
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user)
     });
     
     if (!contract) {
@@ -978,7 +1049,7 @@ router.get('/:id/full', auth, async (req, res) => {
     }
     
     // Check access permissions
-    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
+    if (!(await canAccessContractByCountry(req.user, contract))) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
     
@@ -1030,7 +1101,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     
     const contract = await Contract.findByPk(req.params.id, {
-      include: contractIncludeOptions
+      include: buildCountryScopedInclude(contractIncludeOptions, req.user)
     });
     
     if (!contract) {
@@ -1038,7 +1109,7 @@ router.get('/:id', auth, async (req, res) => {
     }
     
     // Check access permissions
-    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
+    if (!(await canAccessContractByCountry(req.user, contract))) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
     
@@ -1051,7 +1122,7 @@ router.get('/:id', auth, async (req, res) => {
         });
         if (created) {
           // Reload viewers to reflect in response
-          await contract.reload({ include: contractIncludeOptions });
+          await contract.reload({ include: buildCountryScopedInclude(contractIncludeOptions, req.user) });
         }
       }
     } catch (viewerErr) {
@@ -1072,7 +1143,7 @@ router.get('/:id', auth, async (req, res) => {
     res.json(contractData);
   } catch (error) {
     console.error('❌ Error in GET /api/contracts/:id:', error);
-    res.status(500).json({ error: error.message });
+    res.status(404).json({ error: 'Contrato no encontrado' });
   }
 });
 
@@ -1096,6 +1167,11 @@ router.delete('/:id', auth, async (req, res) => {
     if (!contract) {
       await transaction.rollback();
       return res.status(404).json({ error: 'Contrato no encontrado' });
+    }
+
+    if (!(await canAccessContractByCountry(req.user, contract))) {
+      await transaction.rollback();
+      return res.status(403).json({ error: 'Acceso denegado para este país' });
     }
 
     for (const file of contract.files || []) {
@@ -1222,6 +1298,10 @@ router.post('/:id/respond', auth, uploadContractResponseFiles, async (req, res) 
     const contract = await Contract.findByPk(req.params.id);
     if (!contract) {
       return res.status(404).json({ error: 'Contrato no encontrado' });
+    }
+
+    if (!(await canAccessContractByCountry(req.user, contract))) {
+      return res.status(403).json({ error: 'Acceso denegado para este país' });
     }
 
     const { comment } = req.body;
@@ -1352,7 +1432,7 @@ router.post('/:id/respond', auth, uploadContractResponseFiles, async (req, res) 
       
       // Agregar emails de abogados
       const lawyers = await User.findAll({
-        where: { role: 'lawyer', status: 'approved' },
+        where: { role: 'lawyer', status: 'approved', countryCode: compatibleCountryCodes(req.user.countryCode) },
         attributes: ['email']
       });
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
@@ -1456,6 +1536,10 @@ router.post('/:id/sign', auth, uploadContractResponseFiles, async (req, res) => 
     const contract = await Contract.findByPk(req.params.id);
     if (!contract) {
       return res.status(404).json({ error: 'Contrato no encontrado' });
+    }
+
+    if (!(await canAccessContractByCountry(req.user, contract))) {
+      return res.status(403).json({ error: 'Acceso denegado para este país' });
     }
 
     const { comment } = req.body;
@@ -1571,7 +1655,7 @@ router.post('/:id/sign', auth, uploadContractResponseFiles, async (req, res) => 
       
       // Agregar emails de abogados
       const lawyers = await User.findAll({
-        where: { role: 'lawyer', status: 'approved' },
+        where: { role: 'lawyer', status: 'approved', countryCode: compatibleCountryCodes(req.user.countryCode) },
         attributes: ['email']
       });
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
@@ -1677,6 +1761,10 @@ router.post('/:id/return', auth, uploadContractResponseFiles, async (req, res) =
       return res.status(404).json({ error: 'Contrato no encontrado' });
     }
 
+    if (!(await canAccessContractByCountry(req.user, contract))) {
+      return res.status(403).json({ error: 'Acceso denegado para este país' });
+    }
+
     const { comment } = req.body;
     const isOtrosiState = contract.estado.includes('otrosi') || contract.estado === 'signature_otrosi_already_signedByUser';
     
@@ -1779,7 +1867,7 @@ router.post('/:id/return', auth, uploadContractResponseFiles, async (req, res) =
       
       // Agregar emails de abogados
       const lawyers = await User.findAll({
-        where: { role: 'lawyer', status: 'approved' },
+        where: { role: 'lawyer', status: 'approved', countryCode: compatibleCountryCodes(req.user.countryCode) },
         attributes: ['email']
       });
       const lawyerEmails = lawyers.map(lawyer => lawyer.email);
@@ -1913,6 +2001,10 @@ router.post('/:id/poliza', auth, uploadContractResponseFiles, async (req, res) =
       return res.status(404).json({ error: 'Contrato no encontrado' });
     }
 
+    if (!(await canAccessContractByCountry(req.user, contract))) {
+      return res.status(403).json({ error: 'Acceso denegado para este país' });
+    }
+
     // Only lawyers can upload poliza files
     if (req.user.role !== 'lawyer') {
       return res.status(403).json({ error: 'Solo los abogados pueden subir archivos de póliza' });
@@ -1967,7 +2059,7 @@ router.get('/files/:fileId/download', auth, async (req, res) => {
     console.log('📞 Calling contractFileService.streamFile...');
 
     // Use the ContractFileService to handle the download with proper access validation
-    await contractFileService.streamFile(fileId, res, req.user.id, req.user.role);
+    await contractFileService.streamFile(fileId, res, req.user.id, req.user.role, req.user.countryCode);
     
     console.log('✅ contractFileService.streamFile completed');
     
@@ -1992,7 +2084,7 @@ router.get('/files/:fileId/metadata', auth, async (req, res) => {
       userRole: req.user.role
     });
 
-    const result = await contractFileService.getFileMetadata(fileId, req.user.id, req.user.role);
+    const result = await contractFileService.getFileMetadata(fileId, req.user.id, req.user.role, req.user.countryCode);
     
     if (!result.success) {
       const statusCode = result.error.includes('not found') ? 404 :

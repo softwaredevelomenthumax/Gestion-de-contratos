@@ -19,6 +19,8 @@ CREATE TABLE dbo.users (
     password NVARCHAR(255) NOT NULL,
     role NVARCHAR(255) NOT NULL,
     status NVARCHAR(255) NOT NULL,
+   country_code NVARCHAR(3) NOT NULL,
+   preferred_language NVARCHAR(5) NOT NULL,
     CONSTRAINT PK_users PRIMARY KEY (id),
     CONSTRAINT UQ_users_email UNIQUE (email)
 );
@@ -37,6 +39,7 @@ CREATE TABLE dbo.contracts (
     gerente_area NVARCHAR(255) NOT NULL,
     proveedor NVARCHAR(255) NOT NULL,
     nit_proveedor NVARCHAR(255) NOT NULL,
+    es_extranjero BIT NOT NULL DEFAULT 0,
     valor_sin_i_v_a DECIMAL(20,2) NOT NULL,
     valor_i_v_a DECIMAL(20,2) NOT NULL,
     moneda NVARCHAR(255) NOT NULL,
@@ -200,9 +203,12 @@ GO
 ========================================= */
 ALTER TABLE dbo.users ADD CONSTRAINT DF_users_role DEFAULT ('regular') FOR role;
 ALTER TABLE dbo.users ADD CONSTRAINT DF_users_status DEFAULT ('pending') FOR status;
+ALTER TABLE dbo.users ADD CONSTRAINT DF_users_country_code DEFAULT ('CO') FOR country_code;
+ALTER TABLE dbo.users ADD CONSTRAINT DF_users_preferred_language DEFAULT ('es') FOR preferred_language;
 
 ALTER TABLE dbo.contracts ADD CONSTRAINT DF_contracts_estado DEFAULT ('new') FOR estado;
 ALTER TABLE dbo.contracts ADD CONSTRAINT DF_contracts_es_otrosi DEFAULT (0) FOR es_otrosi;
+ALTER TABLE dbo.contracts ADD CONSTRAINT DF_contracts_es_extranjero DEFAULT (0) FOR es_extranjero;
 
 ALTER TABLE dbo.otrosi ADD CONSTRAINT DF_otrosi_estado DEFAULT ('pendiente') FOR estado;
 ALTER TABLE dbo.otrosi ADD CONSTRAINT DF_otrosi_firmado DEFAULT (0) FOR firmado_por_usuario;

@@ -24,20 +24,24 @@ const ProtectedRoute = memo(({ children }) => {
   }
   
   const { user, loading } = authContext;
+  const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || 'null') : null;
+  const activeUser = user || storedUser;
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('token');
   
   // Show loading while checking authentication
   if (loading) {
     return <LoadingSpinner />;
   }
   
-  // Redirect to login if not authenticated
-  if (!user) {
+  // Allow access if the user exists or a token is present, regardless of language.
+  if (!activeUser && !hasToken) {
     return <Navigate to="/login" replace />;
   }
   
-  // Additional check for required user properties
-  if (!user.role || !user.email) {
-    return <Navigate to="/login" replace />;
+  if (!activeUser?.role || !activeUser?.email) {
+    if (!hasToken) {
+      return <Navigate to="/login" replace />;
+    }
   }
   
   return <Layout>{children}</Layout>;

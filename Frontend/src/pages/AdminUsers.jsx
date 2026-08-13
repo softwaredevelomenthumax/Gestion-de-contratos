@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../context/NotificationContext';
-import Layout from '../components/Layout';
 import api, { clearCache } from '../api/axiosInstance';
 import { Users, CheckCircle, XCircle, Clock, Mail, User, RefreshCw } from 'lucide-react';
+import { displayCountryCode } from '../context/LanguageContext';
 
 const AdminUsers = () => {
   const { user } = useAuth();
@@ -101,21 +101,18 @@ const AdminUsers = () => {
 
   if (user?.role !== 'admin') {
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-96">
+      <div className="flex items-center justify-center min-h-96">
           <div className="text-center">
             <XCircle className="mx-auto h-12 w-12 text-red-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Acceso Denegado</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Necesitas privilegios de administrador para acceder a esta página.</p>
           </div>
-        </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 pb-5">
           <div className="flex items-center justify-between">
@@ -183,6 +180,9 @@ const AdminUsers = () => {
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                               {pendingUser.role === 'regular' ? 'Usuario' : 'Abogado'}
                             </span>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 ml-2">
+                              {displayCountryCode(pendingUser.countryCode)}
+                            </span>
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 ml-2">
                               <Clock className="h-3 w-3 mr-1" />
                               Pendiente
@@ -223,8 +223,7 @@ const AdminUsers = () => {
             </div>
           </div>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 };
 

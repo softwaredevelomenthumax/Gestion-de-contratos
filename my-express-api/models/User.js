@@ -1,6 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const bcrypt = require('bcryptjs');
+const { normalizeCountryCode } = require('../utils/countries');
 
 const User = sequelize.define('User', {
   firstName: {
@@ -41,6 +42,32 @@ const User = sequelize.define('User', {
       isIn: [['pending', 'approved', 'rejected']]
     }
   },
+  countryCode: {
+    type: DataTypes.STRING(3),
+    allowNull: false,
+    defaultValue: 'CO',
+    field: 'country_code',
+    validate: {
+      isIn: [['CO', 'US', 'MX', 'AR', 'PE', 'CL', 'EC', 'COL', 'USA', 'MEX', 'ARG', 'PER', 'CHL', 'ECU']]
+    },
+    get() {
+      return normalizeCountryCode(this.getDataValue('countryCode')) || this.getDataValue('countryCode');
+    }
+  },
+  preferredLanguage: {
+    type: DataTypes.STRING(5),
+    allowNull: false,
+    defaultValue: 'es',
+    field: 'preferred_language',
+    validate: {
+      isIn: [['es', 'en']]
+    }
+  },
+  avatar: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'avatar'
+  }
 }, {
   tableName: 'users',
   timestamps: false,

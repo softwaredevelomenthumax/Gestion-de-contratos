@@ -27,59 +27,46 @@ export const AuthProvider = ({ children }) => {
       if (token && !isTokenExpired(token)) {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
-        // Use stored user data immediately for faster initial render
-        if (storedUser) {
-          try {
-            const userData = JSON.parse(storedUser);
-            if (userData && userData.role) {
-              setUser(userData);
-              setLoading(false);
-              
-              // Only verify with server if token is close to expiry (within 5 minutes)
-              const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-              const timeUntilExpiry = (tokenPayload.exp * 1000) - Date.now();
-              
-              if (timeUntilExpiry < 5 * 60 * 1000) { // 5 minutes
-                // Verify with server in background without blocking UI
-                authAPI.getProfile()
-                  .then(data => {
-                    if (JSON.stringify(userData) !== JSON.stringify(data)) {
-                      setUser(data);
-                      localStorage.setItem('user', JSON.stringify(data));
-                    }
-                  })
-                  .catch(error => {
-                    if (error.response?.status === 401 || error.response?.status === 403) {
-                      localStorage.removeItem('token');
-                      localStorage.removeItem('user');
-                      delete api.defaults.headers.common['Authorization'];
-                      setUser(null);
-                    }
-                  });
-              }
-              return;
-            }
-          } catch {
-            // Error parsing stored user data, fall through to server verification
-          }
-        }
-        
-        // Fallback to server verification only if no valid stored data
         try {
-          const data = await authAPI.getProfile();
-          setUser(data);
-          localStorage.setItem('user', JSON.stringify(data));
+          const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+          if (parsedUser && parsedUser.role) {
+            setUser(parsedUser);
+            if (parsedUser.preferredLanguage && !localStorage.getItem('language')) {
+              localStorage.setItem('language', parsedUser.preferredLanguage);
+            }
+          } else {
+            const data = await authAPI.getProfile();
+            const normalizedUser = data?.user || data;
+            const safeUser = {
+              ...normalizedUser,
+              id: normalizedUser?.id ?? data?.id,
+              email: normalizedUser?.email ?? data?.email,
+              firstName: normalizedUser?.firstName ?? data?.firstName,
+              lastName: normalizedUser?.lastName ?? data?.lastName,
+              role: normalizedUser?.role ?? data?.role ?? 'regular',
+              countryCode: normalizedUser?.countryCode ?? data?.countryCode,
+              preferredLanguage: normalizedUser?.preferredLanguage ?? data?.preferredLanguage,
+            };
+            // Normalize avatar to absolute URL if provided by backend
+            if (safeUser.avatar && safeUser.avatar.startsWith('/uploads')) {
+              const origin = api.defaults.baseURL.replace(/\/api$/, '');
+              safeUser.avatar = `${origin}${safeUser.avatar}`;
+            }
+            setUser(safeUser);
+            localStorage.setItem('user', JSON.stringify(safeUser));
+          }
         } catch (error) {
-          if (error.response?.status === 401 || error.response?.status === 403) {
+          const shouldClearSession = error?.response?.status === 401 || error?.response?.status === 403 || error?.message === 'Network Error';
+          if (shouldClearSession) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             delete api.defaults.headers.common['Authorization'];
+            setUser(null);
           }
         } finally {
           setLoading(false);
         }
       } else {
-        // Token is expired or doesn't exist
         if (token) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -93,6 +80,7 @@ export const AuthProvider = ({ children }) => {
   }, [isTokenExpired]);
 
   const login = useCallback(async (email, password) => {
+    console.debug('🛈 AuthProvider.login called for:', String(email || '').trim().toLowerCase());
     try {
       setError(null);
       
@@ -103,27 +91,48 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       
       const data = await authAPI.login(email, password);
+      const loginPayload = data?.user || data;
+      const token = data?.token || loginPayload?.token;
+      const userData = {
+        ...loginPayload,
+        id: loginPayload?.id ?? data?.id,
+        email: loginPayload?.email ?? data?.email,
+        firstName: loginPayload?.firstName ?? data?.firstName,
+        lastName: loginPayload?.lastName ?? data?.lastName,
+        role: loginPayload?.role ?? data?.role ?? 'regular',
+        countryCode: loginPayload?.countryCode ?? data?.countryCode,
+        preferredLanguage: loginPayload?.preferredLanguage ?? data?.preferredLanguage,
+        token,
+      };
       
       // Ensure we have all required user data
-      if (!data || !data.token || !data.role) {
+      if (!token) {
         throw new Error('Invalid login response');
       }
       
       // Parse the JWT token to validate consistency
       try {
-        const tokenPayload = JSON.parse(atob(data.token.split('.')[1]));
-        if (tokenPayload.id !== data.id) {
-          throw new Error(`Token mismatch: Token has ID ${tokenPayload.id} but response has ID ${data.id}`);
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        if (tokenPayload.id !== userData.id) {
+          throw new Error(`Token mismatch: Token has ID ${tokenPayload.id} but response has ID ${userData.id}`);
         }
       } catch {
         // Token parsing error
       }
       
       // Set new session data
-      setUser(data);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data));
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+      const normalizedPreferredLanguage = userData.preferredLanguage ? String(userData.preferredLanguage).trim().toLowerCase() : 'es';
+      const normalizedLanguageValue = normalizedPreferredLanguage === 'en' || normalizedPreferredLanguage.startsWith('en-') || normalizedPreferredLanguage === 'en_us'
+        ? 'en' : 'es';
+
+      setUser({ ...userData, preferredLanguage: normalizedLanguageValue });
+      // Only seed the language from the backend the first time; never override a manual choice.
+      if (!localStorage.getItem('language')) {
+        localStorage.setItem('language', normalizedLanguageValue);
+      }
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       return { success: true };
     } catch (error) {
@@ -149,14 +158,42 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const data = await authAPI.getProfile();
+      const normalizedUser = data?.user || data;
+      const safeUser = {
+        ...normalizedUser,
+        id: normalizedUser?.id ?? data?.id,
+        email: normalizedUser?.email ?? data?.email,
+        firstName: normalizedUser?.firstName ?? data?.firstName,
+        lastName: normalizedUser?.lastName ?? data?.lastName,
+        role: normalizedUser?.role ?? data?.role ?? 'regular',
+        countryCode: normalizedUser?.countryCode ?? data?.countryCode,
+        preferredLanguage: normalizedUser?.preferredLanguage ?? data?.preferredLanguage,
+        avatar: normalizedUser?.avatar ?? data?.avatar
+      };
+      if (safeUser.avatar && safeUser.avatar.startsWith('/uploads')) {
+        const origin = api.defaults.baseURL.replace(/\/api$/, '');
+        safeUser.avatar = `${origin}${safeUser.avatar}`;
+      }
+      setUser(safeUser);
+      localStorage.setItem('user', JSON.stringify(safeUser));
+      return safeUser;
+    } catch (err) {
+      return null;
+    }
+  }, []);
+
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     user: user || null,
     error: error || null,
     loading: loading ?? true,
     login,
-    logout
-  }), [user, error, loading, login, logout]);
+    logout,
+    refreshUser
+  }), [user, error, loading, login, logout, refreshUser]);
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { X, Filter } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useDebounce } from '../hooks/useDebounce';
+import { useLanguage } from '../context/LanguageContext';
 
 const filterOptions = [
   { value: 'fecha-desc', label: 'Más reciente' },
@@ -28,6 +29,7 @@ const ContractFilters = ({
   showTitle = false,
   title = "Contratos"
 }) => {
+  const { language } = useLanguage();
   // Estados locales para inputs (sin debounce)
   const [localFilter, setLocalFilter] = useState(filter || '');
   const [localTicketFilter, setLocalTicketFilter] = useState(ticketFilter || searchTerm || '');
@@ -122,7 +124,7 @@ const ContractFilters = ({
             </Label>
             <Input
               id="ticket-filter"
-              placeholder="Número de radicado..."
+              placeholder={language === 'en' ? 'Ticket number...' : 'Número de radicado...'}
               value={localTicketFilter}
               onChange={e => setLocalTicketFilter(e.target.value)}
               autoComplete="off"
@@ -140,7 +142,16 @@ const ContractFilters = ({
               <SelectContent>
                 {filterOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {language === 'en'
+                      ? {
+                          'fecha-desc': 'Most recent',
+                          'fecha-asc': 'Oldest',
+                          'proveedor-asc': 'Supplier (A-Z)',
+                          'proveedor-desc': 'Supplier (Z-A)',
+                          'with-otrosi': 'Only with amendment',
+                          'without-otrosi': 'Without amendment',
+                        }[option.value]
+                      : option.label}
                   </SelectItem>
                 ))}
               </SelectContent>

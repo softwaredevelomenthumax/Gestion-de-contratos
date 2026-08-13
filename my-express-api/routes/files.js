@@ -133,8 +133,8 @@ router.get('/:fileId/download', async (req, res) => {
       return res.status(404).json({ error: 'Contract not found' });
     }
     
-    // Verificar permisos: el usuario debe ser el solicitante o un abogado
-    if (req.user.role !== 'lawyer' && contract.solicitanteId !== req.user.id) {
+    // Verificar permisos: el usuario debe ser el solicitante, un abogado o un administrador
+    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
       return res.status(403).json({ error: 'No tienes permisos para descargar este archivo' });
     }
     

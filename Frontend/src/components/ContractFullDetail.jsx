@@ -25,6 +25,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
 import { useRefresh } from "../context/RefreshContext";
+import { useLanguage } from "../context/LanguageContext";
 import useDownload from "../hooks/useDownload";
 import DownloadingAnimation from "./DownloadingAnimation";
 import LottieAnimation from "./LottieAnimation";
@@ -448,6 +449,7 @@ const formatContractType = (contractType) => {
 };
 
 const ContractFullDetail = ({ contract: contractProp }) => {
+  const { language } = useLanguage();
   // Estado local del contrato que se puede actualizar
   const [contract, setContract] = useState(contractProp);
   const [contractFiles, setContractFiles] = useState([]);
@@ -922,7 +924,7 @@ const ContractFullDetail = ({ contract: contractProp }) => {
         {/* Número de Radicado */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-600 dark:text-muted-foreground">
-            Radicado:
+            {language === 'en' ? 'Ticket:' : 'Radicado:'}
           </span>
           <Badge variant="outline" className="text-sm font-semibold">
             #{contract.id}
@@ -932,7 +934,7 @@ const ContractFullDetail = ({ contract: contractProp }) => {
         {/* Visualizado por */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-600 dark:text-muted-foreground">
-            Visualizado por:
+            {language === 'en' ? 'Viewed by:' : 'Visualizado por:'}
           </span>
           {Array.isArray(contract.viewers) && contract.viewers.length > 0 ? (
             <div className="flex gap-1 flex-wrap">
@@ -953,7 +955,7 @@ const ContractFullDetail = ({ contract: contractProp }) => {
             </div>
           ) : (
             <Badge variant="outline" className="text-xs text-muted-foreground">
-              Nadie
+              {language === 'en' ? 'No one' : 'Nadie'}
             </Badge>
           )}
         </div>
@@ -1903,13 +1905,25 @@ const ContractFullDetail = ({ contract: contractProp }) => {
                 </p>
               </div>
 
-              {/* NIT del proveedor */}
+              {/* NIT / documento de identidad del proveedor */}
               <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
                 <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
-                  NIT del Proveedor
+                  Documento de Identidad / NIT
+                </span>
+                <p className="mt-1 text-gray-900 dark:text-foreground text-base break-words">
+                  {contract.documentType && contract.documentNumber
+                    ? `${contract.documentType}: ${contract.documentNumber}`
+                    : contract.nitProveedor || 'No registrado'}
+                </p>
+              </div>
+
+              {/* ¿Es extranjero? */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-muted border border-gray-300 dark:border-gray-600">
+                <span className="text-xs font-medium text-gray-600 dark:text-muted-foreground">
+                  ¿Es extranjero?
                 </span>
                 <p className="mt-1 text-gray-900 dark:text-foreground text-base">
-                  {contract.nitProveedor}
+                  {contract.esExtranjero ? 'Sí' : 'No'}
                 </p>
               </div>
 

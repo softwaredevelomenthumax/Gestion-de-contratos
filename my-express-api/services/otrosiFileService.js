@@ -2,6 +2,8 @@ const OtrosiFile = require('../models/OtrosiFile');
 const { Contract } = require('../models/Contract');
 const Otrosi = require('../models/Otrosi');
 const googleDriveService = require('./googleDrive');
+const User = require('../models/User');
+const { normalizeCountryCode } = require('../utils/countries');
 
 // Ensure associations are loaded
 require('../models/associations');
@@ -14,7 +16,7 @@ class OtrosiFileService {
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    * @returns {Promise<{hasAccess: boolean, otrosiFile: Object|null, contract: Object|null}>}
    */
-  async validateAccess(otrosiFileId, userId, userRole) {
+  async validateAccess(otrosiFileId, userId, userRole, userCountryCode) {
     try {
       console.log('🔍 OtrosiFileService: Validating access for:', {
         otrosiFileId,
@@ -56,8 +58,12 @@ class OtrosiFileService {
         };
       }
 
-      // Lawyers can access all otrosi files
-      if (userRole === 'lawyer') {
+      // Lawyers and admins only access amendment files from their company.
+      if (userRole === 'lawyer' || userRole === 'admin') {
+        const owner = await User.findByPk(otrosiFile.contract?.solicitanteId, { attributes: ['countryCode'] });
+        if (!owner || normalizeCountryCode(owner.countryCode) !== normalizeCountryCode(userCountryCode)) {
+          return { hasAccess: false, otrosiFile: null, contract: null, error: 'Access denied: contract belongs to another country' };
+        }
         return {
           hasAccess: true,
           otrosiFile,
@@ -107,10 +113,10 @@ class OtrosiFileService {
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    * @returns {Promise<{success: boolean, stream?: Stream, filename?: string, error?: string}>}
    */
-  async downloadFile(otrosiFileId, userId, userRole) {
+  async downloadFile(otrosiFileId, userId, userRole, userCountryCode) {
     try {
       // Validate access first
-      const accessResult = await this.validateAccess(otrosiFileId, userId, userRole);
+      const accessResult = await this.validateAccess(otrosiFileId, userId, userRole, userCountryCode);
       
       if (!accessResult.hasAccess) {
         return {
@@ -177,9 +183,9 @@ class OtrosiFileService {
    * @param {number} userId - The user ID requesting the file
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    */
-  async streamFile(otrosiFileId, res, userId, userRole) {
+  async streamFile(otrosiFileId, res, userId, userRole, userCountryCode) {
     try {
-      const downloadResult = await this.downloadFile(otrosiFileId, userId, userRole);
+      const downloadResult = await this.downloadFile(otrosiFileId, userId, userRole, userCountryCode);
       
       if (!downloadResult.success) {
         const statusCode = downloadResult.error.includes('not found') ? 404 :
@@ -237,9 +243,9 @@ class OtrosiFileService {
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    * @returns {Promise<{success: boolean, metadata?: Object, error?: string}>}
    */
-  async getFileMetadata(otrosiFileId, userId, userRole) {
+  async getFileMetadata(otrosiFileId, userId, userRole, userCountryCode) {
     try {
-      const accessResult = await this.validateAccess(otrosiFileId, userId, userRole);
+      const accessResult = await this.validateAccess(otrosiFileId, userId, userRole, userCountryCode);
       
       if (!accessResult.hasAccess) {
         return {

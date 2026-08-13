@@ -1,12 +1,15 @@
-import React, { useState, memo, useCallback, useMemo } from 'react';
+import React, { useState, memo, useCallback, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { useLanguage } from '../context/LanguageContext';
 
 const Loginform = memo(() => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
+  const formRef = useRef(null);
   const { login } = useAuth();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState(null);
 
@@ -18,36 +21,41 @@ const Loginform = memo(() => {
       
       console.log('Attempting login for:', trimmedEmail);
       const result = await login(trimmedEmail, trimmedPassword);
+      console.log('Login API result:', result);
       
       if (result.success) {
         console.log('Login successful, navigating to home');
         navigate('/');
       } else {
         console.log('Login failed:', result.error);
-        setLoginError(result.error || 'Error de inicio de sesión desconocido.');
+        // Show server-provided message, prefer English if selected
+        const serverMsg = result.error || (language === 'en' ? 'Unknown login error.' : 'Error de inicio de sesión desconocido.');
+        setLoginError(serverMsg);
       }
     } catch (err) {
       console.error('Login exception:', err);
-      setLoginError(err.response?.data?.error || 'Error de red o servidor.');
+      const networkMsg = err.response?.data?.error || (language === 'en' ? 'Network or server error.' : 'Error de red o servidor.');
+      console.error('Login exception details:', err.response?.status, err.response?.data);
+      setLoginError(networkMsg);
     }
-  }, [login, navigate]);
+  }, [login, navigate, language]);
 
   // Memoize validation rules to prevent recreation
   const emailValidation = useMemo(() => ({
-    required: 'El correo electrónico es requerido',
+    required: language === 'en' ? 'Email is required' : 'El correo electronico es requerido',
     pattern: {
-      value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
-      message: 'Formato de correo electrónico inválido'
+      value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/, 
+      message: language === 'en' ? 'Invalid email format' : 'Formato de correo electronico invalido'
     }
-  }), []);
+  }), [language]);
 
   const passwordValidation = useMemo(() => ({
-    required: 'La contraseña es requerida',
+    required: language === 'en' ? 'Password is required' : 'La contrasena es requerida',
     minLength: {
       value: 6,
-      message: 'La contraseña debe tener al menos 6 caracteres'
+      message: language === 'en' ? 'Password must be at least 6 characters' : 'La contrasena debe tener al menos 6 caracteres'
     }
-  }), []);
+  }), [language]);
 
   // Memoize static classes
   const inputBaseClass = useMemo(() => 
@@ -69,7 +77,7 @@ const Loginform = memo(() => {
   ), []);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full max-w-md mx-auto">
+    <form ref={formRef} data-no-runtime-translate onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full max-w-md mx-auto">
       {loginError && (
         <div className="bg-red-900/20 border border-red-700 text-red-300 px-4 py-3 rounded relative" role="alert">
           <strong className="font-bold">¡Error!</strong>
@@ -79,49 +87,91 @@ const Loginform = memo(() => {
 
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-1">
-          Correo Electrónico
+          {t.email}
         </label>
         <input
           id="email"
           type="email"
           {...register('email', emailValidation)}
+            data-no-runtime-translate
           className={cn(
             inputBaseClass,
             errors.email && "border-red-500 focus:border-red-500 focus:ring-red-500"
           )}
-          placeholder="tu@ejemplo.com"
+          placeholder={language === 'en' ? 'you@example.com' : 'tu@ejemplo.com'}
           autoComplete="email"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              console.debug('🛈 Enter pressed on email input');
+              if (!isSubmitting) {
+                // Use the native requestSubmit when available to trigger the form submit
+                if (formRef.current?.requestSubmit) {
+                  formRef.current.requestSubmit();
+                } else {
+                  handleSubmit(onSubmit)();
+                }
+              }
+            }
+          }}
         />
         {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
       </div>
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-1">
-          Contraseña
+          {t.password}
         </label>
         <input
           id="password"
           type="password"
           {...register('password', passwordValidation)}
+            data-no-runtime-translate
           className={cn(
             inputBaseClass,
             errors.password && "border-red-500 focus:border-red-500 focus:ring-red-500"
           )}
-          placeholder="Tu contraseña"
+          placeholder={language === 'en' ? 'Your password' : 'Tu contrasena'}
           autoComplete="new-password"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              console.debug('🛈 Enter pressed on password input');
+              if (!isSubmitting) {
+                if (formRef.current?.requestSubmit) {
+                  formRef.current.requestSubmit();
+                } else {
+                  handleSubmit(onSubmit)();
+                }
+              }
+            }
+          }}
         />
         {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>}
       </div>
 
       <button
         type="submit"
+        data-no-runtime-translate
         disabled={isSubmitting}
+        onClick={(e) => {
+          // Ensure immediate submit on click, even if translations or re-renders occur
+          e.preventDefault();
+          console.debug('🛈 Login submit clicked');
+          if (!isSubmitting) {
+            if (formRef.current?.requestSubmit) {
+              formRef.current.requestSubmit();
+            } else {
+              handleSubmit(onSubmit)();
+            }
+          }
+        }}
         className={cn(
           buttonClass,
           isSubmitting && "opacity-50 cursor-not-allowed"
         )}
       >
-        {isSubmitting ? loadingSpinner : 'Iniciar Sesión'}
+        {isSubmitting ? loadingSpinner : t.signIn}
       </button>
     </form>
   );

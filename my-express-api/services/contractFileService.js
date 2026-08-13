@@ -1,6 +1,8 @@
 const ContractFile = require('../models/ContractFile');
 const { Contract } = require('../models/Contract');
+const User = require('../models/User');
 const googleDriveService = require('./googleDrive');
+const { normalizeCountryCode } = require('../utils/countries');
 
 // Ensure associations are loaded
 require('../models/associations');
@@ -13,7 +15,7 @@ class ContractFileService {
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    * @returns {Promise<{hasAccess: boolean, contractFile: Object|null, contract: Object|null}>}
    */
-  async validateAccess(contractFileId, userId, userRole) {
+  async validateAccess(contractFileId, userId, userRole, userCountryCode) {
     try {
       console.log('🔍 Validating access for contract file:', {
         contractFileId,
@@ -50,8 +52,12 @@ class ContractFileService {
         };
       }
 
-      // Lawyers can access all contract files
-      if (userRole === 'lawyer') {
+      // Lawyers and admins only access files from their own company.
+      if (userRole === 'lawyer' || userRole === 'admin') {
+        const owner = await User.findByPk(contractFile.associatedContract?.solicitanteId, { attributes: ['countryCode'] });
+        if (!owner || normalizeCountryCode(owner.countryCode) !== normalizeCountryCode(userCountryCode)) {
+          return { hasAccess: false, contractFile: null, contract: null, error: 'Access denied: contract belongs to another country' };
+        }
         return {
           hasAccess: true,
           contractFile,
@@ -101,10 +107,10 @@ class ContractFileService {
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    * @returns {Promise<{success: boolean, stream?: Stream, filename?: string, error?: string}>}
    */
-  async downloadFile(contractFileId, userId, userRole) {
+  async downloadFile(contractFileId, userId, userRole, userCountryCode) {
     try {
       // Validate access first
-      const accessResult = await this.validateAccess(contractFileId, userId, userRole);
+      const accessResult = await this.validateAccess(contractFileId, userId, userRole, userCountryCode);
       
       if (!accessResult.hasAccess) {
         return {
@@ -199,7 +205,7 @@ class ContractFileService {
    * @param {number} userId - The user ID requesting the file
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    */
-  async streamFile(contractFileId, res, userId, userRole) {
+  async streamFile(contractFileId, res, userId, userRole, userCountryCode) {
     try {
       console.log('🔍 Starting file stream for contract file:', {
         contractFileId,
@@ -207,7 +213,7 @@ class ContractFileService {
         userRole
       });
 
-      const downloadResult = await this.downloadFile(contractFileId, userId, userRole);
+      const downloadResult = await this.downloadFile(contractFileId, userId, userRole, userCountryCode);
       
       if (!downloadResult.success) {
         console.error('❌ Download failed:', downloadResult.error);
@@ -283,9 +289,9 @@ class ContractFileService {
    * @param {string} userRole - The user role ('regular' or 'lawyer')
    * @returns {Promise<{success: boolean, metadata?: Object, error?: string}>}
    */
-  async getFileMetadata(contractFileId, userId, userRole) {
+  async getFileMetadata(contractFileId, userId, userRole, userCountryCode) {
     try {
-      const accessResult = await this.validateAccess(contractFileId, userId, userRole);
+      const accessResult = await this.validateAccess(contractFileId, userId, userRole, userCountryCode);
       
       if (!accessResult.hasAccess) {
         return {

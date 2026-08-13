@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../context/NotificationContext';
-import Layout from '../components/Layout';
 import api from '../api/axiosInstance';
 import { UserPlus, XCircle, Eye, EyeOff } from 'lucide-react';
+
+const COUNTRY_OPTIONS = [
+  { code: 'CO', label: 'CO - Colombia' },
+  { code: 'MX', label: 'MX - México' },
+  { code: 'AR', label: 'AR - Argentina' },
+  { code: 'PE', label: 'PE - Perú' },
+  { code: 'CL', label: 'CL - Chile' },
+  { code: 'EC', label: 'EC - Ecuador' }
+];
 
 const CreateAdmin = () => {
   const { user } = useAuth();
@@ -13,7 +21,8 @@ const CreateAdmin = () => {
     lastName: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    countryCode: 'CO'
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -52,6 +61,10 @@ const CreateAdmin = () => {
       newErrors.email = 'El email es inválido';
     }
 
+    if (!formData.countryCode) {
+      newErrors.countryCode = 'El codigo de pais es requerido';
+    }
+
     if (!formData.password) {
       newErrors.password = 'La contraseña es requerida';
     } else if (formData.password.length < 6) {
@@ -81,7 +94,8 @@ const CreateAdmin = () => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        countryCode: formData.countryCode
       });
 
       if (response.data.success) {
@@ -91,7 +105,8 @@ const CreateAdmin = () => {
           lastName: '',
           email: '',
           password: '',
-          confirmPassword: ''
+          confirmPassword: '',
+          countryCode: 'CO'
         });
       }
     } catch (error) {
@@ -105,21 +120,18 @@ const CreateAdmin = () => {
 
   if (user?.role !== 'admin') {
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-96">
+      <div className="flex items-center justify-center min-h-96">
           <div className="text-center">
             <XCircle className="mx-auto h-12 w-12 text-red-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Acceso Denegado</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Necesitas privilegios de administrador para acceder a esta página.</p>
           </div>
-        </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 pb-5">
           <div className="flex items-center">
@@ -179,6 +191,30 @@ const CreateAdmin = () => {
                   />
                   {errors.lastName && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.lastName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="countryCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Codigo de Pais *
+                  </label>
+                  <select
+                    id="countryCode"
+                    name="countryCode"
+                    value={formData.countryCode}
+                    onChange={handleChange}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                      errors.countryCode
+                        ? 'border-red-300 dark:border-red-600'
+                        : 'border-gray-300 dark:border-gray-600'
+                    } dark:bg-gray-700 dark:text-white`}
+                  >
+                    {COUNTRY_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>{option.label}</option>
+                    ))}
+                  </select>
+                  {errors.countryCode && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.countryCode}</p>
                   )}
                 </div>
 
@@ -297,8 +333,7 @@ const CreateAdmin = () => {
             </div>
           </div>
         </div>
-      </div>
-    </Layout>
+    </div>
   );
 };
 

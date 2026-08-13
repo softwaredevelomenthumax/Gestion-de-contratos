@@ -139,14 +139,26 @@ const upload = multer({
   }
 });
 
-// Use CORS and JSON parsing middleware BEFORE your routes (restrict to known frontends)
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://10.255.6.4:5173'
-];
+// Use CORS and JSON parsing middleware BEFORE your routes.
+// Allow localhost plus private LAN ranges for quick internal demos.
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  if (['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'].includes(origin)) {
+    return true;
+  }
+
+  // Allow private network hosts with common Vite ports.
+  // Examples: http://10.179.12.105:5173, http://192.168.1.20:4173
+  const privateLanRegex = /^https?:\/\/(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)[^:]+:(5173|5174|4173)$/;
+  return privateLanRegex.test(origin);
+};
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -164,6 +176,29 @@ app.use((req, res, next) => {
 // Connect to SQL Server database
 const sequelize = require('./config/database');
 
+const ensureUserMultiCountryColumns = async () => {
+  await sequelize.query(`
+    IF COL_LENGTH('users', 'country_code') IS NULL
+    BEGIN
+      ALTER TABLE users ADD country_code NVARCHAR(3) NOT NULL CONSTRAINT DF_users_country_code DEFAULT ('COL');
+    END
+  `);
+
+  await sequelize.query(`
+    IF COL_LENGTH('users', 'preferred_language') IS NULL
+    BEGIN
+      ALTER TABLE users ADD preferred_language NVARCHAR(5) NOT NULL CONSTRAINT DF_users_preferred_language DEFAULT ('es');
+    END
+  `);
+
+  await sequelize.query(`
+    IF COL_LENGTH('users', 'avatar') IS NULL
+    BEGIN
+      ALTER TABLE users ADD avatar NVARCHAR(255) NULL;
+    END
+  `);
+};
+
 // Test database connection and sync models
 sequelize.authenticate()
   .then(async () => {
@@ -171,6 +206,8 @@ sequelize.authenticate()
     
     // Sync all models to create tables if they don't exist
     try {
+      await ensureUserMultiCountryColumns();
+
       // Use { force: false } to avoid altering existing tables
       await sequelize.sync({ force: false });
       console.log('Database models synchronized successfully.');
@@ -186,7 +223,9 @@ sequelize.authenticate()
           email: 'admin@example.com',
           password: 'admin123',
           role: 'admin',
-          status: 'approved'
+          status: 'approved',
+          countryCode: 'COL',
+          preferredLanguage: 'es'
         });
         console.log('✅ Admin user created: admin@example.com / admin123');
       }
@@ -215,6 +254,7 @@ const filesRouter = require('./routes/files');
 const otrosiRouter = require('./routes/otrosi');
 const traceabilityRouter = require('./routes/traceability');
 const adminRouter = require('./routes/admin');
+const translationsRouter = require('./routes/translations');
 
 
 // Import the authentication middleware
@@ -244,8 +284,11 @@ app.use('/api/profile', auth, profileRouter);
 // Use the admin router for /api/admin (admin-protected)
 app.use('/api/admin', adminRouter);
 
+// Use translations router for runtime UI translation
+app.use('/api/translations', translationsRouter);
+
 // Serve uploaded files - DISABLED for Google Drive migration
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.send('Hello from Express.js Backend!');

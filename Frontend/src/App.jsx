@@ -9,6 +9,7 @@ import { ThemeProvider } from "./components/ui/theme-provider";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingAnimation from "./components/LoadingAnimation";
 import NavigationIndicator from "./components/NavigationIndicator";
+import RuntimeTranslator from "./components/RuntimeTranslator";
 
 // 🚀 TODO con lazy loading - Bundle inicial MÁS PEQUEÑO posible
 const Home = lazy(() => import("./pages/Home"));
@@ -33,6 +34,7 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const CreateAdmin = lazy(() => import('./pages/CreateAdmin'));
 const AdminContracts = lazy(() => import('./pages/AdminContracts'));
 const AdminContractDetail = lazy(() => import('./pages/AdminContractDetail'));
+const Profile = lazy(() => import('./pages/Profile'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -63,6 +65,7 @@ const App = () => {
   return (
     <ErrorBoundary>
       <ThemeProvider>
+        <RuntimeTranslator />
               <Router>  
                 <NavigationIndicator />
                 <Suspense fallback={<PageLoader />}>
@@ -104,6 +107,7 @@ const App = () => {
                     <Route path="/admin/create" element={<ProtectedRoute><CreateAdmin /></ProtectedRoute>} />
                     <Route path="/admin/contracts" element={<ProtectedRoute><AdminContracts /></ProtectedRoute>} />
                     <Route path="/admin/contracts/:id" element={<ProtectedRoute><AdminContractDetail /></ProtectedRoute>} />
+                    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                   </Routes>
                 <NotificationContainer />
             </NotificationProvider>

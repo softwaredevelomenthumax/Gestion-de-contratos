@@ -38,6 +38,12 @@ const Contract = sequelize.define('Contract', {
     allowNull: false,
     field: 'nit_proveedor'
   },
+  esExtranjero: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'es_extranjero'
+  },
   valorSinIVA: {
     type: DataTypes.DECIMAL(20, 2),
     allowNull: false,

@@ -1188,7 +1188,7 @@ router.get('/files/:fileId/download', auth, async (req, res) => {
     });
 
     // Use the OtrosiFileService to handle the download with proper access validation
-    await otrosiFileService.streamFile(fileId, res, req.user.id, req.user.role);
+    await otrosiFileService.streamFile(fileId, res, req.user.id, req.user.role, req.user.countryCode);
     
   } catch (error) {
     console.error('Error in otrosi file download endpoint:', error);
@@ -1210,7 +1210,7 @@ router.get('/files/:fileId/metadata', auth, async (req, res) => {
       userRole: req.user.role
     });
 
-    const result = await otrosiFileService.getFileMetadata(fileId, req.user.id, req.user.role);
+    const result = await otrosiFileService.getFileMetadata(fileId, req.user.id, req.user.role, req.user.countryCode);
     
     if (!result.success) {
       const statusCode = result.error.includes('not found') ? 404 :

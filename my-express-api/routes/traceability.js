@@ -4,6 +4,8 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const ContractHistory = require('../models/ContractHistory');
 const { Contract } = require('../models/Contract');
+const User = require('../models/User');
+const { normalizeCountryCode } = require('../utils/countries');
 
 // Mapeo de estados a etiquetas legibles
 function statusLabel(status) {
@@ -39,8 +41,12 @@ router.get('/contracts/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Contrato no encontrado' });
     }
 
-    // Usuarios regulares solo pueden ver su propio contrato
-    if (req.user.role !== 'lawyer' && req.user.role !== 'admin' && contract.solicitanteId !== req.user.id) {
+    if (req.user.role === 'lawyer' || req.user.role === 'admin') {
+      const owner = await User.findByPk(contract.solicitanteId, { attributes: ['countryCode'] });
+      if (!owner || normalizeCountryCode(owner.countryCode) !== normalizeCountryCode(req.user.countryCode)) {
+        return res.status(403).json({ error: 'Acceso denegado' });
+      }
+    } else if (contract.solicitanteId !== req.user.id) {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
 
