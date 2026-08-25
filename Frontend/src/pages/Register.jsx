@@ -255,12 +255,16 @@ const Register = memo(() => {
           <div className="mb-4">
             <label htmlFor="countryCode" className="block text-sm font-medium text-gray-200 mb-1">{t.countryCode}</label>
             <Select value={form.countryCode} onValueChange={handleCountryChange}>
-              <SelectTrigger className="w-full bg-gray-700 text-white border border-gray-600 rounded-md">
-                <SelectValue placeholder="Select country" />
+              <SelectTrigger className="w-full bg-gray-700 hover:bg-gray-700 focus:bg-gray-700 text-white border border-gray-600 rounded-md">
+                <SelectValue className="text-white data-[placeholder]:text-gray-300" placeholder="Select country" />
               </SelectTrigger>
               <SelectContent className="bg-gray-700 text-white border border-gray-600">
                 {countries.map((country) => (
-                  <SelectItem key={country.code} value={country.code}>
+                  <SelectItem
+                    key={country.code}
+                    value={country.code}
+                    className="text-white hover:bg-gray-600 hover:text-white focus:bg-gray-600 focus:text-white data-[state=checked]:bg-gray-600 data-[state=checked]:text-white"
+                  >
                     {country.code} - {country.name[language]}
                   </SelectItem>
                 ))}
@@ -271,12 +275,22 @@ const Register = memo(() => {
           <div className="mb-4">
             <label htmlFor="role" className="block text-sm font-medium text-gray-200 mb-1">{t.role}</label>
             <Select value={form.role} onValueChange={handleRoleChange}>
-              <SelectTrigger className="w-full bg-gray-700 text-white border border-gray-600 rounded-md">
-                <SelectValue placeholder="Selecciona el rol" />
+              <SelectTrigger className="w-full bg-gray-700 hover:bg-gray-700 focus:bg-gray-700 text-white border border-gray-600 rounded-md">
+                <SelectValue className="text-white data-[placeholder]:text-gray-300" placeholder="Selecciona el rol" />
               </SelectTrigger>
               <SelectContent className="bg-gray-700 text-white border border-gray-600">
-                <SelectItem value="regular">{t.regularUser}</SelectItem>
-                <SelectItem value="lawyer">{t.lawyer}</SelectItem>
+                <SelectItem
+                  value="regular"
+                  className="text-white hover:bg-gray-600 hover:text-white focus:bg-gray-600 focus:text-white data-[state=checked]:bg-gray-600 data-[state=checked]:text-white"
+                >
+                  {t.regularUser}
+                </SelectItem>
+                <SelectItem
+                  value="lawyer"
+                  className="text-white hover:bg-gray-600 hover:text-white focus:bg-gray-600 focus:text-white data-[state=checked]:bg-gray-600 data-[state=checked]:text-white"
+                >
+                  {t.lawyer}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
