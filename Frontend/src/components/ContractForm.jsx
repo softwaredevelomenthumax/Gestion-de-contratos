@@ -23,6 +23,8 @@ import {
 } from "./ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge"
+import { calculateContractDurationDays } from "../utils/dateUtils";
+
 const tipoContratoOptions = [
   {
     value: "prestacion_de_servicios",
@@ -162,6 +164,15 @@ const ContractForm = () => {
 
     return end > start;
   };
+
+  useEffect(() => {
+    if (!fechaInicio || !fechaFinal) {
+      setDuracion(0);
+      return;
+    }
+
+    setDuracion(calculateContractDurationDays(fechaInicio, fechaFinal));
+  }, [fechaInicio, fechaFinal]);
 
   // Calcular IVA automáticamente
   useEffect(() => {
