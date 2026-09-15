@@ -22,6 +22,10 @@ const googleDriveService = require('../services/googleDrive');
 const fs = require('fs');
 const { normalizeCountryCode, compatibleCountryCodes } = require('../utils/countries');
 
+const CONTRACT_TEXT_MAX_WORDS = 500;
+const getWordCount = (text) =>
+  String(text || '').trim().split(/\s+/).filter(Boolean).length;
+
 // Función helper para combinar contratos con otrosí y eliminar duplicados
 const combineContractsWithOtrosi = (contracts, contractsWithOtrosi) => {
   const contractMap = new Map();
@@ -350,6 +354,18 @@ router.post('/', auth, uploadContractWithGoogleDrive, async (req, res) => {
     // Validar campos requeridos
     if (!tipoSolicitud || !tipoContrato || !descripcion || !area || !proveedor || !moneda || !fechaInicio || !fechaFinal || !formaPago) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+
+    if (getWordCount(descripcion) > CONTRACT_TEXT_MAX_WORDS) {
+      return res.status(400).json({
+        error: `La descripción debe tener un máximo de ${CONTRACT_TEXT_MAX_WORDS} palabras`
+      });
+    }
+
+    if (getWordCount(formaPago) > CONTRACT_TEXT_MAX_WORDS) {
+      return res.status(400).json({
+        error: `La forma de pago debe tener un máximo de ${CONTRACT_TEXT_MAX_WORDS} palabras`
+      });
     }
 
     const isForeign = esExtranjero === 'true' || esExtranjero === true;

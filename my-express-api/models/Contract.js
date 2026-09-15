@@ -112,7 +112,7 @@ const Contract = sequelize.define('Contract', {
     field: 'nombre_solicitante'
   },
   formaPago: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: false,
     field: 'forma_pago'
   },

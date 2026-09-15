@@ -4,7 +4,8 @@
     "db:quick-clean": "node scripts/quickClean.js",
     "db:reset": "node scripts/quickClean.js --reset",
     "db:clean-force": "node scripts/quickClean.js --force",
-    "db:migrate:enviar-otrosi": "node scripts/addEnviarOtrosiColumn.js"
+    "db:migrate:enviar-otrosi": "node scripts/addEnviarOtrosiColumn.js",
+    "db:migrate:descripcion": "node scripts/updateContractDescriptionColumn.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -92,6 +92,11 @@ const ivaOptions = [
   { value: 25, label: "25%" },
 ];
 
+const CONTRACT_TEXT_MAX_WORDS = 500;
+
+const getWordCount = (text) =>
+  text.trim() ? text.trim().split(/\s+/).length : 0;
+
 // Helper function for consistent badge styling
 const getBadgeClasses = (type) => {
   switch (type) {
@@ -232,6 +237,13 @@ const ContractForm = () => {
 
     if (!descripcion || descripcion.trim() === "") {
       errors.push(tr("Description", "Descripción"));
+    } else if (getWordCount(descripcion) > CONTRACT_TEXT_MAX_WORDS) {
+      errors.push(
+        tr(
+          `Description (maximum ${CONTRACT_TEXT_MAX_WORDS} words)`,
+          `Descripción (máximo ${CONTRACT_TEXT_MAX_WORDS} palabras)`
+        )
+      );
     }
 
     if (!nombreSolicitante || nombreSolicitante.trim() === "") {
@@ -257,6 +269,13 @@ const ContractForm = () => {
 
     if (!formaPago || formaPago.trim() === "") {
       errors.push(tr("Payment Terms", "Forma de Pago"));
+    } else if (getWordCount(formaPago) > CONTRACT_TEXT_MAX_WORDS) {
+      errors.push(
+        tr(
+          `Payment terms (maximum ${CONTRACT_TEXT_MAX_WORDS} words)`,
+          `Forma de pago (máximo ${CONTRACT_TEXT_MAX_WORDS} palabras)`
+        )
+      );
     }
 
     if (!valorIndeterminado && (!valorSinIVA || valorSinIVA <= 0)) {
@@ -694,6 +713,12 @@ const ContractForm = () => {
                 />
                 <div className="absolute inset-0 pointer-events-none" />
               </div>
+              <p className="text-xs text-muted-foreground">
+                {tr(
+                  `${getWordCount(descripcion)}/${CONTRACT_TEXT_MAX_WORDS} words.`,
+                  `${getWordCount(descripcion)}/${CONTRACT_TEXT_MAX_WORDS} palabras.`
+                )}
+              </p>
               {hasFieldError(tr("Description", "Descripción")) && (
                 <p className="text-red-500 text-xs mt-1">
                   ⚠️ {tr("This field is required", "Este campo es obligatorio")}
@@ -719,6 +744,12 @@ const ContractForm = () => {
                       )}
                     </div>
                     <div className="space-y-3 text-foreground">
+                      <p className="font-semibold">
+                        {tr(
+                          `This description must have a maximum of ${CONTRACT_TEXT_MAX_WORDS} words.`,
+                          `Esta descripción debe tener un máximo de ${CONTRACT_TEXT_MAX_WORDS} palabras.`
+                        )}
+                      </p>
                       <p>
                         {tr(
                           "In this field, clearly and in detail explain the purpose of the contract. Include:",
@@ -1158,6 +1189,12 @@ const ContractForm = () => {
                   />
                   <div className="absolute inset-0 pointer-events-none" />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {tr(
+                    `${getWordCount(formaPago)}/${CONTRACT_TEXT_MAX_WORDS} words.`,
+                    `${getWordCount(formaPago)}/${CONTRACT_TEXT_MAX_WORDS} palabras.`
+                  )}
+                </p>
                 {hasFieldError(tr("Payment Terms", "Forma de Pago")) && (
                   <p className="text-red-500 text-xs mt-1">
                     ⚠️ {tr("This field is required", "Este campo es obligatorio")}
@@ -1178,6 +1215,12 @@ const ContractForm = () => {
                       </div>
                       <div className="font-bold text-lg mb-3">{tr("Payment Terms", "Forma de Pago")}</div>
                       <div className="space-y-3 text-foreground">
+                        <p className="font-semibold">
+                          {tr(
+                            `Payment terms must have a maximum of ${CONTRACT_TEXT_MAX_WORDS} words.`,
+                            `La forma de pago debe tener un máximo de ${CONTRACT_TEXT_MAX_WORDS} palabras.`
+                          )}
+                        </p>
                         <p>
                           {tr(
                             "Describe how and when payment will be made to the contractor or supplier. Include deadlines, percentages, and agreed conditions.",

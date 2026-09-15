@@ -49,7 +49,7 @@ CREATE TABLE dbo.contracts (
     estado NVARCHAR(255) NOT NULL,
     lawyer_comment NVARCHAR(MAX) NULL,
     nombre_solicitante NVARCHAR(255) NOT NULL,
-    forma_pago NVARCHAR(255) NOT NULL,
+    forma_pago NVARCHAR(MAX) NOT NULL,
     fecha_ingreso DATETIMEOFFSET(7) NOT NULL,
     descripcion_otrosi NVARCHAR(MAX) NULL,
     es_otrosi BIT NOT NULL,
